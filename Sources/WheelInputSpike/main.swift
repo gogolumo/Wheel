@@ -109,7 +109,7 @@ private func log(_ message: String) {
     print(String(format: "[%8.3f] %@", elapsed, message))
 }
 
-let arguments: Arguments
+private let arguments: Arguments
 do {
     arguments = try Arguments(CommandLine.arguments.dropFirst())
 } catch {
