@@ -16,6 +16,9 @@ jobs:
       - name: Swift version
         run: swift --version
 
+      - name: Build macOS input spike
+        run: swift build --product wheel-input-spike
+
       - name: Run tests
         run: swift test
 

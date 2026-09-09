@@ -1,0 +1,328 @@
+import ApplicationServices
+import Foundation
+import WheelDomain
+
+public enum InputMonitoringPermission {
+    public static var isGranted: Bool {
+        CGPreflightListenEventAccess()
+    }
+
+    @discardableResult
+    public static func request() -> Bool {
+        CGRequestListenEventAccess()
+    }
+}
+
+public enum GlobalInputMonitorError: Error, Equatable {
+    case alreadyRunning
+    case unsupportedTrigger(TriggerType)
+    case eventTapUnavailable
+}
+
+public struct PointerPosition: Equatable, Sendable {
+    public let x: Double
+    public let y: Double
+
+    public init(x: Double, y: Double) {
+        self.x = x
+        self.y = y
+    }
+}
+
+public enum GlobalInputEvent {
+    case modifierSignal(
+        keyCode: Int64,
+        sampledDown: Bool,
+        alphaShiftEnabled: Bool
+    )
+    case triggerBegan(origin: PointerPosition)
+    case pointerMoved(displacement: PointerDisplacement)
+    case triggerEnded(
+        direction: Direction,
+        displacement: PointerDisplacement,
+        duration: TimeInterval
+    )
+    case eventTapRecovered
+}
+
+/// Listen-only diagnostic monitor for the M1 feasibility spike.
+///
+/// This type observes input but never suppresses, rewrites, or posts an event.
+/// It intentionally uses public macOS APIs so the spike can give an honest
+/// GO / ADJUST / STOP result for the proposed trigger.
+public final class GlobalInputMonitor {
+    public struct Configuration: Sendable {
+        public let triggerType: TriggerType
+        public let classifier: HorizontalGestureClassifier
+        public let keyPollingInterval: TimeInterval
+
+        public init(
+            triggerType: TriggerType = .capsLock,
+            classifier: HorizontalGestureClassifier = .init(),
+            keyPollingInterval: TimeInterval = 1.0 / 120.0
+        ) {
+            precondition(keyPollingInterval > 0)
+
+            self.triggerType = triggerType
+            self.classifier = classifier
+            self.keyPollingInterval = keyPollingInterval
+        }
+    }
+
+    public var onEvent: ((GlobalInputEvent) -> Void)?
+
+    public private(set) var isRunning = false
+
+    private let configuration: Configuration
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
+    private var pollingTimer: Timer?
+
+    private var triggerIsDown = false
+    private var origin: PointerPosition?
+    private var latestPosition: PointerPosition?
+    private var triggerStartedAt: TimeInterval?
+
+    public init(configuration: Configuration = .init()) {
+        self.configuration = configuration
+    }
+
+    deinit {
+        stop()
+    }
+
+    public func start() throws {
+        guard !isRunning else {
+            throw GlobalInputMonitorError.alreadyRunning
+        }
+
+        _ = try keyCode(for: configuration.triggerType)
+
+        let eventTypes: [CGEventType] = [
+            .flagsChanged,
+            .mouseMoved,
+            .leftMouseDragged,
+            .rightMouseDragged,
+            .otherMouseDragged
+        ]
+        let mask = eventTypes.reduce(CGEventMask(0)) { partialResult, eventType in
+            partialResult | (CGEventMask(1) << CGEventMask(eventType.rawValue))
+        }
+
+        let callback: CGEventTapCallBack = { _, eventType, event, userInfo in
+            guard let userInfo else {
+                return Unmanaged.passUnretained(event)
+            }
+
+            let monitor = Unmanaged<GlobalInputMonitor>
+                .fromOpaque(userInfo)
+                .takeUnretainedValue()
+            return monitor.handle(eventType: eventType, event: event)
+        }
+
+        guard let eventTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: mask,
+            callback: callback,
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            throw GlobalInputMonitorError.eventTapUnavailable
+        }
+
+        guard let runLoopSource = CFMachPortCreateRunLoopSource(
+            kCFAllocatorDefault,
+            eventTap,
+            0
+        ) else {
+            CFMachPortInvalidate(eventTap)
+            throw GlobalInputMonitorError.eventTapUnavailable
+        }
+
+        self.eventTap = eventTap
+        self.runLoopSource = runLoopSource
+
+        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: eventTap, enable: true)
+
+        let timer = Timer(
+            timeInterval: configuration.keyPollingInterval,
+            repeats: true
+        ) { [weak self] _ in
+            self?.sampleTriggerState()
+        }
+        pollingTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+
+        isRunning = true
+        sampleTriggerState()
+    }
+
+    public func stop() {
+        pollingTimer?.invalidate()
+        pollingTimer = nil
+
+        if let runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        }
+        self.runLoopSource = nil
+
+        if let eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+            CFMachPortInvalidate(eventTap)
+        }
+        self.eventTap = nil
+
+        isRunning = false
+        resetGestureState()
+    }
+
+    private func handle(
+        eventType: CGEventType,
+        event: CGEvent
+    ) -> Unmanaged<CGEvent>? {
+        if eventType == .tapDisabledByTimeout || eventType == .tapDisabledByUserInput {
+            if let eventTap {
+                CGEvent.tapEnable(tap: eventTap, enable: true)
+                onEvent?(.eventTapRecovered)
+            }
+            return Unmanaged.passUnretained(event)
+        }
+
+        if eventType == .flagsChanged {
+            let eventKeyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            let selectedKeyCode = try? keyCode(for: configuration.triggerType)
+
+            if
+                let selectedKeyCode,
+                eventKeyCode == Int64(selectedKeyCode)
+            {
+                let sampledDown = CGEventSource.keyState(
+                    .combinedSessionState,
+                    key: selectedKeyCode
+                )
+                let alphaShiftEnabled = event.flags.contains(.maskAlphaShift)
+
+                onEvent?(
+                    .modifierSignal(
+                        keyCode: eventKeyCode,
+                        sampledDown: sampledDown,
+                        alphaShiftEnabled: alphaShiftEnabled
+                    )
+                )
+                sampleTriggerState()
+            }
+        } else if isPointerEvent(eventType) {
+            recordPointerMovement(event.location)
+        }
+
+        return Unmanaged.passUnretained(event)
+    }
+
+    private func sampleTriggerState() {
+        guard let keyCode = try? keyCode(for: configuration.triggerType) else {
+            return
+        }
+
+        let sampledDown = CGEventSource.keyState(
+            .combinedSessionState,
+            key: keyCode
+        )
+
+        switch (triggerIsDown, sampledDown) {
+        case (false, true):
+            beginGesture()
+        case (true, false):
+            endGesture()
+        case (false, false), (true, true):
+            break
+        }
+    }
+
+    private func beginGesture() {
+        let currentPosition = CGEvent(source: nil)
+            .map { PointerPosition(x: $0.location.x, y: $0.location.y) }
+            ?? PointerPosition(x: 0, y: 0)
+
+        triggerIsDown = true
+        origin = currentPosition
+        latestPosition = currentPosition
+        triggerStartedAt = ProcessInfo.processInfo.systemUptime
+        onEvent?(.triggerBegan(origin: currentPosition))
+    }
+
+    private func recordPointerMovement(_ point: CGPoint) {
+        guard triggerIsDown, let origin else {
+            return
+        }
+
+        let currentPosition = PointerPosition(x: point.x, y: point.y)
+        latestPosition = currentPosition
+        onEvent?(.pointerMoved(displacement(from: origin, to: currentPosition)))
+    }
+
+    private func endGesture() {
+        guard
+            let origin,
+            let latestPosition,
+            let triggerStartedAt
+        else {
+            resetGestureState()
+            return
+        }
+
+        let displacement = displacement(from: origin, to: latestPosition)
+        let direction = configuration.classifier.classify(displacement)
+        let duration = max(
+            0,
+            ProcessInfo.processInfo.systemUptime - triggerStartedAt
+        )
+
+        onEvent?(
+            .triggerEnded(
+                direction: direction,
+                displacement: displacement,
+                duration: duration
+            )
+        )
+        resetGestureState()
+    }
+
+    private func resetGestureState() {
+        triggerIsDown = false
+        origin = nil
+        latestPosition = nil
+        triggerStartedAt = nil
+    }
+
+    private func displacement(
+        from origin: PointerPosition,
+        to currentPosition: PointerPosition
+    ) -> PointerDisplacement {
+        PointerDisplacement(
+            horizontal: currentPosition.x - origin.x,
+            vertical: currentPosition.y - origin.y
+        )
+    }
+
+    private func isPointerEvent(_ eventType: CGEventType) -> Bool {
+        switch eventType {
+        case .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func keyCode(for triggerType: TriggerType) throws -> CGKeyCode {
+        switch triggerType {
+        case .capsLock:
+            return 57
+        case .rightOption:
+            return 61
+        case .mouseSideButton:
+            throw GlobalInputMonitorError.unsupportedTrigger(.mouseSideButton)
+        }
+    }
+}
