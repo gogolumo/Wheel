@@ -259,7 +259,11 @@ public final class GlobalInputMonitor {
 
         let currentPosition = PointerPosition(x: point.x, y: point.y)
         latestPosition = currentPosition
-        onEvent?(.pointerMoved(displacement(from: origin, to: currentPosition)))
+        onEvent?(
+            .pointerMoved(
+                displacement: displacement(from: origin, to: currentPosition)
+            )
+        )
     }
 
     private func endGesture() {
