@@ -68,20 +68,58 @@ Optional classifier tuning:
 swift run wheel-input-spike --distance 100 --dominance 1.8
 ```
 
+Give every evidence run a privacy-safe label and an observed-sequence target:
+
+```bash
+swift run wheel-input-spike \
+  --trigger caps-lock \
+  --sequences 100 \
+  --label "built-in-trackpad-finder-windowed"
+```
+
+The label must describe the test setup, not contain a serial number, account
+name, document title, URL, or other personal data. The process prints live
+sequence counts and median event-callback latency, then emits an aggregate
+summary after the requested number of observed sequences.
+
 The monitor is created with `CGEventTapOptions.listenOnly`. It does not suppress,
 rewrite, or post input events. Caps Lock may still toggle normally during this
 experiment.
 
 ## Test protocol
 
-Run each case at least 20 times:
+First run a controlled set of 100 deliberate sequences. Keep an external tally
+of physical attempts: a completely missed trigger cannot count itself. The
+harness should observe at least 99 of those 100 attempts.
+
+Distribute the deliberate sequences across these cases:
 
 1. Hold the trigger without moving, then release: expect `NONE`.
 2. Hold, move at least 120 points left, release: expect `LEFT`.
 3. Hold, move at least 120 points right, release: expect `RIGHT`.
 4. Hold, move mostly vertically, release: expect `NONE`.
-5. Repeat with quick and slow holds and after sleep/wake.
-6. Compare Caps Lock with `--trigger right-option`.
+5. Repeat with quick and slow holds.
+
+Repeat the minimum matrix with:
+
+- a built-in trackpad and one external mouse or trackpad;
+- Finder, Chrome, and VS Code in normal windows;
+- at least one full-screen application;
+- one sleep/wake cycle while the harness remains open;
+- Caps Lock and `--trigger right-option`.
+
+If the harness has not reached its observed target after the planned physical
+attempts, stop and record the last printed count as a miss. Also record any
+`event tap timed out and was re-enabled` warning and verify that the next
+sequence starts and ends normally rather than remaining stuck.
+
+Use this evidence table for every run:
+
+| Run label | Trigger | Intended | Observed | LEFT / RIGHT / NONE | Median callback | Recoveries | Stuck state | OS/app side effects |
+| --- | --- | ---: | ---: | --- | ---: | ---: | --- | --- |
+| Example only | Caps Lock | 100 | 100 | 30 / 30 / 40 | 4.20 ms | 0 | No | Caps Lock toggled |
+
+Do not treat the example row as real evidence.
 
 Record false starts, missing releases, permission failures, and whether Caps Lock
 changes typing state. Finish the spike in GitHub issue #1 with one decision:
@@ -89,3 +127,8 @@ changes typing state. Finish the spike in GitHub issue #1 with one decision:
 - **GO** — public APIs reliably detect the intended physical hold.
 - **ADJUST** — the approach works only with a different trigger or interaction.
 - **STOP** — a safe, supportable global-input path is not viable.
+
+The Trello gate additionally requires at least 99/100 observed sequences, no
+stuck state, and median callback latency below 25 ms on the test Mac. A green CI
+build proves only that the harness compiles and its deterministic tests pass; it
+does not prove those physical-device criteria.

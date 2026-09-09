@@ -7,6 +7,8 @@ private struct Arguments {
     var triggerType: TriggerType = .capsLock
     var minimumDistance = 80.0
     var dominanceRatio = 1.5
+    var sequenceTarget = 100
+    var runLabel = "unlabelled"
 
     init(_ rawArguments: ArraySlice<String>) throws {
         var index = rawArguments.startIndex
@@ -41,6 +43,25 @@ private struct Arguments {
                     throw ArgumentError.invalidValue("--dominance")
                 }
                 dominanceRatio = value
+            case "--sequences":
+                index = rawArguments.index(after: index)
+                guard
+                    index < rawArguments.endIndex,
+                    let value = Int(rawArguments[index]),
+                    value > 0
+                else {
+                    throw ArgumentError.invalidValue("--sequences")
+                }
+                sequenceTarget = value
+            case "--label":
+                index = rawArguments.index(after: index)
+                guard
+                    index < rawArguments.endIndex,
+                    !rawArguments[index].isEmpty
+                else {
+                    throw ArgumentError.missingValue("--label")
+                }
+                runLabel = String(rawArguments[index])
             case "--help", "-h":
                 Self.printUsage()
                 exit(EXIT_SUCCESS)
@@ -71,6 +92,8 @@ private struct Arguments {
               --trigger caps-lock|right-option  Trigger to test (default: caps-lock)
               --distance POINTS                 Minimum horizontal travel (default: 80)
               --dominance RATIO                 Horizontal/vertical ratio (default: 1.5)
+              --sequences COUNT                 Stop after observed sequences (default: 100)
+              --label TEXT                      Privacy-safe label for this test run
               --help                            Show this help
             """
         )
@@ -124,6 +147,8 @@ print(
     "Classifier: distance >= \(arguments.minimumDistance), "
         + "horizontal dominance >= \(arguments.dominanceRatio)x"
 )
+print("Run label: \(arguments.runLabel)")
+print("Observed-sequence target: \(arguments.sequenceTarget)")
 print("Mode: listen-only; Wheel will not block or rewrite input.\n")
 
 if !InputMonitoringPermission.isGranted {
@@ -154,9 +179,42 @@ let monitor = GlobalInputMonitor(
         classifier: classifier
     )
 )
+var statistics = InputSpikeRunStatistics()
+
+func formatMilliseconds(_ value: Double?) -> String {
+    guard let value else {
+        return "n/a"
+    }
+
+    return String(format: "%.2f ms", value)
+}
+
+func printSummary(
+    statistics: InputSpikeRunStatistics,
+    arguments: Arguments
+) {
+    print(
+        """
+
+        --- SPIKE RUN SUMMARY ---
+        label: \(arguments.runLabel)
+        observed sequences: \(statistics.completedSequenceCount)/\(arguments.sequenceTarget)
+        LEFT / RIGHT / NONE: \(statistics.leftCount) / \(statistics.rightCount) / \(statistics.noneCount)
+        callback samples: \(statistics.callbackSampleCount)
+        median callback latency: \(formatMilliseconds(statistics.medianCallbackLatencyMilliseconds))
+        event-tap recoveries: \(statistics.eventTapRecoveryCount)
+
+        This is measurement evidence, not an automatic GO decision. Compare it
+        with the number of deliberate physical attempts and record conflicts,
+        stuck states, device/app conditions, and side effects separately.
+        """
+    )
+}
 
 monitor.onEvent = { event in
     switch event {
+    case let .callbackObserved(latencyMilliseconds):
+        statistics.recordCallbackLatency(milliseconds: latencyMilliseconds)
     case let .modifierSignal(keyCode, sampledDown, alphaShiftEnabled):
         log(
             "signal keyCode=\(keyCode) "
@@ -168,16 +226,27 @@ monitor.onEvent = { event in
     case let .pointerMoved(displacement):
         log("MOVE  \(format(displacement))")
     case let .triggerEnded(direction, displacement, duration):
+        statistics.recordCompletedSequence(direction: direction)
+        let endDescription = String(
+            format: "END   %@ %@ duration=%.3fs",
+            direction.rawValue.uppercased(),
+            format(displacement),
+            duration
+        )
         log(
-            String(
-                format: "END   %@ %@ duration=%.3fs",
-                direction.rawValue.uppercased(),
-                format(displacement),
-                duration
-            )
+            endDescription
+                + " sequence=\(statistics.completedSequenceCount)/\(arguments.sequenceTarget)"
+                + " median-callback="
+                + formatMilliseconds(statistics.medianCallbackLatencyMilliseconds)
         )
         print()
+
+        if statistics.completedSequenceCount >= arguments.sequenceTarget {
+            printSummary(statistics: statistics, arguments: arguments)
+            exit(EXIT_SUCCESS)
+        }
     case .eventTapRecovered:
+        statistics.recordEventTapRecovery()
         log("WARN  event tap timed out and was re-enabled")
     }
 }

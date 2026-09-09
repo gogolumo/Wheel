@@ -30,6 +30,7 @@ public struct PointerPosition: Equatable, Sendable {
 }
 
 public enum GlobalInputEvent {
+    case callbackObserved(latencyMilliseconds: Double)
     case modifierSignal(
         keyCode: Int64,
         sampledDown: Bool,
@@ -204,6 +205,10 @@ public final class GlobalInputMonitor {
                 )
                 let alphaShiftEnabled = event.flags.contains(.maskAlphaShift)
 
+                if let latencyMilliseconds = callbackLatencyMilliseconds(for: event) {
+                    onEvent?(.callbackObserved(latencyMilliseconds: latencyMilliseconds))
+                }
+
                 onEvent?(
                     .modifierSignal(
                         keyCode: eventKeyCode,
@@ -213,11 +218,27 @@ public final class GlobalInputMonitor {
                 )
                 sampleTriggerState()
             }
-        } else if isPointerEvent(eventType) {
+        } else if isPointerEvent(eventType), triggerIsDown {
+            if let latencyMilliseconds = callbackLatencyMilliseconds(for: event) {
+                onEvent?(.callbackObserved(latencyMilliseconds: latencyMilliseconds))
+            }
             recordPointerMovement(event.location)
         }
 
         return Unmanaged.passUnretained(event)
+    }
+
+    private func callbackLatencyMilliseconds(for event: CGEvent) -> Double? {
+        // CGEvent timestamps are expressed as nanoseconds since system startup,
+        // which shares the monotonic uptime basis used by ProcessInfo here.
+        let eventUptime = TimeInterval(event.timestamp) / 1_000_000_000
+        let latency = (ProcessInfo.processInfo.systemUptime - eventUptime) * 1_000
+
+        guard latency.isFinite, latency >= 0 else {
+            return nil
+        }
+
+        return latency
     }
 
     private func sampleTriggerState() {
