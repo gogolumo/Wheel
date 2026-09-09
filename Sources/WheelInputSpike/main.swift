@@ -181,7 +181,7 @@ let monitor = GlobalInputMonitor(
 )
 var statistics = InputSpikeRunStatistics()
 
-func formatMilliseconds(_ value: Double?) -> String {
+private func formatMilliseconds(_ value: Double?) -> String {
     guard let value else {
         return "n/a"
     }
@@ -189,7 +189,7 @@ func formatMilliseconds(_ value: Double?) -> String {
     return String(format: "%.2f ms", value)
 }
 
-func printSummary(
+private func printSummary(
     statistics: InputSpikeRunStatistics,
     arguments: Arguments
 ) {
