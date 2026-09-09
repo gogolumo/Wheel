@@ -1,141 +1,204 @@
-# Wheel
+<p align="center">
+  <img src="docs/assets/wheel-hero.svg" alt="Wheel — Back and Forward for your whole Mac" width="100%" />
+</p>
 
-**A macOS spatial navigation layer for moving through global work contexts.**
+<p align="center">
+  <a href="https://github.com/gogolumo/Wheel/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/gogolumo/Wheel/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
+  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111827?logo=apple&logoColor=white" />
+  <img alt="Swift 5.10+" src="https://img.shields.io/badge/Swift-5.10%2B-F05138?logo=swift&logoColor=white" />
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-7C3AED" /></a>
+  <img alt="Early MVP" src="https://img.shields.io/badge/status-early_MVP-22C55E" />
+</p>
 
-Wheel explores a simple idea: **LEFT means go to the previous work context, RIGHT means go to the next one** — across applications and windows, not just inside a browser or editor.
+<p align="center">
+  <strong>Browser-style Back / Forward navigation for your whole Mac.</strong><br />
+  Wheel turns the trail of apps, windows, folders, files, and supported deep contexts<br />
+  into one predictable spatial history.
+</p>
 
-Instead of acting as another launcher, radial menu, or macro system, Wheel keeps a local history of stable work contexts and restores the deepest safe context supported by each application.
+> [!IMPORTANT]
+> **Wheel is an early engineering prototype, not a downloadable utility yet.** The history engine, navigation invariants, tests, and demo are working. Native input capture, permissions, window restoration, and the menu-bar app are the next milestones.
 
-> **Status:** early MVP / engineering prototype. The current repository contains the first testable domain slice: history semantics, branching rules, restoration outcomes, and deterministic tests. Native input capture and the menu-bar shell are the next milestones.
+## The idea
 
-## Why Wheel?
+Your work is not a flat list of open apps. It is a trail:
 
-Laptop workflows are fragmented across apps, windows, tabs, folders, and files. Moving between them usually means visually searching, reaching for keyboard shortcuts, or repeatedly navigating window switchers.
+<p align="center">
+  <code>Chrome · issue</code> &nbsp;→&nbsp; <code>VS Code · source file</code> &nbsp;→&nbsp; <code>Finder · assets</code>
+</p>
 
-Wheel is designed around a small system-wide spatial grammar:
+Wheel gives that trail a tiny system-wide grammar:
 
-- **LEFT** → previous global work context
-- **RIGHT** → next global work context
-- no launcher grid
-- no radial menu
-- no arbitrary macro layer
-- local-first, privacy-minimal history
+| Gesture | Meaning |
+| :---: | --- |
+| **LEFT** | Restore the previous global work context |
+| **RIGHT** | Restore the next global work context |
 
-The goal is to make context switching feel closer to browser Back/Forward — but for the desktop as a whole.
+No launcher grid. No radial menu. No pile of arbitrary macros. Just a consistent Back / Forward model across macOS.
 
-## Current vertical slice
+## Why this is different
 
-The first implementation focuses on the hardest part to get right before touching platform APIs: **history semantics**.
+| Traditional app switching | Wheel |
+| --- | --- |
+| Shows a flat list of applications | Follows the order of your actual work |
+| Makes you visually search for the target | Uses directional muscle memory |
+| Usually stops at application level | Restores the deepest safe context available |
+| Hides whether restoration was approximate | Reports the restoration depth honestly |
+| Treats every switch as unrelated | Preserves a navigable Back / Forward trail |
 
-Implemented:
+## History that behaves like history
 
-- immutable `ContextEntry` values
-- ordered `ContextHistory`
-- Back/Forward target selection
-- forward-branch preservation after navigation
-- forward-branch replacement only after independent new work
-- duplicate suppression for the current context
-- explicit restoration outcomes
-- commit rules where failed/cancelled/unavailable/permission-denied restores do **not** move history
-- unit tests for the core invariants
-- a small CLI demo that replays the canonical `A → B → C` scenario
+Starting with:
 
-Planned next:
+```text
+A → B → C
+```
 
-1. native macOS menu-bar shell
-2. permission/readiness model
-3. global input feasibility spikes
-4. stable app/window context capture
-5. generic restoration
-6. app adapter architecture
-7. HUD, privacy controls, reliability, signing and release
+Navigating **LEFT** to `B` keeps `C` available, so **RIGHT** still returns to it. The forward branch is replaced only if the user independently enters a new stable context after going back:
 
-## Try the domain demo
+```text
+A → [B] → C
 
-Requirements:
+independently enter D
 
-- macOS 14+
-- Swift 5.10+ / Xcode 16+
+A → B → [D]
+```
+
+Wheel never advances its internal position when restoration fails, is cancelled, lacks permission, or targets something unavailable.
+
+## What exists today
+
+- [x] Framework-independent `WheelDomain` module
+- [x] Immutable, privacy-minimal `ContextEntry`
+- [x] Deterministic Back / Forward target selection
+- [x] Forward-branch preservation and replacement rules
+- [x] Duplicate-current-context suppression
+- [x] Explicit restoration statuses and depths
+- [x] One-active-gesture-session enforcement
+- [x] Unit tests for the core invariants
+- [x] CLI demo for the canonical `A → B → C` flow
+- [x] macOS GitHub Actions CI
+- [ ] Native menu-bar application shell
+- [ ] Accessibility and Input Monitoring onboarding
+- [ ] Global trigger and pointer feasibility spike
+- [ ] Stable application and window capture
+- [ ] Generic application/window restoration
+- [ ] Finder, Chrome, and VS Code adapters
+- [ ] HUD, settings, persistence, signing, and beta packaging
+
+## Architecture
+
+Wheel is a modular monolith. Product semantics stay pure and testable; platform APIs remain behind explicit boundaries.
+
+```mermaid
+flowchart TB
+    App["Wheel App<br/>Menu bar · HUD · Settings"]
+    Core["WheelCore<br/>Navigation orchestration"]
+    Domain["WheelDomain<br/>History · Gestures · Invariants"]
+    Native["macOS Boundary<br/>Input · Workspace · Accessibility"]
+    Adapters["Context Adapters<br/>Generic · Finder · Chrome · VS Code"]
+
+    App --> Core
+    Core --> Domain
+    Core --> Native
+    Native --> Adapters
+```
+
+Application adapters may improve **how deeply** Wheel restores a context. They may never redefine what LEFT and RIGHT mean.
+
+Read the full design in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Honest restoration
+
+Wheel separates restoration **status** from restoration **depth**.
+
+| Depth | What Wheel actually restored |
+| --- | --- |
+| `none` | Nothing was restored |
+| `application` | The target application became active |
+| `window` | The intended application window became active |
+| `semantic` | A supported app-specific context was restored |
+
+Only `success` and `partial` outcomes may move the history position. `failed`, `cancelled`, `unavailable`, and `permissionDenied` outcomes leave it untouched.
+
+## Run the current prototype
+
+### Requirements
+
+- macOS 14 or newer
+- Swift 5.10 or newer
+- Xcode 16 or a compatible Swift toolchain
+
+### Build and test
 
 ```bash
+git clone https://github.com/gogolumo/Wheel.git
+cd Wheel
 swift test
 swift run wheel-demo
 ```
 
-The demo shows:
+Expected demo flow:
 
 ```text
-A → B → C
-LEFT  => B
-RIGHT => C
-LEFT  => B
-independent D => A → B → D
+start:       A → B → [C]
+LEFT:        A → [B] → C
+RIGHT:       A → B → [C]
+LEFT again:  A → [B] → C
+new D:       A → B → [D]
 ```
-
-The important behavior is that a normal Back operation does **not** destroy the forward branch. The forward branch is replaced only when the user independently enters a new stable context after going back.
-
-## Architecture
-
-Wheel is designed as a modular monolith:
-
-```text
-WheelDomain
-  ├─ ContextEntry
-  ├─ ContextHistory
-  ├─ Direction
-  ├─ RestorationDepth
-  └─ RestorationResult
-
-WheelCore
-  └─ navigation / restoration policy
-
-Native macOS boundary (next)
-  ├─ input capture
-  ├─ workspace + Accessibility observation
-  ├─ permissions
-  └─ application adapters
-```
-
-Application-specific behavior is intended to stay behind a `ContextAdapter` boundary so Chrome, Finder, VS Code, and other integrations cannot redefine Wheel's LEFT/RIGHT semantics.
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
-## Product principles
-
-- **Stable semantics:** LEFT/RIGHT always mean global previous/next work context.
-- **Honest restoration:** Wheel reports the depth it actually restored instead of pretending every context is exact.
-- **No history corruption:** failure, cancellation, missing permissions, unavailable targets, and empty history do not move the current position.
-- **Local-first:** no account, cloud sync, or AI is required for the MVP.
-- **Privacy-minimal:** context history should store only what is necessary for restoration.
-- **One active gesture session:** ambiguous concurrent navigation attempts are rejected rather than guessed.
 
 ## Roadmap
 
-The implementation plan is organized around measurable milestones rather than feature accumulation:
+| Stage | Focus | Status |
+| --- | --- | :---: |
+| Foundation | Repository, modules, invariants, tests, CI | ✅ Active |
+| Feasibility | Global input, permissions, window identity, restoration | **Next** |
+| Native MVP | Menu bar, gesture input, stable context capture | Planned |
+| Integrations | Generic fallback plus selected deep adapters | Planned |
+| Productization | HUD, privacy controls, reliability, signing, beta | Planned |
+| Public MVP | Signed release, checksums, limitations, support path | Planned |
 
-- M0 — repository and development environment
-- M1 — feasibility spikes
-- M2 — menu-bar shell and permission onboarding
-- M3 — gesture input
-- M4 — stable context capture
-- M5 — ContextHistory
-- M6 — generic restoration
-- M7 — adapter architecture
-- M8 — selected deep adapters
-- M9 — HUD and settings
-- M10 — privacy and persistence
-- M11 — reliability and performance
-- M12 — packaging and beta
-- M13 — public MVP release
+The gate-driven milestone plan lives in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+## Privacy by design
 
-## Privacy
+Wheel is being designed around minimal local metadata:
 
-Wheel is intentionally designed without accounts, cloud history, or content indexing for the MVP. The native implementation will use the minimum metadata required to identify and restore a useful work context.
+- no account required
+- no cloud history
+- no page-body or source-code collection
+- no content indexing
+- bounded local retention
+- application exclusions
+- redacted diagnostics
+
+The domain stores only an application bundle identifier and an opaque context token. Native capture code is responsible for keeping that token safe and minimal.
 
 See [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
+## Product contract
+
+These are invariants, not optional implementation details:
+
+1. **LEFT is always previous. RIGHT is always next.**
+2. **Back never destroys the forward branch.**
+3. **Only independent new work replaces that branch.**
+4. **Wheel-restored contexts are never recorded again as new work.**
+5. **Failed restoration never corrupts history.**
+6. **Only one gesture session may be active.**
+7. **UP / DOWN, accounts, cloud sync, and arbitrary macros stay outside the MVP.**
+
+## Contributing
+
+Wheel is currently a solo-developer MVP. Focused issues and pull requests are welcome, especially around macOS feasibility, deterministic behavior, accessibility, privacy, and test coverage.
+
+Before changing navigation semantics, read [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+Wheel is available under the [MIT License](LICENSE).
+
+<p align="center">
+  <sub>Maintained by <a href="https://github.com/gogolumo">gogolumo</a>.</sub>
+</p>

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="title desc">
+  <title id="title">Wheel</title>
+  <desc id="desc">Back and Forward navigation for your whole Mac</desc>
+
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#070A15" />
+      <stop offset="0.52" stop-color="#111936" />
+      <stop offset="1" stop-color="#091526" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9D7BFF" />
+      <stop offset="0.5" stop-color="#6C63FF" />
+      <stop offset="1" stop-color="#34D6FF" />
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#202A52" stop-opacity="0.95" />
+      <stop offset="1" stop-color="#111A35" stop-opacity="0.95" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#7467FF" stop-opacity="0.38" />
+      <stop offset="1" stop-color="#7467FF" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#AAB7FF" stroke-opacity="0.055" stroke-width="1" />
+    </pattern>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="400" rx="28" fill="url(#background)" />
+  <rect width="1200" height="400" rx="28" fill="url(#grid)" />
+  <circle cx="905" cy="190" r="290" fill="url(#glow)" />
+
+  <g transform="translate(74 76)">
+    <rect x="0" y="0" width="64" height="8" rx="4" fill="url(#accent)" />
+    <text x="0" y="102" fill="#FFFFFF" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="84" font-weight="760" letter-spacing="7">WHEEL</text>
+    <text x="3" y="150" fill="#B8C2E8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="21" font-weight="500" letter-spacing="1.5">BACK / FORWARD FOR YOUR WHOLE MAC</text>
+
+    <g transform="translate(0 190)">
+      <rect x="0" y="0" width="118" height="46" rx="23" fill="#171F3F" stroke="#6575BA" stroke-opacity="0.55" />
+      <path d="M38 23 H77 M38 23 L52 10 M38 23 L52 36" fill="none" stroke="#D8DEFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="136" y="30" fill="#8793C4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="650" letter-spacing="1">PREVIOUS</text>
+
+      <rect x="258" y="0" width="118" height="46" rx="23" fill="#171F3F" stroke="#6575BA" stroke-opacity="0.55" />
+      <path d="M298 23 H337 M337 23 L323 10 M337 23 L323 36" fill="none" stroke="#D8DEFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="394" y="30" fill="#8793C4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="650" letter-spacing="1">NEXT</text>
+    </g>
+  </g>
+
+  <g transform="translate(695 74)">
+    <path d="M62 190 C118 245 193 241 250 186 C305 133 365 130 431 178" fill="none" stroke="#7888D2" stroke-opacity="0.35" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 9" />
+
+    <g transform="translate(0 112) rotate(-8 85 60)">
+      <rect width="176" height="126" rx="20" fill="url(#card)" stroke="#7786CD" stroke-opacity="0.45" />
+      <circle cx="24" cy="24" r="5" fill="#FF6B81" />
+      <circle cx="42" cy="24" r="5" fill="#FFD166" />
+      <circle cx="60" cy="24" r="5" fill="#5EE1A2" />
+      <rect x="20" y="49" width="94" height="8" rx="4" fill="#A9B6EE" fill-opacity="0.76" />
+      <rect x="20" y="68" width="136" height="7" rx="3.5" fill="#7F8BBB" fill-opacity="0.44" />
+      <rect x="20" y="85" width="112" height="7" rx="3.5" fill="#7F8BBB" fill-opacity="0.34" />
+      <text x="20" y="112" fill="#8998D2" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="700" letter-spacing="1.2">BROWSER</text>
+    </g>
+
+    <g transform="translate(133 38)">
+      <rect width="198" height="146" rx="22" fill="url(#card)" stroke="url(#accent)" stroke-width="2.2" filter="url(#softGlow)" />
+      <rect x="20" y="20" width="38" height="106" rx="9" fill="#0D1430" />
+      <circle cx="39" cy="40" r="7" fill="#8E7BFF" />
+      <rect x="71" y="24" width="102" height="8" rx="4" fill="#C7D0F8" fill-opacity="0.88" />
+      <rect x="71" y="48" width="82" height="7" rx="3.5" fill="#47D8FF" fill-opacity="0.68" />
+      <rect x="71" y="68" width="105" height="7" rx="3.5" fill="#8F9CCC" fill-opacity="0.48" />
+      <rect x="71" y="88" width="72" height="7" rx="3.5" fill="#9D7BFF" fill-opacity="0.7" />
+      <rect x="71" y="108" width="95" height="7" rx="3.5" fill="#8F9CCC" fill-opacity="0.38" />
+      <text x="71" y="137" fill="#B7C3F0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="700" letter-spacing="1.2">EDITOR</text>
+    </g>
+
+    <g transform="translate(294 127) rotate(8 85 60)">
+      <rect width="176" height="126" rx="20" fill="url(#card)" stroke="#7786CD" stroke-opacity="0.45" />
+      <path d="M22 39 H66 L78 51 H154 V99 H22 Z" fill="#4F65AD" fill-opacity="0.48" />
+      <path d="M22 51 H154 V99 H22 Z" fill="#7390EA" fill-opacity="0.34" />
+      <rect x="40" y="67" width="96" height="7" rx="3.5" fill="#C2CDF8" fill-opacity="0.64" />
+      <text x="22" y="116" fill="#8998D2" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="700" letter-spacing="1.2">FILES</text>
+    </g>
+
+    <g transform="translate(194 215)">
+      <circle cx="0" cy="0" r="29" fill="#111A36" stroke="#766BFF" stroke-width="2" />
+      <path d="M-11 0 H11 M-11 0 L-3 -8 M-11 0 L-3 8 M11 0 L3 -8 M11 0 L3 8" fill="none" stroke="#E6E8FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="0" cy="0" r="4" fill="#3CD8FF" />
+    </g>
+  </g>
+
+  <rect x="0.75" y="0.75" width="1198.5" height="398.5" rx="27.25" fill="none" stroke="#FFFFFF" stroke-opacity="0.1" stroke-width="1.5" />
+</svg>
