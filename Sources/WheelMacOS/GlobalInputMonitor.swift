@@ -93,6 +93,7 @@ public final class GlobalInputMonitor {
     private var latestPosition: PointerPosition?
     private var triggerStartedAt: TimeInterval?
     private var mouseButtonState: MouseButtonTriggerState
+    private var rightOptionState = ModifierKeyTriggerState(keyCode: 61)
 
     public init(configuration: Configuration = .init()) {
         self.configuration = configuration
@@ -164,7 +165,7 @@ public final class GlobalInputMonitor {
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
 
-        if configuration.triggerType != .mouseSideButton {
+        if configuration.triggerType == .capsLock {
             let timer = Timer(
                 timeInterval: configuration.keyPollingInterval,
                 repeats: true
@@ -196,6 +197,7 @@ public final class GlobalInputMonitor {
 
         isRunning = false
         mouseButtonState.reset()
+        rightOptionState.reset()
         resetGestureState()
     }
 
@@ -208,6 +210,9 @@ public final class GlobalInputMonitor {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
                 if configuration.triggerType == .mouseSideButton {
                     mouseButtonState.reset()
+                    resetGestureState()
+                } else if configuration.triggerType == .rightOption {
+                    rightOptionState.reset()
                     resetGestureState()
                 }
                 onEvent?(.eventTapRecovered)
@@ -223,9 +228,10 @@ public final class GlobalInputMonitor {
                 let selectedKeyCode,
                 eventKeyCode == Int64(selectedKeyCode)
             {
-                let sampledDown = CGEventSource.keyState(
-                    .combinedSessionState,
-                    key: selectedKeyCode
+                let observation = modifierObservation(
+                    eventKeyCode: eventKeyCode,
+                    selectedKeyCode: selectedKeyCode,
+                    event: event
                 )
                 let alphaShiftEnabled = event.flags.contains(.maskAlphaShift)
 
@@ -236,11 +242,16 @@ public final class GlobalInputMonitor {
                 onEvent?(
                     .modifierSignal(
                         keyCode: eventKeyCode,
-                        sampledDown: sampledDown,
+                        sampledDown: observation.isDown,
                         alphaShiftEnabled: alphaShiftEnabled
                     )
                 )
-                sampleTriggerState()
+
+                if configuration.triggerType == .capsLock {
+                    sampleTriggerState()
+                } else if let edge = observation.rightOptionEdge {
+                    handleRightOptionEdge(edge, event: event)
+                }
             }
         } else if eventType == .otherMouseDown || eventType == .otherMouseUp {
             handleMouseButtonEvent(eventType: eventType, event: event)
@@ -315,8 +326,51 @@ public final class GlobalInputMonitor {
         return latency
     }
 
+    private func modifierObservation(
+        eventKeyCode: Int64,
+        selectedKeyCode: CGKeyCode,
+        event: CGEvent
+    ) -> (isDown: Bool, rightOptionEdge: ModifierKeyTriggerEdge?) {
+        switch configuration.triggerType {
+        case .capsLock:
+            return (
+                CGEventSource.keyState(
+                    .combinedSessionState,
+                    key: selectedKeyCode
+                ),
+                nil
+            )
+        case .rightOption:
+            let edge = rightOptionState.consume(
+                eventKeyCode: eventKeyCode,
+                modifierFlagEnabled: event.flags.contains(.maskAlternate)
+            )
+            return (rightOptionState.isPressed, edge)
+        case .mouseSideButton:
+            return (false, nil)
+        }
+    }
+
+    private func handleRightOptionEdge(
+        _ edge: ModifierKeyTriggerEdge,
+        event: CGEvent
+    ) {
+        let position = PointerPosition(
+            x: event.location.x,
+            y: event.location.y
+        )
+
+        switch edge {
+        case .pressed:
+            beginGesture(at: position)
+        case .released:
+            latestPosition = position
+            endGesture()
+        }
+    }
+
     private func sampleTriggerState() {
-        guard configuration.triggerType != .mouseSideButton else {
+        guard configuration.triggerType == .capsLock else {
             return
         }
 
