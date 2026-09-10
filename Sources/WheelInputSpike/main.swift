@@ -10,6 +10,7 @@ private struct Arguments {
     var sequenceTarget = 100
     var runLabel = "unlabelled"
     var verboseEvents = false
+    var mouseButtonNumber: Int64 = 3
 
     init(_ rawArguments: ArraySlice<String>) throws {
         var index = rawArguments.startIndex
@@ -65,6 +66,16 @@ private struct Arguments {
                 runLabel = String(rawArguments[index])
             case "--verbose-events":
                 verboseEvents = true
+            case "--mouse-button":
+                index = rawArguments.index(after: index)
+                guard
+                    index < rawArguments.endIndex,
+                    let value = Int64(rawArguments[index]),
+                    value >= 3
+                else {
+                    throw ArgumentError.invalidValue("--mouse-button")
+                }
+                mouseButtonNumber = value
             case "--help", "-h":
                 Self.printUsage()
                 exit(EXIT_SUCCESS)
@@ -82,6 +93,8 @@ private struct Arguments {
             return .capsLock
         case "right-option":
             return .rightOption
+        case "mouse-side-button":
+            return .mouseSideButton
         default:
             throw ArgumentError.invalidValue("--trigger")
         }
@@ -92,7 +105,8 @@ private struct Arguments {
             """
             Usage: wheel-input-spike [options]
 
-              --trigger caps-lock|right-option  Trigger to test (default: caps-lock)
+              --trigger TYPE                    caps-lock, right-option, or mouse-side-button
+              --mouse-button NUMBER             Auxiliary mouse button number (default: 3)
               --distance POINTS                 Minimum horizontal travel (default: 80)
               --dominance RATIO                 Horizontal/vertical ratio (default: 1.5)
               --sequences COUNT                 Stop after observed sequences (default: 100)
@@ -153,6 +167,9 @@ print(
 )
 print("Run label: \(arguments.runLabel)")
 print("Observed-sequence target: \(arguments.sequenceTarget)")
+if arguments.triggerType == .mouseSideButton {
+    print("Configured mouse side button: \(arguments.mouseButtonNumber)")
+}
 print("Verbose event logging: \(arguments.verboseEvents ? "enabled" : "disabled")")
 print("Mode: listen-only; Wheel will not block or rewrite input.\n")
 
@@ -181,7 +198,8 @@ let classifier = HorizontalGestureClassifier(
 let monitor = GlobalInputMonitor(
     configuration: .init(
         triggerType: arguments.triggerType,
-        classifier: classifier
+        classifier: classifier,
+        mouseButtonNumber: arguments.mouseButtonNumber
     )
 )
 var statistics = InputSpikeRunStatistics()
@@ -227,6 +245,14 @@ monitor.onEvent = { event in
                 + "sampledDown=\(sampledDown) "
                 + "alphaShift=\(alphaShiftEnabled)"
         )
+    case let .mouseButtonSignal(buttonNumber, isDown, matchesConfiguredButton):
+        if arguments.verboseEvents || matchesConfiguredButton {
+            log(
+                "mouse-button number=\(buttonNumber) "
+                    + "edge=\(isDown ? "DOWN" : "UP") "
+                    + "matched=\(matchesConfiguredButton)"
+            )
+        }
     case let .triggerBegan(origin):
         log(String(format: "BEGIN x=%.1f y=%.1f", origin.x, origin.y))
     case let .pointerMoved(displacement):

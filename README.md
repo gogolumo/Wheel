@@ -139,7 +139,9 @@ swift run wheel-demo
 ```
 
 To open the package directly in Xcode and run the first native feasibility
-spike, see [`docs/INPUT_SPIKE.md`](docs/INPUT_SPIKE.md).
+spike, see [`docs/INPUT_SPIKE.md`](docs/INPUT_SPIKE.md). Candidate trigger and
+mouse side-button testing is documented in
+[`docs/TRIGGER_CONFLICT_SPIKE.md`](docs/TRIGGER_CONFLICT_SPIKE.md).
 
 Expected demo flow:
 

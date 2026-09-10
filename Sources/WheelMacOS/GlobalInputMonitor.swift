@@ -36,6 +36,11 @@ public enum GlobalInputEvent {
         sampledDown: Bool,
         alphaShiftEnabled: Bool
     )
+    case mouseButtonSignal(
+        buttonNumber: Int64,
+        isDown: Bool,
+        matchesConfiguredButton: Bool
+    )
     case triggerBegan(origin: PointerPosition)
     case pointerMoved(displacement: PointerDisplacement)
     case triggerEnded(
@@ -56,17 +61,21 @@ public final class GlobalInputMonitor {
         public let triggerType: TriggerType
         public let classifier: HorizontalGestureClassifier
         public let keyPollingInterval: TimeInterval
+        public let mouseButtonNumber: Int64
 
         public init(
             triggerType: TriggerType = .capsLock,
             classifier: HorizontalGestureClassifier = .init(),
-            keyPollingInterval: TimeInterval = 1.0 / 120.0
+            keyPollingInterval: TimeInterval = 1.0 / 120.0,
+            mouseButtonNumber: Int64 = 3
         ) {
             precondition(keyPollingInterval > 0)
+            precondition(mouseButtonNumber >= 3)
 
             self.triggerType = triggerType
             self.classifier = classifier
             self.keyPollingInterval = keyPollingInterval
+            self.mouseButtonNumber = mouseButtonNumber
         }
     }
 
@@ -83,9 +92,13 @@ public final class GlobalInputMonitor {
     private var origin: PointerPosition?
     private var latestPosition: PointerPosition?
     private var triggerStartedAt: TimeInterval?
+    private var mouseButtonState: MouseButtonTriggerState
 
     public init(configuration: Configuration = .init()) {
         self.configuration = configuration
+        mouseButtonState = MouseButtonTriggerState(
+            buttonNumber: configuration.mouseButtonNumber
+        )
     }
 
     deinit {
@@ -97,14 +110,18 @@ public final class GlobalInputMonitor {
             throw GlobalInputMonitorError.alreadyRunning
         }
 
-        _ = try keyCode(for: configuration.triggerType)
+        if configuration.triggerType != .mouseSideButton {
+            _ = try keyCode(for: configuration.triggerType)
+        }
 
         let eventTypes: [CGEventType] = [
             .flagsChanged,
             .mouseMoved,
             .leftMouseDragged,
             .rightMouseDragged,
-            .otherMouseDragged
+            .otherMouseDragged,
+            .otherMouseDown,
+            .otherMouseUp
         ]
         let mask = eventTypes.reduce(CGEventMask(0)) { partialResult, eventType in
             partialResult | (CGEventMask(1) << CGEventMask(eventType.rawValue))
@@ -147,14 +164,16 @@ public final class GlobalInputMonitor {
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
 
-        let timer = Timer(
-            timeInterval: configuration.keyPollingInterval,
-            repeats: true
-        ) { [weak self] _ in
-            self?.sampleTriggerState()
+        if configuration.triggerType != .mouseSideButton {
+            let timer = Timer(
+                timeInterval: configuration.keyPollingInterval,
+                repeats: true
+            ) { [weak self] _ in
+                self?.sampleTriggerState()
+            }
+            pollingTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
         }
-        pollingTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
 
         isRunning = true
         sampleTriggerState()
@@ -176,6 +195,7 @@ public final class GlobalInputMonitor {
         self.eventTap = nil
 
         isRunning = false
+        mouseButtonState.reset()
         resetGestureState()
     }
 
@@ -186,6 +206,10 @@ public final class GlobalInputMonitor {
         if eventType == .tapDisabledByTimeout || eventType == .tapDisabledByUserInput {
             if let eventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
+                if configuration.triggerType == .mouseSideButton {
+                    mouseButtonState.reset()
+                    resetGestureState()
+                }
                 onEvent?(.eventTapRecovered)
             }
             return Unmanaged.passUnretained(event)
@@ -218,6 +242,8 @@ public final class GlobalInputMonitor {
                 )
                 sampleTriggerState()
             }
+        } else if eventType == .otherMouseDown || eventType == .otherMouseUp {
+            handleMouseButtonEvent(eventType: eventType, event: event)
         } else if isPointerEvent(eventType), triggerIsDown {
             if let latencyMilliseconds = callbackLatencyMilliseconds(for: event) {
                 onEvent?(.callbackObserved(latencyMilliseconds: latencyMilliseconds))
@@ -226,6 +252,54 @@ public final class GlobalInputMonitor {
         }
 
         return Unmanaged.passUnretained(event)
+    }
+
+    private func handleMouseButtonEvent(
+        eventType: CGEventType,
+        event: CGEvent
+    ) {
+        guard configuration.triggerType == .mouseSideButton else {
+            return
+        }
+
+        let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
+        let isDown = eventType == .otherMouseDown
+        let matchesConfiguredButton = mouseButtonState.matches(buttonNumber)
+
+        onEvent?(
+            .mouseButtonSignal(
+                buttonNumber: buttonNumber,
+                isDown: isDown,
+                matchesConfiguredButton: matchesConfiguredButton
+            )
+        )
+
+        guard matchesConfiguredButton else {
+            return
+        }
+
+        if let latencyMilliseconds = callbackLatencyMilliseconds(for: event) {
+            onEvent?(.callbackObserved(latencyMilliseconds: latencyMilliseconds))
+        }
+
+        guard
+            let edge = mouseButtonState.consume(
+                eventButtonNumber: buttonNumber,
+                isDown: isDown
+            )
+        else {
+            return
+        }
+
+        let position = PointerPosition(x: event.location.x, y: event.location.y)
+
+        switch edge {
+        case .pressed:
+            beginGesture(at: position)
+        case .released:
+            latestPosition = position
+            endGesture()
+        }
     }
 
     private func callbackLatencyMilliseconds(for event: CGEvent) -> Double? {
@@ -242,6 +316,10 @@ public final class GlobalInputMonitor {
     }
 
     private func sampleTriggerState() {
+        guard configuration.triggerType != .mouseSideButton else {
+            return
+        }
+
         guard let keyCode = try? keyCode(for: configuration.triggerType) else {
             return
         }
@@ -261,9 +339,10 @@ public final class GlobalInputMonitor {
         }
     }
 
-    private func beginGesture() {
-        let currentPosition = CGEvent(source: nil)
-            .map { PointerPosition(x: $0.location.x, y: $0.location.y) }
+    private func beginGesture(at position: PointerPosition? = nil) {
+        let currentPosition = position
+            ?? CGEvent(source: nil)
+                .map { PointerPosition(x: $0.location.x, y: $0.location.y) }
             ?? PointerPosition(x: 0, y: 0)
 
         triggerIsDown = true
