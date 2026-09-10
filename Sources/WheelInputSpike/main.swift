@@ -9,6 +9,7 @@ private struct Arguments {
     var dominanceRatio = 1.5
     var sequenceTarget = 100
     var runLabel = "unlabelled"
+    var verboseEvents = false
 
     init(_ rawArguments: ArraySlice<String>) throws {
         var index = rawArguments.startIndex
@@ -62,6 +63,8 @@ private struct Arguments {
                     throw ArgumentError.missingValue("--label")
                 }
                 runLabel = String(rawArguments[index])
+            case "--verbose-events":
+                verboseEvents = true
             case "--help", "-h":
                 Self.printUsage()
                 exit(EXIT_SUCCESS)
@@ -94,6 +97,7 @@ private struct Arguments {
               --dominance RATIO                 Horizontal/vertical ratio (default: 1.5)
               --sequences COUNT                 Stop after observed sequences (default: 100)
               --label TEXT                      Privacy-safe label for this test run
+              --verbose-events                  Print every pointer-movement event
               --help                            Show this help
             """
         )
@@ -149,6 +153,7 @@ print(
 )
 print("Run label: \(arguments.runLabel)")
 print("Observed-sequence target: \(arguments.sequenceTarget)")
+print("Verbose event logging: \(arguments.verboseEvents ? "enabled" : "disabled")")
 print("Mode: listen-only; Wheel will not block or rewrite input.\n")
 
 if !InputMonitoringPermission.isGranted {
@@ -200,6 +205,7 @@ private func printSummary(
         label: \(arguments.runLabel)
         observed sequences: \(statistics.completedSequenceCount)/\(arguments.sequenceTarget)
         LEFT / RIGHT / NONE: \(statistics.leftCount) / \(statistics.rightCount) / \(statistics.noneCount)
+        pointer movement events: \(statistics.pointerMovementCount)
         callback samples: \(statistics.callbackSampleCount)
         median callback latency: \(formatMilliseconds(statistics.medianCallbackLatencyMilliseconds))
         event-tap recoveries: \(statistics.eventTapRecoveryCount)
@@ -224,7 +230,10 @@ monitor.onEvent = { event in
     case let .triggerBegan(origin):
         log(String(format: "BEGIN x=%.1f y=%.1f", origin.x, origin.y))
     case let .pointerMoved(displacement):
-        log("MOVE  \(format(displacement))")
+        statistics.recordPointerMovement()
+        if arguments.verboseEvents {
+            log("MOVE  \(format(displacement))")
+        }
     case let .triggerEnded(direction, displacement, duration):
         statistics.recordCompletedSequence(direction: direction)
         let endDescription = String(

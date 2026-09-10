@@ -58,4 +58,14 @@ final class InputSpikeRunStatisticsTests: XCTestCase {
 
         XCTAssertEqual(statistics.eventTapRecoveryCount, 2)
     }
+
+    func testCountsPointerMovementEvents() {
+        var statistics = InputSpikeRunStatistics()
+
+        statistics.recordPointerMovement()
+        statistics.recordPointerMovement()
+        statistics.recordPointerMovement()
+
+        XCTAssertEqual(statistics.pointerMovementCount, 3)
+    }
 }

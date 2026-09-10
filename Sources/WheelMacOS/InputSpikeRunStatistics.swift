@@ -9,6 +9,7 @@ public struct InputSpikeRunStatistics: Equatable, Sendable {
     public private(set) var leftCount = 0
     public private(set) var rightCount = 0
     public private(set) var noneCount = 0
+    public private(set) var pointerMovementCount = 0
     public private(set) var eventTapRecoveryCount = 0
 
     private var callbackLatenciesMilliseconds: [Double] = []
@@ -53,6 +54,10 @@ public struct InputSpikeRunStatistics: Equatable, Sendable {
         }
 
         callbackLatenciesMilliseconds.append(milliseconds)
+    }
+
+    public mutating func recordPointerMovement() {
+        pointerMovementCount += 1
     }
 
     public mutating func recordEventTapRecovery() {

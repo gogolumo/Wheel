@@ -80,7 +80,18 @@ swift run wheel-input-spike \
 The label must describe the test setup, not contain a serial number, account
 name, document title, URL, or other personal data. The process prints live
 sequence counts and median event-callback latency, then emits an aggregate
-summary after the requested number of observed sequences.
+summary after the requested number of observed sequences. Pointer movement is
+counted but not printed by default: synchronous console output for every move
+can create event-tap backpressure and invalidate the latency measurement.
+
+For diagnosing event order only, enable detailed movement logs:
+
+```bash
+swift run wheel-input-spike --verbose-events --sequences 10 --label "ordering-check"
+```
+
+Do not use a verbose run as latency evidence. Use the default aggregate mode for
+the 100-sequence acceptance run.
 
 The monitor is created with `CGEventTapOptions.listenOnly`. It does not suppress,
 rewrite, or post input events. Caps Lock may still toggle normally during this
@@ -115,9 +126,9 @@ sequence starts and ends normally rather than remaining stuck.
 
 Use this evidence table for every run:
 
-| Run label | Trigger | Intended | Observed | LEFT / RIGHT / NONE | Median callback | Recoveries | Stuck state | OS/app side effects |
-| --- | --- | ---: | ---: | --- | ---: | ---: | --- | --- |
-| Example only | Caps Lock | 100 | 100 | 30 / 30 / 40 | 4.20 ms | 0 | No | Caps Lock toggled |
+| Run label | Trigger | Intended | Observed | LEFT / RIGHT / NONE | Pointer events | Median callback | Recoveries | Stuck state | OS/app side effects |
+| --- | --- | ---: | ---: | --- | ---: | ---: | ---: | --- | --- |
+| Example only | Caps Lock | 100 | 100 | 30 / 30 / 40 | 824 | 4.20 ms | 0 | No | Caps Lock toggled |
 
 Do not treat the example row as real evidence.
 
