@@ -74,7 +74,8 @@ Give every evidence run a privacy-safe label and an observed-sequence target:
 swift run wheel-input-spike \
   --trigger caps-lock \
   --sequences 100 \
-  --label "built-in-trackpad-finder-windowed"
+  --label "built-in-trackpad-finder-windowed" \
+  --summary-json "spike-001-built-in-trackpad.json"
 ```
 
 The label must describe the test setup, not contain a serial number, account
@@ -83,6 +84,11 @@ sequence counts and median event-callback latency, then emits an aggregate
 summary after the requested number of observed sequences. Pointer movement is
 counted but not printed by default: synchronous console output for every move
 can create event-tap backpressure and invalidate the latency measurement.
+
+The optional JSON file contains only aggregate counters and threshold checks.
+It never records coordinates, titles, paths, typed content, or hardware
+identifiers. It still requires manual review because the harness cannot know
+the physical-attempt count, stuck-state result, or native side effects.
 
 For diagnosing event order only, enable detailed movement logs:
 
