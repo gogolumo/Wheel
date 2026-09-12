@@ -37,18 +37,21 @@ Use aggregate mode for scored runs:
 swift run wheel-input-spike \
   --trigger caps-lock \
   --sequences 30 \
-  --label "caps-lock-mixed-apps"
+  --label "caps-lock-mixed-apps" \
+  --summary-json "spike-002-caps-lock.json"
 
 swift run wheel-input-spike \
   --trigger right-option \
   --sequences 30 \
-  --label "right-option-mixed-apps"
+  --label "right-option-mixed-apps" \
+  --summary-json "spike-002-right-option.json"
 
 swift run wheel-input-spike \
   --trigger mouse-side-button \
   --mouse-button 3 \
   --sequences 30 \
-  --label "external-mouse-button-3-mixed-apps"
+  --label "external-mouse-button-3-mixed-apps" \
+  --summary-json "spike-002-mouse-button-3.json"
 ```
 
 Core Graphics commonly numbers auxiliary buttons from 3 upward, but hardware
@@ -98,6 +101,11 @@ or `external-usb-mouse`; never record a serial number or account-specific name.
 The example is not project evidence. Record every native side effect, including
 Caps Lock state changes, Option-modified application behavior, browser Back,
 Mission Control actions, or vendor-driver overlays.
+
+`--summary-json` writes the aggregate counts and latency checks atomically so
+they do not need to be copied from terminal output by hand. The file cannot
+observe physical misses, stuck state, or native side effects; record those in
+the manual matrix before choosing GO, ADJUST, or STOP.
 
 Because this harness is deliberately listen-only, it cannot prove that a native
 side effect can be safely suppressed. A destructive or routine conflict rejects

@@ -11,6 +11,7 @@ private struct Arguments {
     var runLabel = "unlabelled"
     var verboseEvents = false
     var mouseButtonNumber: Int64 = 3
+    var summaryJSONPath: String?
 
     init(_ rawArguments: ArraySlice<String>) throws {
         var index = rawArguments.startIndex
@@ -76,6 +77,12 @@ private struct Arguments {
                     throw ArgumentError.invalidValue("--mouse-button")
                 }
                 mouseButtonNumber = value
+            case "--summary-json":
+                index = rawArguments.index(after: index)
+                guard index < rawArguments.endIndex, !rawArguments[index].isEmpty else {
+                    throw ArgumentError.missingValue("--summary-json")
+                }
+                summaryJSONPath = String(rawArguments[index])
             case "--help", "-h":
                 Self.printUsage()
                 exit(EXIT_SUCCESS)
@@ -112,6 +119,7 @@ private struct Arguments {
               --sequences COUNT                 Stop after observed sequences (default: 100)
               --label TEXT                      Privacy-safe label for this test run
               --verbose-events                  Print every pointer-movement event
+              --summary-json PATH               Write privacy-safe aggregate evidence as JSON
               --help                            Show this help
             """
         )
@@ -235,6 +243,22 @@ private func printSummary(
     )
 }
 
+private func writeSummaryJSON(
+    statistics: InputSpikeRunStatistics,
+    arguments: Arguments
+) throws {
+    guard let path = arguments.summaryJSONPath else { return }
+    let summary = InputSpikeRunSummary(
+        runLabel: arguments.runLabel,
+        trigger: arguments.triggerType.rawValue,
+        sequenceTarget: arguments.sequenceTarget,
+        statistics: statistics
+    )
+    let url = URL(fileURLWithPath: path)
+    try summary.encodedJSON().write(to: url, options: .atomic)
+    print("Evidence JSON: \(url.path)")
+}
+
 monitor.onEvent = { event in
     switch event {
     case let .callbackObserved(latencyMilliseconds):
@@ -278,6 +302,12 @@ monitor.onEvent = { event in
 
         if statistics.completedSequenceCount >= arguments.sequenceTarget {
             printSummary(statistics: statistics, arguments: arguments)
+            do {
+                try writeSummaryJSON(statistics: statistics, arguments: arguments)
+            } catch {
+                fputs("Unable to write evidence JSON: \(error)\n", stderr)
+                exit(4)
+            }
             exit(EXIT_SUCCESS)
         }
     case .eventTapRecovered:
