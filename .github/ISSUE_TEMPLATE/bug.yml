@@ -1,0 +1,58 @@
+name: Bug report
+
+description: Report a reproducible Wheel defect without sensitive user data.
+title: "[BUG] "
+labels: []
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Problem
+      description: Describe the observed behavior and why it is incorrect.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Use the smallest repeatable sequence. Do not include private titles, URLs, paths, typed content, or raw event history.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: State the expected product invariant or outcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Input and gesture
+        - Context history
+        - Restoration
+        - Permissions
+        - Menu bar and UI
+        - Build, CI, or tooling
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: macOS version, Wheel commit/build, and relevant hardware category only.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence
+      description: Add privacy-safe logs, screenshots, or test output if available.
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Safe fallback
+      description: Note how to disable, avoid, or revert the affected behavior while it is unresolved.
