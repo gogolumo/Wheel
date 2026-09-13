@@ -1,0 +1,48 @@
+name: Release readiness
+
+description: Track one Wheel release candidate through evidence and rollback readiness.
+title: "[RELEASE] "
+labels: []
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version or milestone
+      placeholder: v0.1.0-alpha or M7
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Included scope
+      description: Link the milestone/cards included in this release candidate.
+    validations:
+      required: true
+  - type: textarea
+    id: gates
+    attributes:
+      label: Required gates
+      description: List build, test, privacy, permission, restoration, signing, and manual validation requirements that apply.
+    validations:
+      required: true
+  - type: textarea
+    id: known_limits
+    attributes:
+      label: Known limitations
+      description: State unsupported behavior and any reduced restoration depth explicitly.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Release evidence
+      description: Link CI runs, manual matrices, artifacts, recordings, and decision notes.
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback plan
+      description: Describe how to disable, revert, or withdraw the candidate safely.
+    validations:
+      required: true
