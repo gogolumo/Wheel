@@ -251,7 +251,12 @@ private func writeSummaryJSON(
     guard let path = arguments.summaryJSONPath else { return }
     let summary = InputSpikeRunSummary(
         runLabel: arguments.runLabel,
-        trigger: arguments.triggerType.rawValue,
+        trigger: arguments.triggerType,
+        minimumHorizontalDistance: arguments.minimumDistance,
+        minimumDominanceRatio: arguments.dominanceRatio,
+        mouseButtonNumber: arguments.triggerType == .mouseSideButton
+            ? arguments.mouseButtonNumber
+            : nil,
         sequenceTarget: arguments.sequenceTarget,
         statistics: statistics
     )

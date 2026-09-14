@@ -85,10 +85,12 @@ summary after the requested number of observed sequences. Pointer movement is
 counted but not printed by default: synchronous console output for every move
 can create event-tap backpressure and invalidate the latency measurement.
 
-The optional JSON file contains only aggregate counters and threshold checks.
-It never records coordinates, titles, paths, typed content, or hardware
-identifiers. It still requires manual review because the harness cannot know
-the physical-attempt count, stuck-state result, or native side effects.
+The optional JSON file contains aggregate counters, the configured classifier
+and latency thresholds, and their threshold checks. A mouse-button run also
+records the configured button number. It never records coordinates, titles,
+paths, typed content, or hardware identifiers. It still requires manual review
+because the harness cannot know the physical-attempt count, stuck-state result,
+or native side effects.
 After the planned physical attempts, press Control-C if the observed target was
 not reached. The harness prints the partial summary and writes the JSON before
 exiting with status 130, preserving evidence of the missed sequence.

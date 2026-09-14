@@ -103,9 +103,12 @@ Caps Lock state changes, Option-modified application behavior, browser Back,
 Mission Control actions, or vendor-driver overlays.
 
 `--summary-json` writes the aggregate counts and latency checks atomically so
-they do not need to be copied from terminal output by hand. The file cannot
-observe physical misses, stuck state, or native side effects; record those in
-the manual matrix before choosing GO, ADJUST, or STOP.
+they do not need to be copied from terminal output by hand. Schema version 2
+also records the horizontal-distance, dominance, and latency thresholds used
+for the run, plus the configured button number for a mouse-button candidate.
+That makes each result reproducible without storing device identifiers. The
+file cannot observe physical misses, stuck state, or native side effects;
+record those in the manual matrix before choosing GO, ADJUST, or STOP.
 If the planned physical attempts finish before the observed target is reached,
 press Control-C. The harness writes the partial JSON before exiting with status
 130, so a missing press or release remains reviewable evidence.
