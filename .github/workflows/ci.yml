@@ -5,9 +5,17 @@ on:
     branches: ["main"]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: macos-14
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -15,6 +23,9 @@ jobs:
 
       - name: Swift version
         run: swift --version
+
+      - name: Build
+        run: swift build
 
       - name: Run tests
         run: swift test
