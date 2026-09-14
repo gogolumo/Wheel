@@ -24,7 +24,7 @@ jobs:
       - name: Swift version
         run: swift --version
 
-      - name: Build
+      - name: Build package (including macOS input spike)
         run: swift build
 
       - name: Run tests
