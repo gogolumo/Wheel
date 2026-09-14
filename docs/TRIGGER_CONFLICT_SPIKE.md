@@ -106,6 +106,9 @@ Mission Control actions, or vendor-driver overlays.
 they do not need to be copied from terminal output by hand. The file cannot
 observe physical misses, stuck state, or native side effects; record those in
 the manual matrix before choosing GO, ADJUST, or STOP.
+If the planned physical attempts finish before the observed target is reached,
+press Control-C. The harness writes the partial JSON before exiting with status
+130, so a missing press or release remains reviewable evidence.
 
 Because this harness is deliberately listen-only, it cannot prove that a native
 side effect can be safely suppressed. A destructive or routine conflict rejects

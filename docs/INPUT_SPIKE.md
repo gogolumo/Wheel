@@ -89,6 +89,9 @@ The optional JSON file contains only aggregate counters and threshold checks.
 It never records coordinates, titles, paths, typed content, or hardware
 identifiers. It still requires manual review because the harness cannot know
 the physical-attempt count, stuck-state result, or native side effects.
+After the planned physical attempts, press Control-C if the observed target was
+not reached. The harness prints the partial summary and writes the JSON before
+exiting with status 130, preserving evidence of the missed sequence.
 
 For diagnosing event order only, enable detailed movement logs:
 
@@ -126,7 +129,8 @@ Repeat the minimum matrix with:
 - Caps Lock and `--trigger right-option`.
 
 If the harness has not reached its observed target after the planned physical
-attempts, stop and record the last printed count as a miss. Also record any
+attempts, press Control-C and retain the partial JSON as evidence of the miss.
+Also record any
 `event tap timed out and was re-enabled` warning and verify that the next
 sequence starts and ends normally rather than remaining stuck.
 

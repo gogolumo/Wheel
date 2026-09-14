@@ -1,4 +1,5 @@
 import Darwin
+import Dispatch
 import Foundation
 import WheelDomain
 import WheelMacOS
@@ -259,6 +260,21 @@ private func writeSummaryJSON(
     print("Evidence JSON: \(url.path)")
 }
 
+private func finishRun(
+    statistics: InputSpikeRunStatistics,
+    arguments: Arguments,
+    exitCode: Int32
+) -> Never {
+    printSummary(statistics: statistics, arguments: arguments)
+    do {
+        try writeSummaryJSON(statistics: statistics, arguments: arguments)
+    } catch {
+        fputs("Unable to write evidence JSON: \(error)\n", stderr)
+        exit(4)
+    }
+    exit(exitCode)
+}
+
 monitor.onEvent = { event in
     switch event {
     case let .callbackObserved(latencyMilliseconds):
@@ -301,20 +317,29 @@ monitor.onEvent = { event in
         print()
 
         if statistics.completedSequenceCount >= arguments.sequenceTarget {
-            printSummary(statistics: statistics, arguments: arguments)
-            do {
-                try writeSummaryJSON(statistics: statistics, arguments: arguments)
-            } catch {
-                fputs("Unable to write evidence JSON: \(error)\n", stderr)
-                exit(4)
-            }
-            exit(EXIT_SUCCESS)
+            finishRun(
+                statistics: statistics,
+                arguments: arguments,
+                exitCode: EXIT_SUCCESS
+            )
         }
     case .eventTapRecovered:
         statistics.recordEventTapRecovery()
         log("WARN  event tap timed out and was re-enabled")
     }
 }
+
+signal(SIGINT, SIG_IGN)
+let interruptSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+interruptSource.setEventHandler {
+    log("Stopped by user; preserving partial evidence.")
+    finishRun(
+        statistics: statistics,
+        arguments: arguments,
+        exitCode: 130
+    )
+}
+interruptSource.resume()
 
 do {
     try monitor.start()
