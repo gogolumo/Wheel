@@ -1,0 +1,62 @@
+name: Feasibility spike
+
+description: Timebox a system-level unknown and record an evidence-backed decision.
+title: "[SPIKE-ID] "
+labels: []
+body:
+  - type: input
+    id: card_id
+    attributes:
+      label: Spike/Card ID
+      placeholder: SPIKE-001
+    validations:
+      required: true
+  - type: input
+    id: trello
+    attributes:
+      label: Trello card
+      placeholder: https://trello.com/c/...
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Decision question
+      description: Write the specific uncertainty this spike must resolve.
+    validations:
+      required: true
+  - type: textarea
+    id: pass_fail
+    attributes:
+      label: PASS / FAIL criteria
+      description: Define measurable evidence that will justify GO, ADJUST, or STOP before implementation begins.
+    validations:
+      required: true
+  - type: textarea
+    id: matrix
+    attributes:
+      label: Test matrix
+      description: List representative apps, permission states, devices, edge cases, and repetition counts where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and safety constraints
+      description: State what must not be captured, persisted, suppressed, rewritten, or inferred during the experiment.
+    validations:
+      required: true
+  - type: textarea
+    id: fallback
+    attributes:
+      label: Fallback / rollback
+      description: What product scope or implementation path is used if the spike fails?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence to attach
+      description: Redacted logs, measurements, screenshots, recording, CI run, or decision note.
+    validations:
+      required: true
