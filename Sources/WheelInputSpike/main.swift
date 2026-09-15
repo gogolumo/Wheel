@@ -246,7 +246,8 @@ private func printSummary(
 
 private func writeSummaryJSON(
     statistics: InputSpikeRunStatistics,
-    arguments: Arguments
+    arguments: Arguments,
+    completionReason: InputSpikeRunSummary.CompletionReason
 ) throws {
     guard let path = arguments.summaryJSONPath else { return }
     let summary = InputSpikeRunSummary(
@@ -258,7 +259,8 @@ private func writeSummaryJSON(
             ? arguments.mouseButtonNumber
             : nil,
         sequenceTarget: arguments.sequenceTarget,
-        statistics: statistics
+        statistics: statistics,
+        completionReason: completionReason
     )
     let url = URL(fileURLWithPath: path)
     try summary.encodedJSON().write(to: url, options: .atomic)
@@ -268,11 +270,16 @@ private func writeSummaryJSON(
 private func finishRun(
     statistics: InputSpikeRunStatistics,
     arguments: Arguments,
+    completionReason: InputSpikeRunSummary.CompletionReason,
     exitCode: Int32
 ) -> Never {
     printSummary(statistics: statistics, arguments: arguments)
     do {
-        try writeSummaryJSON(statistics: statistics, arguments: arguments)
+        try writeSummaryJSON(
+            statistics: statistics,
+            arguments: arguments,
+            completionReason: completionReason
+        )
     } catch {
         fputs("Unable to write evidence JSON: \(error)\n", stderr)
         exit(4)
@@ -325,6 +332,7 @@ monitor.onEvent = { event in
             finishRun(
                 statistics: statistics,
                 arguments: arguments,
+                completionReason: .targetReached,
                 exitCode: EXIT_SUCCESS
             )
         }
@@ -341,6 +349,7 @@ interruptSource.setEventHandler {
     finishRun(
         statistics: statistics,
         arguments: arguments,
+        completionReason: .interrupted,
         exitCode: 130
     )
 }

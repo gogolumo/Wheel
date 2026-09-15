@@ -17,7 +17,8 @@ final class InputSpikeRunSummaryTests: XCTestCase {
             minimumHorizontalDistance: 120,
             minimumDominanceRatio: 2,
             sequenceTarget: 2,
-            statistics: statistics
+            statistics: statistics,
+            completionReason: .targetReached
         )
 
         XCTAssertTrue(summary.observedTargetMet)
@@ -26,6 +27,7 @@ final class InputSpikeRunSummaryTests: XCTestCase {
         XCTAssertEqual(summary.medianCallbackLatencyMilliseconds, 6)
         XCTAssertEqual(summary.latencyThresholdMilliseconds, 25)
         XCTAssertEqual(summary.latencyThresholdMet, true)
+        XCTAssertEqual(summary.completionReason, .targetReached)
         XCTAssertTrue(summary.requiresManualReview)
     }
 
@@ -36,11 +38,13 @@ final class InputSpikeRunSummaryTests: XCTestCase {
             minimumHorizontalDistance: 80,
             minimumDominanceRatio: 1.5,
             sequenceTarget: 30,
-            statistics: InputSpikeRunStatistics()
+            statistics: InputSpikeRunStatistics(),
+            completionReason: .interrupted
         )
         XCTAssertFalse(summary.observedTargetMet)
         XCTAssertNil(summary.latencyThresholdMet)
         XCTAssertNil(summary.mouseButtonNumber)
+        XCTAssertEqual(summary.completionReason, .interrupted)
     }
 
     func testEncodedJSONContainsStableSchemaAndNoManualClaims() throws {
@@ -52,18 +56,20 @@ final class InputSpikeRunSummaryTests: XCTestCase {
             mouseButtonNumber: 4,
             sequenceTarget: 30,
             statistics: InputSpikeRunStatistics(),
+            completionReason: .interrupted,
             latencyThresholdMilliseconds: 20
         )
         let object = try XCTUnwrap(
             JSONSerialization.jsonObject(with: summary.encodedJSON()) as? [String: Any]
         )
-        XCTAssertEqual(object["schemaVersion"] as? Int, 2)
+        XCTAssertEqual(object["schemaVersion"] as? Int, 3)
         XCTAssertEqual(object["runLabel"] as? String, "external-mouse")
         XCTAssertEqual(object["minimumHorizontalDistance"] as? Double, 90)
         XCTAssertEqual(object["minimumDominanceRatio"] as? Double, 1.75)
         XCTAssertEqual(object["mouseButtonNumber"] as? Int, 4)
         XCTAssertEqual(object["latencyThresholdMilliseconds"] as? Double, 20)
         XCTAssertEqual(object["requiresManualReview"] as? Bool, true)
+        XCTAssertEqual(object["completionReason"] as? String, "interrupted")
         XCTAssertNil(object["decision"])
         XCTAssertNil(object["stuckState"])
         XCTAssertNil(object["nativeSideEffects"])

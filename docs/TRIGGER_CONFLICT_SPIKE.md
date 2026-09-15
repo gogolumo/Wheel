@@ -103,9 +103,11 @@ Caps Lock state changes, Option-modified application behavior, browser Back,
 Mission Control actions, or vendor-driver overlays.
 
 `--summary-json` writes the aggregate counts and latency checks atomically so
-they do not need to be copied from terminal output by hand. Schema version 2
-also records the horizontal-distance, dominance, and latency thresholds used
-for the run, plus the configured button number for a mouse-button candidate.
+they do not need to be copied from terminal output by hand. Schema version 3
+records the horizontal-distance, dominance, and latency thresholds used for the
+run, plus the configured button number for a mouse-button candidate. It also
+records `completionReason`: `targetReached` for a normal scored run or
+`interrupted` when Control-C preserved partial evidence.
 That makes each result reproducible without storing device identifiers. The
 file cannot observe physical misses, stuck state, or native side effects;
 record those in the manual matrix before choosing GO, ADJUST, or STOP.
