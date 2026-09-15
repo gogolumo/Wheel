@@ -25,10 +25,22 @@ jobs:
         run: swift --version
 
       - name: Build
-        run: swift build
+        run: swift build 2>&1 | tee build.log
 
       - name: Run tests
-        run: swift test
+        run: swift test 2>&1 | tee test.log
 
       - name: Run domain demo
-        run: swift run wheel-demo
+        run: swift run wheel-demo 2>&1 | tee demo.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-ci-diagnostics-${{ github.run_id }}
+          path: |
+            build.log
+            test.log
+            demo.log
+          if-no-files-found: ignore
+          retention-days: 7
