@@ -12,7 +12,11 @@ let package = Package(
         .library(name: "WheelCore", targets: ["WheelCore"]),
         .library(name: "WheelMacOS", targets: ["WheelMacOS"]),
         .executable(name: "wheel-demo", targets: ["WheelDemo"]),
-        .executable(name: "wheel-input-spike", targets: ["WheelInputSpike"])
+        .executable(name: "wheel-input-spike", targets: ["WheelInputSpike"]),
+        .executable(
+            name: "wheel-input-diagnostics",
+            targets: ["WheelInputDiagnostics"]
+        )
     ],
     targets: [
         .target(
@@ -35,6 +39,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "WheelInputSpike",
+            dependencies: ["WheelDomain", "WheelMacOS"]
+        ),
+        .executableTarget(
+            name: "WheelInputDiagnostics",
             dependencies: ["WheelDomain", "WheelMacOS"]
         ),
         .testTarget(

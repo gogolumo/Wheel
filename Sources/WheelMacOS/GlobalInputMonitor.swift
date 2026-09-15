@@ -19,6 +19,19 @@ public enum GlobalInputMonitorError: Error, Equatable {
     case eventTapUnavailable
 }
 
+extension GlobalInputMonitorError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .alreadyRunning:
+            return "Input monitoring is already running."
+        case let .unsupportedTrigger(trigger):
+            return "The trigger \(trigger.rawValue) is not supported by this monitor."
+        case .eventTapUnavailable:
+            return "macOS could not create the listen-only event tap. Check Input Monitoring access."
+        }
+    }
+}
+
 public struct PointerPosition: Equatable, Sendable {
     public let x: Double
     public let y: Double
@@ -29,7 +42,7 @@ public struct PointerPosition: Equatable, Sendable {
     }
 }
 
-public enum GlobalInputEvent {
+public enum GlobalInputEvent: Sendable {
     case callbackObserved(latencyMilliseconds: Double)
     case modifierSignal(
         keyCode: Int64,
@@ -208,13 +221,9 @@ public final class GlobalInputMonitor {
         if eventType == .tapDisabledByTimeout || eventType == .tapDisabledByUserInput {
             if let eventTap {
                 CGEvent.tapEnable(tap: eventTap, enable: true)
-                if configuration.triggerType == .mouseSideButton {
-                    mouseButtonState.reset()
-                    resetGestureState()
-                } else if configuration.triggerType == .rightOption {
-                    rightOptionState.reset()
-                    resetGestureState()
-                }
+                mouseButtonState.reset()
+                rightOptionState.reset()
+                resetGestureState()
                 onEvent?(.eventTapRecovered)
             }
             return Unmanaged.passUnretained(event)

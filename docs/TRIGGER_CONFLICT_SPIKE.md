@@ -29,6 +29,15 @@ swift build --product wheel-input-spike
 Grant Input Monitoring to the host application when macOS requests it. If the
 permission changes, restart Xcode or the terminal before collecting evidence.
 
+For a native menu-bar status panel with the same aggregate evidence format, run:
+
+```bash
+swift run wheel-input-diagnostics
+```
+
+See [`INPUT_DIAGNOSTICS.md`](INPUT_DIAGNOSTICS.md) for the UI workflow. The CLI
+commands below remain available for scripted or terminal-first runs.
+
 ## Run each candidate
 
 Use aggregate mode for scored runs:
