@@ -27,7 +27,23 @@ public struct RestorationResult: Equatable, Sendable {
         self.depth = depth
     }
 
+    /// Whether status and achieved depth describe the same restoration outcome.
+    ///
+    /// Successful and partial results must have verified a non-zero depth.
+    /// All non-success outcomes must report `.none` so they cannot masquerade
+    /// as a partially restored context.
+    public var isValid: Bool {
+        switch status {
+        case .success, .partial:
+            return depth != .none
+        case .failed, .cancelled, .unavailable, .permissionDenied:
+            return depth == .none
+        }
+    }
+
     public var allowsPositionChange: Bool {
+        guard isValid else { return false }
+
         switch status {
         case .success, .partial:
             return true
