@@ -54,4 +54,38 @@ final class RestorationResultTests: XCTestCase {
             }
         }
     }
+
+    func testStatusAndDepthTruthTableRejectsContradictoryResults() {
+        let verifiedDepths: [RestorationDepth] = [.application, .window, .semantic]
+
+        for status in [RestorationStatus.success, .partial] {
+            XCTAssertFalse(RestorationResult(status: status, depth: .none).isValid)
+
+            for depth in verifiedDepths {
+                XCTAssertTrue(RestorationResult(status: status, depth: depth).isValid)
+            }
+        }
+
+        for status in [
+            RestorationStatus.failed,
+            .cancelled,
+            .unavailable,
+            .permissionDenied
+        ] {
+            XCTAssertTrue(RestorationResult(status: status, depth: .none).isValid)
+
+            for depth in verifiedDepths {
+                let result = RestorationResult(status: status, depth: depth)
+                XCTAssertFalse(result.isValid)
+                XCTAssertFalse(result.allowsPositionChange)
+            }
+        }
+    }
+
+    func testInvalidSuccessCannotAdvanceHistoryPosition() {
+        let result = RestorationResult(status: .success, depth: .none)
+
+        XCTAssertFalse(result.isValid)
+        XCTAssertFalse(result.allowsPositionChange)
+    }
 }
