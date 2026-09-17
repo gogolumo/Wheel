@@ -22,33 +22,33 @@ public struct RestorationResult: Equatable, Sendable {
     public let status: RestorationStatus
     public let depth: RestorationDepth
 
-    public init?(status: RestorationStatus, depth: RestorationDepth) {
-        guard Self.isValid(status: status, depth: depth) else {
-            return nil
-        }
-
+    public init(status: RestorationStatus, depth: RestorationDepth) {
         self.status = status
         self.depth = depth
     }
 
-    public var allowsPositionChange: Bool {
-        switch status {
-        case .success, .partial:
-            return true
-        case .failed, .cancelled, .unavailable, .permissionDenied:
-            return false
-        }
-    }
-
-    public static func isValid(
-        status: RestorationStatus,
-        depth: RestorationDepth
-    ) -> Bool {
+    /// Whether status and achieved depth describe the same restoration outcome.
+    ///
+    /// Successful and partial results must have verified a non-zero depth.
+    /// All non-success outcomes must report `.none` so they cannot masquerade
+    /// as a partially restored context.
+    public var isValid: Bool {
         switch status {
         case .success, .partial:
             return depth != .none
         case .failed, .cancelled, .unavailable, .permissionDenied:
             return depth == .none
+        }
+    }
+
+    public var allowsPositionChange: Bool {
+        guard isValid else { return false }
+
+        switch status {
+        case .success, .partial:
+            return true
+        case .failed, .cancelled, .unavailable, .permissionDenied:
+            return false
         }
     }
 }
