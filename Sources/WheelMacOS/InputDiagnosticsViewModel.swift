@@ -26,6 +26,7 @@ public final class InputDiagnosticsViewModel: ObservableObject {
     private let permissionRequester: PermissionRequester
     private let monitorFactory: MonitorFactory
     private var monitor: (any InputEventMonitoring)?
+    private var monitorGeneration = 0
 
     public init(
         configuration: InputDiagnosticsConfiguration = .init(),
@@ -131,9 +132,11 @@ public final class InputDiagnosticsViewModel: ObservableObject {
                 mouseButtonNumber: configuration.mouseButtonNumber
             )
         )
+        monitorGeneration += 1
+        let generation = monitorGeneration
         newMonitor.onEvent = { [weak self] event in
             DispatchQueue.main.async { [weak self] in
-                self?.handle(event)
+                self?.handle(event, generation: generation)
             }
         }
         monitor = newMonitor
@@ -201,7 +204,14 @@ public final class InputDiagnosticsViewModel: ObservableObject {
         session = nextSession
     }
 
-    private func handle(_ event: GlobalInputEvent) {
+    private func handle(
+        _ event: GlobalInputEvent,
+        generation: Int
+    ) {
+        guard generation == monitorGeneration else {
+            return
+        }
+
         var nextSession = session
         let action = nextSession.handle(event)
         session = nextSession
@@ -212,6 +222,7 @@ public final class InputDiagnosticsViewModel: ObservableObject {
     }
 
     private func stopMonitor() {
+        monitorGeneration += 1
         monitor?.onEvent = nil
         monitor?.stop()
         monitor = nil

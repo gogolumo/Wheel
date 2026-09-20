@@ -101,6 +101,44 @@ final class InputDiagnosticsViewModelTests: XCTestCase {
             XCTAssertEqual(viewModel.session.statistics.completedSequenceCount, 0)
         }
     }
+
+    func testQueuedEventsFromStoppedMonitorCannotContaminateNewRun() async {
+        let queueDrained = expectation(description: "main queue drained")
+
+        await MainActor.run {
+            let firstMonitor = TestInputMonitor()
+            let secondMonitor = TestInputMonitor()
+            var monitors: [TestInputMonitor] = [firstMonitor, secondMonitor]
+            let viewModel = InputDiagnosticsViewModel(
+                permissionProvider: { true },
+                permissionRequester: { true },
+                monitorFactory: { _ in monitors.removeFirst() }
+            )
+
+            viewModel.startListening()
+            firstMonitor.emit(.triggerBegan(origin: .init(x: 0, y: 0)))
+            firstMonitor.emit(
+                .triggerEnded(
+                    direction: .left,
+                    displacement: .init(horizontal: -100, vertical: 0),
+                    duration: 0.1
+                )
+            )
+
+            viewModel.reset()
+            viewModel.startListening()
+
+            DispatchQueue.main.async {
+                XCTAssertEqual(viewModel.session.status, .listening)
+                XCTAssertEqual(viewModel.session.statistics.completedSequenceCount, 0)
+                XCTAssertNil(viewModel.session.lastDirection)
+                XCTAssertTrue(secondMonitor.isRunning)
+                queueDrained.fulfill()
+            }
+        }
+
+        await fulfillment(of: [queueDrained], timeout: 1)
+    }
 }
 
 private enum TestMonitorError: LocalizedError {
@@ -134,5 +172,9 @@ private final class TestInputMonitor: InputEventMonitoring {
     func stop() {
         stopCallCount += 1
         isRunning = false
+    }
+
+    func emit(_ event: GlobalInputEvent) {
+        onEvent?(event)
     }
 }
