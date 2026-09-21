@@ -1,0 +1,408 @@
+import Combine
+import Foundation
+import WheelDomain
+
+public enum WheelAppStatus: String, Equatable, Sendable {
+    case starting = "Starting"
+    case disabled = "Disabled"
+    case needsPermission = "Needs Permission"
+    case ready = "Ready"
+    case paused = "Paused"
+    case error = "Error"
+}
+
+public struct WheelAppConfiguration: Equatable, Sendable {
+    public var triggerType: TriggerType
+    public var minimumHorizontalDistance: Double
+    public var minimumDominanceRatio: Double
+
+    public init(
+        triggerType: TriggerType = .rightOption,
+        minimumHorizontalDistance: Double = 80,
+        minimumDominanceRatio: Double = 1.5
+    ) {
+        self.triggerType = triggerType
+        self.minimumHorizontalDistance = minimumHorizontalDistance
+        self.minimumDominanceRatio = minimumDominanceRatio
+    }
+
+    public var validationError: String? {
+        guard triggerType != .mouseSideButton else {
+            return "Mouse side-button input is still an experimental diagnostic candidate."
+        }
+        guard minimumHorizontalDistance.isFinite,
+              (20...500).contains(minimumHorizontalDistance)
+        else {
+            return "Gesture distance must be between 20 and 500 points."
+        }
+        guard minimumDominanceRatio.isFinite,
+              (1...10).contains(minimumDominanceRatio)
+        else {
+            return "Horizontal dominance must be between 1 and 10."
+        }
+
+        return nil
+    }
+}
+
+public enum WheelAppFixture: String, CaseIterable, Sendable {
+    case disabled
+    case needsPermission = "needs-permission"
+    case ready
+    case paused
+    case error
+}
+
+/// Runtime state for the first production-facing Wheel menu-bar shell.
+///
+/// This view model owns only input readiness and gesture feedback. Context capture
+/// and restoration remain outside this slice, so recognizing a gesture never
+/// mutates `ContextHistory` or claims that navigation occurred.
+@MainActor
+public final class WheelAppViewModel: ObservableObject {
+    public typealias PermissionProvider = () -> Bool
+    public typealias PermissionRequester = () -> Bool
+    public typealias MonitorFactory = (
+        GlobalInputMonitor.Configuration
+    ) -> any InputEventMonitoring
+
+    @Published public private(set) var status: WheelAppStatus
+    @Published public private(set) var permissionGranted: Bool
+    @Published public private(set) var isEnabled: Bool
+    @Published public private(set) var isPaused: Bool
+    @Published public private(set) var isGestureActive: Bool
+    @Published public private(set) var lastDirection: Direction?
+    @Published public private(set) var recognizedGestureCount: Int
+    @Published public private(set) var eventTapRecoveryCount: Int
+    @Published public private(set) var notice: String?
+    @Published public private(set) var errorMessage: String?
+    @Published public private(set) var configuration: WheelAppConfiguration
+
+    public let fixture: WheelAppFixture?
+
+    private let permissionProvider: PermissionProvider
+    private let permissionRequester: PermissionRequester
+    private let monitorFactory: MonitorFactory
+    private var monitor: (any InputEventMonitoring)?
+    private var monitorGeneration = 0
+    private var hasStarted = false
+
+    public init(
+        configuration: WheelAppConfiguration = .init(),
+        isEnabled: Bool = true,
+        permissionProvider: @escaping PermissionProvider = {
+            InputMonitoringPermission.isGranted
+        },
+        permissionRequester: @escaping PermissionRequester = {
+            InputMonitoringPermission.request()
+        },
+        monitorFactory: @escaping MonitorFactory = {
+            GlobalInputMonitor(configuration: $0)
+        },
+        fixture: WheelAppFixture? = nil
+    ) {
+        self.configuration = configuration
+        self.isEnabled = isEnabled
+        self.permissionProvider = permissionProvider
+        self.permissionRequester = permissionRequester
+        self.monitorFactory = monitorFactory
+        self.fixture = fixture
+
+        let granted = fixture == nil
+            ? permissionProvider()
+            : fixture != .needsPermission
+        permissionGranted = granted
+        isPaused = false
+        isGestureActive = false
+        lastDirection = nil
+        recognizedGestureCount = 0
+        eventTapRecoveryCount = 0
+        notice = nil
+        errorMessage = nil
+        status = isEnabled
+            ? (granted ? .starting : .needsPermission)
+            : .disabled
+
+        applyFixtureIfNeeded()
+    }
+
+    public var isMonitoring: Bool {
+        monitor?.isRunning == true
+    }
+
+    public var canPause: Bool {
+        fixture == nil && isEnabled && !isPaused && status == .ready
+    }
+
+    public var canResume: Bool {
+        fixture == nil && isEnabled && isPaused
+    }
+
+    public var canRequestPermission: Bool {
+        fixture == nil && isEnabled && !permissionGranted
+    }
+
+    public func start() {
+        guard fixture == nil else { return }
+
+        hasStarted = true
+        reconcileRuntime()
+    }
+
+    public func refreshPermission() {
+        guard fixture == nil else { return }
+
+        permissionGranted = permissionProvider()
+        reconcileRuntime()
+    }
+
+    public func requestPermission() {
+        guard canRequestPermission else { return }
+
+        permissionGranted = permissionRequester() || permissionProvider()
+        reconcileRuntime()
+    }
+
+    public func setEnabled(_ enabled: Bool) {
+        guard fixture == nil else { return }
+
+        isEnabled = enabled
+        if enabled {
+            isPaused = false
+        }
+        reconcileRuntime()
+    }
+
+    public func pause() {
+        guard canPause else { return }
+
+        isPaused = true
+        stopMonitor()
+        status = .paused
+        errorMessage = nil
+        notice = "Wheel is paused. No global input is being observed."
+    }
+
+    public func resume() {
+        guard canResume else { return }
+
+        isPaused = false
+        notice = nil
+        reconcileRuntime()
+    }
+
+    public func updateConfiguration(_ configuration: WheelAppConfiguration) {
+        guard fixture == nil, configuration != self.configuration else { return }
+
+        self.configuration = configuration
+        errorMessage = configuration.validationError
+
+        guard hasStarted, isEnabled, !isPaused, permissionGranted else {
+            reconcileStatusWithoutStarting()
+            return
+        }
+
+        stopMonitor()
+        startMonitorIfPossible()
+    }
+
+    public func handleSystemWake() {
+        guard fixture == nil, hasStarted, isEnabled, !isPaused else { return }
+
+        stopMonitor()
+        permissionGranted = permissionProvider()
+        notice = "Wheel refreshed input monitoring after your Mac woke up."
+        reconcileRuntime(preservingNotice: true)
+    }
+
+    public func shutdown() {
+        guard fixture == nil else { return }
+
+        hasStarted = false
+        stopMonitor()
+    }
+
+    private func reconcileRuntime(preservingNotice: Bool = false) {
+        guard isEnabled else {
+            stopMonitor()
+            isPaused = false
+            status = .disabled
+            errorMessage = nil
+            if !preservingNotice {
+                notice = "Wheel is off. No global input is being observed."
+            }
+            return
+        }
+
+        guard permissionGranted else {
+            stopMonitor()
+            status = .needsPermission
+            errorMessage = nil
+            if !preservingNotice {
+                notice = nil
+            }
+            return
+        }
+
+        guard !isPaused else {
+            stopMonitor()
+            status = .paused
+            errorMessage = nil
+            return
+        }
+
+        guard hasStarted else {
+            status = .starting
+            return
+        }
+
+        if !preservingNotice {
+            notice = nil
+        }
+        startMonitorIfPossible()
+    }
+
+    private func reconcileStatusWithoutStarting() {
+        if !isEnabled {
+            status = .disabled
+        } else if !permissionGranted {
+            status = .needsPermission
+        } else if isPaused {
+            status = .paused
+        } else if let validationError = configuration.validationError {
+            status = .error
+            errorMessage = validationError
+        } else {
+            status = .starting
+        }
+    }
+
+    private func startMonitorIfPossible() {
+        guard monitor == nil else {
+            if monitor?.isRunning == true {
+                status = .ready
+            }
+            return
+        }
+
+        if let validationError = configuration.validationError {
+            status = .error
+            errorMessage = validationError
+            return
+        }
+
+        let classifier = HorizontalGestureClassifier(
+            minimumHorizontalDistance: configuration.minimumHorizontalDistance,
+            minimumDominanceRatio: configuration.minimumDominanceRatio
+        )
+        let newMonitor = monitorFactory(
+            .init(
+                triggerType: configuration.triggerType,
+                classifier: classifier
+            )
+        )
+
+        monitorGeneration += 1
+        let generation = monitorGeneration
+        newMonitor.onEvent = { [weak self] event in
+            DispatchQueue.main.async { [weak self] in
+                self?.handle(event, generation: generation)
+            }
+        }
+        monitor = newMonitor
+
+        do {
+            try newMonitor.start()
+            status = .ready
+            errorMessage = nil
+        } catch {
+            stopMonitor()
+            status = .error
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func handle(_ event: GlobalInputEvent, generation: Int) {
+        guard generation == monitorGeneration, status == .ready else { return }
+
+        switch event {
+        case .callbackObserved, .modifierSignal, .mouseButtonSignal, .pointerMoved:
+            break
+
+        case .triggerBegan:
+            guard !isGestureActive else { return }
+            isGestureActive = true
+            notice = "Gesture active — move left or right, then release."
+
+        case let .triggerEnded(direction, _, _):
+            guard isGestureActive else { return }
+            isGestureActive = false
+            lastDirection = direction
+
+            if direction == .none {
+                notice = "Movement was too short or not horizontal enough."
+            } else {
+                recognizedGestureCount += 1
+                notice = "\(direction.rawValue.uppercased()) recognized. "
+                    + "Context restoration is not connected in this build yet."
+            }
+
+        case .eventTapRecovered:
+            isGestureActive = false
+            eventTapRecoveryCount += 1
+            notice = "Input monitoring recovered and cleared transient gesture state."
+        }
+    }
+
+    private func stopMonitor() {
+        monitorGeneration += 1
+        monitor?.onEvent = nil
+        monitor?.stop()
+        monitor = nil
+        isGestureActive = false
+    }
+
+    private func applyFixtureIfNeeded() {
+        guard let fixture else { return }
+
+        hasStarted = false
+        isGestureActive = false
+        lastDirection = fixture == .ready ? .left : nil
+        recognizedGestureCount = fixture == .ready ? 12 : 0
+        eventTapRecoveryCount = 0
+
+        switch fixture {
+        case .disabled:
+            isEnabled = false
+            permissionGranted = true
+            isPaused = false
+            status = .disabled
+            notice = "Wheel is off. No global input is being observed."
+        case .needsPermission:
+            isEnabled = true
+            permissionGranted = false
+            isPaused = false
+            status = .needsPermission
+            notice = nil
+        case .ready:
+            isEnabled = true
+            permissionGranted = true
+            isPaused = false
+            status = .ready
+            notice = "LEFT recognized. Context restoration is not connected in this build yet."
+        case .paused:
+            isEnabled = true
+            permissionGranted = true
+            isPaused = true
+            status = .paused
+            notice = "Wheel is paused. No global input is being observed."
+        case .error:
+            isEnabled = true
+            permissionGranted = true
+            isPaused = false
+            status = .error
+            errorMessage = "macOS could not create the listen-only event tap."
+            notice = nil
+        }
+    }
+}
