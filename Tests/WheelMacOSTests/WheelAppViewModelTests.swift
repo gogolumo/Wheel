@@ -174,6 +174,89 @@ final class WheelAppViewModelTests: XCTestCase {
         }
     }
 
+    func testRuntimePermissionRevocationStopsMonitorAndFailsClosed() async {
+        await MainActor.run {
+            let monitor = AppTestInputMonitor()
+            var permissionGranted = true
+            let viewModel = WheelAppViewModel(
+                permissionProvider: { permissionGranted },
+                permissionRequester: { permissionGranted },
+                monitorFactory: { _ in monitor }
+            )
+            viewModel.start()
+            XCTAssertEqual(viewModel.status, .ready)
+
+            permissionGranted = false
+            viewModel.refreshPermission()
+
+            XCTAssertEqual(viewModel.status, .needsPermission)
+            XCTAssertFalse(viewModel.permissionGranted)
+            XCTAssertFalse(viewModel.isMonitoring)
+            XCTAssertEqual(monitor.stopCallCount, 1)
+        }
+    }
+
+    func testDisableAndReenableReplaceTheMonitor() async {
+        await MainActor.run {
+            let firstMonitor = AppTestInputMonitor()
+            let secondMonitor = AppTestInputMonitor()
+            var monitors = [firstMonitor, secondMonitor]
+            let viewModel = WheelAppViewModel(
+                permissionProvider: { true },
+                permissionRequester: { true },
+                monitorFactory: { _ in monitors.removeFirst() }
+            )
+            viewModel.start()
+
+            viewModel.setEnabled(false)
+
+            XCTAssertEqual(viewModel.status, .disabled)
+            XCTAssertFalse(viewModel.isMonitoring)
+            XCTAssertEqual(firstMonitor.stopCallCount, 1)
+
+            viewModel.setEnabled(true)
+
+            XCTAssertEqual(viewModel.status, .ready)
+            XCTAssertTrue(viewModel.isMonitoring)
+            XCTAssertEqual(secondMonitor.startCallCount, 1)
+        }
+    }
+
+    func testNoneGestureIsReportedButNotCountedAsRecognized() async {
+        let feedbackUpdated = expectation(description: "none feedback updated")
+
+        await MainActor.run {
+            let monitor = AppTestInputMonitor()
+            let viewModel = WheelAppViewModel(
+                permissionProvider: { true },
+                permissionRequester: { true },
+                monitorFactory: { _ in monitor }
+            )
+            viewModel.start()
+
+            monitor.emit(.triggerBegan(origin: .init(x: 0, y: 0)))
+            monitor.emit(
+                .triggerEnded(
+                    direction: .none,
+                    displacement: .init(horizontal: 8, vertical: 2),
+                    duration: 0.05
+                )
+            )
+
+            DispatchQueue.main.async {
+                XCTAssertEqual(viewModel.lastDirection, .none)
+                XCTAssertEqual(viewModel.recognizedGestureCount, 0)
+                XCTAssertEqual(
+                    viewModel.notice,
+                    "Movement was too short or not horizontal enough."
+                )
+                feedbackUpdated.fulfill()
+            }
+        }
+
+        await fulfillment(of: [feedbackUpdated], timeout: 1)
+    }
+
     func testFixtureDoesNotConsultPermissionOrCreateMonitor() async {
         await MainActor.run {
             var permissionCheckCount = 0
