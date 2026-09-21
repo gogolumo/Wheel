@@ -244,7 +244,7 @@ final class WheelAppViewModelTests: XCTestCase {
             )
 
             DispatchQueue.main.async {
-                XCTAssertEqual(viewModel.lastDirection, .none)
+                XCTAssertEqual(viewModel.lastDirection, Direction.none)
                 XCTAssertEqual(viewModel.recognizedGestureCount, 0)
                 XCTAssertEqual(
                     viewModel.notice,
