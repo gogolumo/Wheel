@@ -16,6 +16,10 @@ let package = Package(
         .executable(
             name: "wheel-input-diagnostics",
             targets: ["WheelInputDiagnostics"]
+        ),
+        .executable(
+            name: "wheel-app",
+            targets: ["WheelApp"]
         )
     ],
     targets: [
@@ -43,6 +47,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "WheelInputDiagnostics",
+            dependencies: ["WheelDomain", "WheelMacOS"]
+        ),
+        .executableTarget(
+            name: "WheelApp",
             dependencies: ["WheelDomain", "WheelMacOS"]
         ),
         .testTarget(
