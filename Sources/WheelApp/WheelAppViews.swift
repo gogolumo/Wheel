@@ -775,6 +775,7 @@ private extension View {
             }
     }
 
+    @MainActor
     func wheelRuntimeLifecycle(_ viewModel: WheelAppViewModel) -> some View {
         onAppear {
             viewModel.start()
