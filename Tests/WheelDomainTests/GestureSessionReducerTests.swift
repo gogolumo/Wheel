@@ -44,6 +44,23 @@ final class GestureSessionReducerTests: XCTestCase {
         XCTAssertNil(reducer.activeSession)
     }
 
+    func testStaleTerminalCallbacksCannotCloseNewSession() {
+        let firstID = UUID()
+        let secondID = UUID()
+        var reducer = GestureSessionReducer()
+
+        XCTAssertTrue(reducer.reduce(.start(id: firstID, triggerType: .capsLock)))
+        XCTAssertTrue(reducer.reduce(.complete(.left)))
+        XCTAssertTrue(reducer.reduce(.start(id: secondID, triggerType: .rightOption)))
+
+        // A late callback from the first native gesture is indistinguishable from
+        // a terminal callback for the second session in the current event model.
+        XCTAssertFalse(reducer.reduce(.complete(.right)))
+        XCTAssertFalse(reducer.reduce(.cancel))
+        XCTAssertEqual(reducer.activeSession?.id, secondID)
+        XCTAssertEqual(reducer.activeSession?.status, .tracking)
+    }
+
     func testSeededEventSequencesNeverCreateOverlappingSessions() {
         for seed in 0..<64 {
             var generator = SeededGenerator(seed: UInt64(seed) + 1)
