@@ -27,7 +27,9 @@ automatically.
 
 ## Collect a run
 
-1. Choose a privacy-safe run label and the candidate trigger.
+1. Choose a privacy-safe run label and the candidate trigger. Labels are limited
+   to 64 letters, numbers, spaces, hyphens, and underscores; paths, URLs, line
+   breaks, and leading or trailing whitespace are rejected.
 2. Leave the target at 30 for the SPIKE-002 candidate matrix.
 3. Press **Start Listening**.
 4. Hold the trigger, move, and release. Confirm that the status visibly changes

@@ -79,7 +79,9 @@ swift run wheel-input-spike \
 ```
 
 The label must describe the test setup, not contain a serial number, account
-name, document title, URL, or other personal data. The process prints live
+name, document title, URL, or other personal data. Both interfaces reject labels
+longer than 64 characters, line breaks, path/URL punctuation, and leading or
+trailing whitespace. The process prints live
 sequence counts and median event-callback latency, then emits an aggregate
 summary after the requested number of observed sequences. Pointer movement is
 counted but not printed by default: synchronous console output for every move

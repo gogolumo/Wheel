@@ -37,18 +37,8 @@ public struct InputDiagnosticsConfiguration: Equatable, Sendable {
     }
 
     public var validationError: String? {
-        let trimmedLabel = runLabel.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedLabel.isEmpty else {
-            return "Run label is required."
-        }
-        guard trimmedLabel == runLabel, runLabel.count <= 64 else {
-            return "Use a 1–64 character label without leading or trailing spaces."
-        }
-
-        let allowedPunctuation = CharacterSet(charactersIn: "-_ ")
-        let allowedCharacters = CharacterSet.alphanumerics.union(allowedPunctuation)
-        guard runLabel.unicodeScalars.allSatisfy(allowedCharacters.contains) else {
-            return "Use only letters, numbers, spaces, hyphens, and underscores in the label."
+        if let error = InputEvidenceRunLabel.validationError(for: runLabel) {
+            return error
         }
         guard (1...10_000).contains(targetSequenceCount) else {
             return "Sequence target must be between 1 and 10,000."

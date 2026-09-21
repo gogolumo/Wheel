@@ -61,9 +61,11 @@ private struct Arguments {
                 index = rawArguments.index(after: index)
                 guard
                     index < rawArguments.endIndex,
-                    !rawArguments[index].isEmpty
+                    InputEvidenceRunLabel.validationError(
+                        for: String(rawArguments[index])
+                    ) == nil
                 else {
-                    throw ArgumentError.missingValue("--label")
+                    throw ArgumentError.invalidValue("--label")
                 }
                 runLabel = String(rawArguments[index])
             case "--verbose-events":
