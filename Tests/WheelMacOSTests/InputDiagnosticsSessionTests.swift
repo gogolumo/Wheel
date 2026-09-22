@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import WheelDomain
 @testable import WheelMacOS
@@ -189,6 +190,54 @@ final class InputDiagnosticsSessionTests: XCTestCase {
         XCTAssertFalse(session.triggerIsHeld)
         XCTAssertEqual(session.completionReason, .interrupted)
         XCTAssertNotNil(session.notice)
+    }
+
+    func testModifierSignalsProvideTransientEdgeFeedback() throws {
+        var session = InputDiagnosticsSession(permissionGranted: true)
+        try session.start(configuration: configuration())
+
+        session.handle(
+            .modifierSignal(keyCode: 61, sampledDown: true, alphaShiftEnabled: false)
+        )
+        session.handle(
+            .modifierSignal(keyCode: 61, sampledDown: false, alphaShiftEnabled: false)
+        )
+
+        XCTAssertEqual(session.matchingTriggerSignalCount, 2)
+        XCTAssertEqual(session.lastTriggerSignalIsDown, false)
+    }
+
+    func testOnlyConfiguredMouseButtonSignalsProvideEdgeFeedback() throws {
+        var session = InputDiagnosticsSession(permissionGranted: true)
+        try session.start(
+            configuration: configuration(trigger: .mouseSideButton, mouseButton: 5)
+        )
+
+        session.handle(
+            .mouseButtonSignal(buttonNumber: 3, isDown: true, matchesConfiguredButton: false)
+        )
+        session.handle(
+            .mouseButtonSignal(buttonNumber: 5, isDown: true, matchesConfiguredButton: true)
+        )
+
+        XCTAssertEqual(session.matchingTriggerSignalCount, 1)
+        XCTAssertEqual(session.lastTriggerSignalIsDown, true)
+    }
+
+    func testTransientSignalFeedbackIsNotExported() throws {
+        var session = InputDiagnosticsSession(permissionGranted: true)
+        try session.start(configuration: configuration())
+        session.handle(
+            .modifierSignal(keyCode: 61, sampledDown: true, alphaShiftEnabled: false)
+        )
+        session.stop()
+
+        let data = try JSONEncoder().encode(session.makeSummary())
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+
+        XCTAssertFalse(json.contains("matchingTriggerSignalCount"))
+        XCTAssertFalse(json.contains("lastTriggerSignalIsDown"))
+        XCTAssertFalse(json.contains("keyCode"))
     }
 
     private func configuration(

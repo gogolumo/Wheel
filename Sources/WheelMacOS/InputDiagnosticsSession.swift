@@ -102,6 +102,10 @@ public struct InputDiagnosticsSession: Equatable, Sendable {
     public private(set) var notice: String?
     public private(set) var isListening: Bool
     public private(set) var triggerIsHeld: Bool
+    /// Transient UI feedback only. These values are deliberately excluded from
+    /// `InputSpikeRunSummary` so raw input edges never enter exported evidence.
+    public private(set) var matchingTriggerSignalCount: Int
+    public private(set) var lastTriggerSignalIsDown: Bool?
 
     public init(
         permissionGranted: Bool,
@@ -118,6 +122,8 @@ public struct InputDiagnosticsSession: Equatable, Sendable {
         notice = nil
         isListening = false
         triggerIsHeld = false
+        matchingTriggerSignalCount = 0
+        lastTriggerSignalIsDown = nil
     }
 
     public var evidenceAvailable: Bool {
@@ -184,8 +190,16 @@ public struct InputDiagnosticsSession: Equatable, Sendable {
         case let .callbackObserved(latencyMilliseconds):
             statistics.recordCallbackLatency(milliseconds: latencyMilliseconds)
 
-        case .modifierSignal, .mouseButtonSignal:
-            break
+        case let .modifierSignal(_, sampledDown, _):
+            matchingTriggerSignalCount += 1
+            lastTriggerSignalIsDown = sampledDown
+
+        case let .mouseButtonSignal(_, isDown, matchesConfiguredButton):
+            guard matchesConfiguredButton else {
+                return .none
+            }
+            matchingTriggerSignalCount += 1
+            lastTriggerSignalIsDown = isDown
 
         case .triggerBegan:
             guard !triggerIsHeld else {
@@ -221,6 +235,7 @@ public struct InputDiagnosticsSession: Equatable, Sendable {
 
         case .eventTapRecovered:
             triggerIsHeld = false
+            lastTriggerSignalIsDown = nil
             statistics.recordEventTapRecovery()
             status = .eventTapRecovered
             notice = "Transient input state was cleared. Verify the next physical sequence."

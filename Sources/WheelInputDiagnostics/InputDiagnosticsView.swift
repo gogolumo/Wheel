@@ -273,6 +273,20 @@ struct InputDiagnosticsView: View {
                     metricRow("NONE", value: statistics.noneCount)
                     metricRow("Pointer events", value: statistics.pointerMovementCount)
                     metricRow("Callback samples", value: statistics.callbackSampleCount)
+                    metricRow(
+                        "Matching trigger signals",
+                        value: viewModel.session.matchingTriggerSignalCount
+                    )
+
+                    GridRow {
+                        Text("Last trigger edge")
+                            .foregroundStyle(.secondary)
+                        Text(formattedTriggerEdge)
+                            .monospaced()
+                            .accessibilityLabel(
+                                "Last matching trigger edge: \(formattedTriggerEdge)"
+                            )
+                    }
 
                     GridRow {
                         Text("Median callback latency")
@@ -364,6 +378,13 @@ struct InputDiagnosticsView: View {
             return "n/a"
         }
         return String(format: "%.2f ms", latency)
+    }
+
+    private var formattedTriggerEdge: String {
+        guard let isDown = viewModel.session.lastTriggerSignalIsDown else {
+            return "—"
+        }
+        return isDown ? "DOWN" : "UP"
     }
 
     private func stopAndSavePartialEvidence() {

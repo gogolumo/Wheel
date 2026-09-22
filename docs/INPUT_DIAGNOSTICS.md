@@ -33,7 +33,9 @@ automatically.
 2. Leave the target at 30 for the SPIKE-002 candidate matrix.
 3. Press **Start Listening**.
 4. Hold the trigger, move, and release. Confirm that the status visibly changes
-   to **Trigger Held** and the result becomes LEFT, RIGHT, or NONE exactly once.
+   to **Trigger Held**, **Matching trigger signals** advances, **Last trigger
+   edge** reaches DOWN then UP, and the result becomes LEFT, RIGHT, or NONE
+   exactly once. Non-configured mouse buttons do not advance this counter.
 5. At the target, the app stops automatically and marks the run **Completed**.
 6. Use **Export JSON**. If the physical-attempt tally ends before Wheel reaches
    its target, use **Stop & Save Partial Evidence** instead.
@@ -43,6 +45,10 @@ The export uses the same current `InputSpikeRunSummary` schema (version 3) as
 recovery count, and completion reason. It does not store pointer coordinates,
 window titles, URLs, paths, typed content, raw key history, account names, or
 device identifiers.
+
+The matching-signal count and last DOWN/UP edge are transient troubleshooting
+feedback. They reset with the run and are intentionally absent from exported
+JSON, along with key codes and button numbers from individual events.
 
 The menu-bar symbol and text distinguish Permission Required, Ready, Listening,
 Trigger Held, Completed, Stopped, Event Tap Recovered, and Error. Color is never
