@@ -1,8 +1,20 @@
 import AppKit
-import Combine
 import SwiftUI
 import WheelDomain
 import WheelMacOS
+
+struct WheelMenuBarLabel: View {
+    @ObservedObject var viewModel: WheelAppViewModel
+
+    var body: some View {
+        Label(
+            "Wheel — \(viewModel.status.rawValue)",
+            systemImage: viewModel.status.menuBarSymbolName
+        )
+        .labelStyle(.iconOnly)
+        .accessibilityLabel("Wheel: \(viewModel.status.rawValue)")
+    }
+}
 
 struct WheelMenuBarView: View {
     @ObservedObject var viewModel: WheelAppViewModel
@@ -31,7 +43,6 @@ struct WheelMenuBarView: View {
         }
         .frame(width: 390, height: 520)
         .background(Color(nsColor: .windowBackgroundColor))
-        .wheelRuntimeLifecycle(viewModel)
     }
 
     private var header: some View {
@@ -78,7 +89,6 @@ struct WheelMenuBarView: View {
             Spacer()
 
             Button("Quit") {
-                viewModel.shutdown()
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")
@@ -156,7 +166,6 @@ struct WheelDashboardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 720, minHeight: 500)
-        .wheelRuntimeLifecycle(viewModel)
     }
 }
 
@@ -773,27 +782,6 @@ private extension View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(tint.opacity(0.16))
             }
-    }
-
-    @MainActor
-    func wheelRuntimeLifecycle(_ viewModel: WheelAppViewModel) -> some View {
-        onAppear {
-            viewModel.start()
-        }
-        .onReceive(
-            NotificationCenter.default.publisher(
-                for: NSApplication.didBecomeActiveNotification
-            )
-        ) { _ in
-            viewModel.refreshPermission()
-        }
-        .onReceive(
-            NSWorkspace.shared.notificationCenter.publisher(
-                for: NSWorkspace.didWakeNotification
-            )
-        ) { _ in
-            viewModel.handleSystemWake()
-        }
     }
 }
 

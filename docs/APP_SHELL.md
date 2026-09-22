@@ -8,6 +8,7 @@ The shell is intentionally honest about the current product boundary:
 - global gesture input is live and listen-only;
 - Input Monitoring onboarding and recovery are implemented;
 - pause, disable, wake recovery, and input calibration are implemented;
+- one app-level lifecycle coordinator owns launch, activation, wake, and shutdown;
 - context capture and restoration are visible as **not connected**;
 - recognizing LEFT or RIGHT does not mutate history or claim navigation success.
 
@@ -24,7 +25,9 @@ swift run wheel-app
 ```
 
 Wheel launches as an accessory app and places its icon in the menu bar. Open the
-menu to see live status or press **Open Wheel** for the full dashboard.
+menu to see live status or press **Open Wheel** for the full dashboard. The
+listen-only monitor starts with the application; opening either surface does not
+start another runtime or register another wake observer.
 
 The first launch normally shows **Needs Permission**:
 

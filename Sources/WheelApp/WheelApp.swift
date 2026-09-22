@@ -2,43 +2,46 @@ import AppKit
 import SwiftUI
 import WheelMacOS
 
+@MainActor
 private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
+    let viewModel: WheelAppViewModel
+
+    private let lifecycleCoordinator: WheelAppLifecycleCoordinator
+
+    override init() {
+        let viewModel = WheelAppViewModel(fixture: Self.requestedFixture)
+        self.viewModel = viewModel
+        lifecycleCoordinator = WheelAppLifecycleCoordinator(viewModel: viewModel)
+        super.init()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.accessory)
-    }
-}
-
-@main
-struct WheelApplication: App {
-    @NSApplicationDelegateAdaptor(WheelAppDelegate.self)
-    private var appDelegate
-
-    @StateObject private var viewModel: WheelAppViewModel
-
-    init() {
-        _viewModel = StateObject(
-            wrappedValue: WheelAppViewModel(fixture: Self.requestedFixture)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(workspaceDidWake(_:)),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
         )
+        lifecycleCoordinator.launch()
     }
 
-    var body: some Scene {
-        MenuBarExtra {
-            WheelMenuBarView(viewModel: viewModel)
-        } label: {
-            Label(
-                "Wheel — \(viewModel.status.rawValue)",
-                systemImage: viewModel.status.menuBarSymbolName
-            )
-            .labelStyle(.iconOnly)
-            .accessibilityLabel("Wheel: \(viewModel.status.rawValue)")
-        }
-        .menuBarExtraStyle(.window)
+    func applicationDidBecomeActive(_ notification: Notification) {
+        lifecycleCoordinator.applicationDidBecomeActive()
+    }
 
-        Window("Wheel", id: "dashboard") {
-            WheelDashboardView(viewModel: viewModel)
-        }
-        .defaultSize(width: 820, height: 580)
-        .windowResizability(.contentMinSize)
+    func applicationWillTerminate(_ notification: Notification) {
+        NSWorkspace.shared.notificationCenter.removeObserver(
+            self,
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
+        lifecycleCoordinator.terminate()
+    }
+
+    @objc
+    private func workspaceDidWake(_ notification: Notification) {
+        lifecycleCoordinator.systemDidWake()
     }
 
     private static var requestedFixture: WheelAppFixture? {
@@ -59,5 +62,26 @@ struct WheelApplication: App {
         }
 
         return WheelAppFixture(rawValue: arguments[valueIndex])
+    }
+}
+
+@main
+struct WheelApplication: App {
+    @NSApplicationDelegateAdaptor(WheelAppDelegate.self)
+    private var appDelegate
+
+    var body: some Scene {
+        MenuBarExtra {
+            WheelMenuBarView(viewModel: appDelegate.viewModel)
+        } label: {
+            WheelMenuBarLabel(viewModel: appDelegate.viewModel)
+        }
+        .menuBarExtraStyle(.window)
+
+        Window("Wheel", id: "dashboard") {
+            WheelDashboardView(viewModel: appDelegate.viewModel)
+        }
+        .defaultSize(width: 820, height: 580)
+        .windowResizability(.contentMinSize)
     }
 }
