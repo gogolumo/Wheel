@@ -8,11 +8,17 @@ struct WheelMenuBarLabel: View {
 
     var body: some View {
         Label(
-            "Wheel — \(viewModel.status.rawValue)",
-            systemImage: viewModel.status.menuBarSymbolName
+            "Wheel — \(displayedStatus)",
+            systemImage: viewModel.isGestureActive
+                ? "cursorarrow.motionlines"
+                : viewModel.status.menuBarSymbolName
         )
         .labelStyle(.iconOnly)
-        .accessibilityLabel("Wheel: \(viewModel.status.rawValue)")
+        .accessibilityLabel("Wheel: \(displayedStatus)")
+    }
+
+    private var displayedStatus: String {
+        viewModel.isGestureActive ? "Trigger Held" : viewModel.status.rawValue
     }
 }
 
@@ -58,7 +64,10 @@ struct WheelMenuBarView: View {
             }
 
             Spacer()
-            StatusPill(status: viewModel.status)
+            StatusPill(
+                status: viewModel.status,
+                isGestureActive: viewModel.isGestureActive
+            )
         }
         .padding(16)
     }
@@ -141,7 +150,10 @@ struct WheelDashboardView: View {
                 .listStyle(.sidebar)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    StatusPill(status: viewModel.status)
+                    StatusPill(
+                        status: viewModel.status,
+                        isGestureActive: viewModel.isGestureActive
+                    )
                     if viewModel.fixture != nil {
                         Label("Fixture preview", systemImage: "camera.viewfinder")
                             .font(.caption)
@@ -298,6 +310,26 @@ private struct GestureCard: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, compact ? 8 : 16)
 
+            HStack(spacing: 12) {
+                Label(
+                    "\(viewModel.matchingTriggerSignalCount) matching signals",
+                    systemImage: "waveform.path.ecg"
+                )
+                .monospacedDigit()
+
+                Spacer()
+
+                Text("Last edge \(formattedTriggerEdge)")
+                    .monospaced()
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                "Matching trigger signals: \(viewModel.matchingTriggerSignalCount), "
+                    + "last trigger edge: \(formattedTriggerEdge)"
+            )
+
             HStack {
                 Label(
                     viewModel.isGestureActive ? "Tracking movement" : statusLine,
@@ -353,6 +385,13 @@ private struct GestureCard: View {
             return "Last movement was ignored"
         }
         return "Last gesture: \(lastDirection.rawValue.uppercased())"
+    }
+
+    private var formattedTriggerEdge: String {
+        guard let isDown = viewModel.lastTriggerSignalIsDown else {
+            return "—"
+        }
+        return isDown ? "DOWN" : "UP"
     }
 }
 
@@ -723,15 +762,28 @@ private struct AboutWheelView: View {
 
 private struct StatusPill: View {
     let status: WheelAppStatus
+    let isGestureActive: Bool
 
     var body: some View {
-        Label(status.rawValue, systemImage: status.symbolName)
+        Label(displayedStatus, systemImage: displayedSymbolName)
             .font(.caption.weight(.semibold))
-            .foregroundStyle(status.tint)
+            .foregroundStyle(displayedTint)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Capsule().fill(status.tint.opacity(0.12)))
-            .accessibilityLabel("Wheel status: \(status.rawValue)")
+            .background(Capsule().fill(displayedTint.opacity(0.12)))
+            .accessibilityLabel("Wheel status: \(displayedStatus)")
+    }
+
+    private var displayedStatus: String {
+        isGestureActive ? "Trigger Held" : status.rawValue
+    }
+
+    private var displayedSymbolName: String {
+        isGestureActive ? "cursorarrow.motionlines" : status.symbolName
+    }
+
+    private var displayedTint: Color {
+        isGestureActive ? .indigo : status.tint
     }
 }
 

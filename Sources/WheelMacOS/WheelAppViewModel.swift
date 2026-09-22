@@ -73,6 +73,8 @@ public final class WheelAppViewModel: ObservableObject {
     @Published public private(set) var isGestureActive: Bool
     @Published public private(set) var lastDirection: Direction?
     @Published public private(set) var recognizedGestureCount: Int
+    @Published public private(set) var matchingTriggerSignalCount: Int
+    @Published public private(set) var lastTriggerSignalIsDown: Bool?
     @Published public private(set) var eventTapRecoveryCount: Int
     @Published public private(set) var notice: String?
     @Published public private(set) var errorMessage: String?
@@ -116,6 +118,8 @@ public final class WheelAppViewModel: ObservableObject {
         isGestureActive = false
         lastDirection = nil
         recognizedGestureCount = 0
+        matchingTriggerSignalCount = 0
+        lastTriggerSignalIsDown = nil
         eventTapRecoveryCount = 0
         notice = nil
         errorMessage = nil
@@ -326,8 +330,17 @@ public final class WheelAppViewModel: ObservableObject {
         guard generation == monitorGeneration, status == .ready else { return }
 
         switch event {
-        case .callbackObserved, .modifierSignal, .mouseButtonSignal, .pointerMoved:
+        case .callbackObserved, .pointerMoved:
             break
+
+        case let .modifierSignal(_, sampledDown, _):
+            matchingTriggerSignalCount += 1
+            lastTriggerSignalIsDown = sampledDown
+
+        case let .mouseButtonSignal(_, isDown, matchesConfiguredButton):
+            guard matchesConfiguredButton else { return }
+            matchingTriggerSignalCount += 1
+            lastTriggerSignalIsDown = isDown
 
         case .triggerBegan:
             guard !isGestureActive else { return }
@@ -349,6 +362,7 @@ public final class WheelAppViewModel: ObservableObject {
 
         case .eventTapRecovered:
             isGestureActive = false
+            lastTriggerSignalIsDown = nil
             eventTapRecoveryCount += 1
             notice = "Input monitoring recovered and cleared transient gesture state."
         }
@@ -360,6 +374,7 @@ public final class WheelAppViewModel: ObservableObject {
         monitor?.stop()
         monitor = nil
         isGestureActive = false
+        lastTriggerSignalIsDown = nil
     }
 
     private func applyFixtureIfNeeded() {
@@ -369,6 +384,8 @@ public final class WheelAppViewModel: ObservableObject {
         isGestureActive = false
         lastDirection = fixture == .ready ? .left : nil
         recognizedGestureCount = fixture == .ready ? 12 : 0
+        matchingTriggerSignalCount = fixture == .ready ? 2 : 0
+        lastTriggerSignalIsDown = fixture == .ready ? false : nil
         eventTapRecoveryCount = 0
 
         switch fixture {

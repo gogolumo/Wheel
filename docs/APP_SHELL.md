@@ -53,6 +53,13 @@ The interface shows the recognized direction and explicitly says that context
 restoration is not connected. Short or strongly vertical movement is reported as
 ignored rather than being forced into LEFT or RIGHT.
 
+The gesture card also shows a matching-signal count and the latest `DOWN` or `UP`
+edge. This makes a successful trigger observation visible even when the pointer
+movement is too short to become a gesture. While the trigger is held, both the
+menu-bar item and the in-app status pill say **Trigger Held** and use a distinct
+symbol. Recovery, pause, disable, configuration changes, and sleep/wake clear the
+edge so the interface never leaves a stale `DOWN` indication.
+
 The Input screen can change the trigger, minimum horizontal distance, and
 horizontal-dominance ratio. Changing calibration safely replaces the running
 monitor; queued callbacks from the previous monitor generation are ignored.

@@ -257,6 +257,71 @@ final class WheelAppViewModelTests: XCTestCase {
         await fulfillment(of: [feedbackUpdated], timeout: 1)
     }
 
+    func testMatchingTriggerSignalsExposeDownAndUpEdges() async {
+        let feedbackUpdated = expectation(description: "trigger edge feedback updated")
+
+        await MainActor.run {
+            let monitor = AppTestInputMonitor()
+            let viewModel = WheelAppViewModel(
+                permissionProvider: { true },
+                permissionRequester: { true },
+                monitorFactory: { _ in monitor }
+            )
+            viewModel.start()
+
+            monitor.emit(
+                .mouseButtonSignal(
+                    buttonNumber: 3,
+                    isDown: true,
+                    matchesConfiguredButton: false
+                )
+            )
+            monitor.emit(
+                .modifierSignal(keyCode: 61, sampledDown: true, alphaShiftEnabled: false)
+            )
+            monitor.emit(
+                .modifierSignal(keyCode: 61, sampledDown: false, alphaShiftEnabled: false)
+            )
+
+            DispatchQueue.main.async {
+                XCTAssertEqual(viewModel.matchingTriggerSignalCount, 2)
+                XCTAssertEqual(viewModel.lastTriggerSignalIsDown, false)
+                feedbackUpdated.fulfill()
+            }
+        }
+
+        await fulfillment(of: [feedbackUpdated], timeout: 1)
+    }
+
+    func testRecoveryClearsLastTriggerEdge() async {
+        let feedbackUpdated = expectation(description: "recovery feedback updated")
+
+        await MainActor.run {
+            let monitor = AppTestInputMonitor()
+            let viewModel = WheelAppViewModel(
+                permissionProvider: { true },
+                permissionRequester: { true },
+                monitorFactory: { _ in monitor }
+            )
+            viewModel.start()
+
+            monitor.emit(
+                .modifierSignal(keyCode: 61, sampledDown: true, alphaShiftEnabled: false)
+            )
+            monitor.emit(.eventTapRecovered)
+
+            DispatchQueue.main.async {
+                XCTAssertEqual(viewModel.matchingTriggerSignalCount, 1)
+                XCTAssertNil(viewModel.lastTriggerSignalIsDown)
+                XCTAssertEqual(viewModel.eventTapRecoveryCount, 1)
+                XCTAssertFalse(viewModel.isGestureActive)
+                feedbackUpdated.fulfill()
+            }
+        }
+
+        await fulfillment(of: [feedbackUpdated], timeout: 1)
+    }
+
     func testFixtureDoesNotConsultPermissionOrCreateMonitor() async {
         await MainActor.run {
             var permissionCheckCount = 0
@@ -282,6 +347,8 @@ final class WheelAppViewModelTests: XCTestCase {
             XCTAssertEqual(viewModel.status, .ready)
             XCTAssertEqual(viewModel.lastDirection, .left)
             XCTAssertEqual(viewModel.recognizedGestureCount, 12)
+            XCTAssertEqual(viewModel.matchingTriggerSignalCount, 2)
+            XCTAssertEqual(viewModel.lastTriggerSignalIsDown, false)
         }
     }
 }
