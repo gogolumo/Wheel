@@ -9,7 +9,9 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
     private let lifecycleCoordinator: WheelAppLifecycleCoordinator
 
     override init() {
-        let viewModel = WheelAppViewModel(fixture: Self.requestedFixture)
+        let viewModel = WheelAppViewModel(
+            fixture: WheelAppFixture.requested(from: CommandLine.arguments)
+        )
         self.viewModel = viewModel
         lifecycleCoordinator = WheelAppLifecycleCoordinator(viewModel: viewModel)
         super.init()
@@ -42,26 +44,6 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
     @objc
     private func workspaceDidWake(_ notification: Notification) {
         lifecycleCoordinator.systemDidWake()
-    }
-
-    private static var requestedFixture: WheelAppFixture? {
-        let arguments = CommandLine.arguments
-
-        if let fixtureArgument = arguments.first(where: { $0.hasPrefix("--fixture=") }) {
-            return WheelAppFixture(
-                rawValue: String(fixtureArgument.dropFirst("--fixture=".count))
-            )
-        }
-
-        guard let index = arguments.firstIndex(of: "--fixture") else {
-            return nil
-        }
-        let valueIndex = arguments.index(after: index)
-        guard arguments.indices.contains(valueIndex) else {
-            return nil
-        }
-
-        return WheelAppFixture(rawValue: arguments[valueIndex])
     }
 }
 

@@ -3,6 +3,29 @@ import WheelDomain
 @testable import WheelMacOS
 
 final class WheelAppViewModelTests: XCTestCase {
+    func testFixtureArgumentsSupportNamedAndEqualsForms() {
+        XCTAssertEqual(
+            WheelAppFixture.requested(
+                from: ["wheel-app", "--fixture", "trigger-held"]
+            ),
+            .triggerHeld
+        )
+        XCTAssertEqual(
+            WheelAppFixture.requested(
+                from: ["wheel-app", "--fixture=needs-permission"]
+            ),
+            .needsPermission
+        )
+        XCTAssertNil(
+            WheelAppFixture.requested(from: ["wheel-app", "--fixture"])
+        )
+        XCTAssertNil(
+            WheelAppFixture.requested(
+                from: ["wheel-app", "--fixture", "unknown"]
+            )
+        )
+    }
+
     func testMissingPermissionDoesNotCreateMonitor() async {
         await MainActor.run {
             var factoryCallCount = 0
@@ -349,6 +372,41 @@ final class WheelAppViewModelTests: XCTestCase {
             XCTAssertEqual(viewModel.recognizedGestureCount, 12)
             XCTAssertEqual(viewModel.matchingTriggerSignalCount, 2)
             XCTAssertEqual(viewModel.lastTriggerSignalIsDown, false)
+        }
+    }
+
+    func testTriggerHeldFixtureIsDeterministicAndSideEffectFree() async {
+        await MainActor.run {
+            var permissionCheckCount = 0
+            var factoryCallCount = 0
+            let viewModel = WheelAppViewModel(
+                permissionProvider: {
+                    permissionCheckCount += 1
+                    return false
+                },
+                permissionRequester: { false },
+                monitorFactory: { _ in
+                    factoryCallCount += 1
+                    return AppTestInputMonitor()
+                },
+                fixture: .triggerHeld
+            )
+
+            viewModel.start()
+            viewModel.refreshPermission()
+
+            XCTAssertEqual(permissionCheckCount, 0)
+            XCTAssertEqual(factoryCallCount, 0)
+            XCTAssertEqual(viewModel.status, .ready)
+            XCTAssertTrue(viewModel.isGestureActive)
+            XCTAssertNil(viewModel.lastDirection)
+            XCTAssertEqual(viewModel.recognizedGestureCount, 0)
+            XCTAssertEqual(viewModel.matchingTriggerSignalCount, 1)
+            XCTAssertEqual(viewModel.lastTriggerSignalIsDown, true)
+            XCTAssertEqual(
+                viewModel.notice,
+                "Gesture active — move left or right, then release."
+            )
         }
     }
 }

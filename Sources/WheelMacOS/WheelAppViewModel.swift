@@ -49,8 +49,27 @@ public enum WheelAppFixture: String, CaseIterable, Sendable {
     case disabled
     case needsPermission = "needs-permission"
     case ready
+    case triggerHeld = "trigger-held"
     case paused
     case error
+
+    public static func requested(from arguments: [String]) -> Self? {
+        if let fixtureArgument = arguments.first(where: { $0.hasPrefix("--fixture=") }) {
+            return Self(
+                rawValue: String(fixtureArgument.dropFirst("--fixture=".count))
+            )
+        }
+
+        guard let index = arguments.firstIndex(of: "--fixture") else {
+            return nil
+        }
+        let valueIndex = arguments.index(after: index)
+        guard arguments.indices.contains(valueIndex) else {
+            return nil
+        }
+
+        return Self(rawValue: arguments[valueIndex])
+    }
 }
 
 /// Runtime state for the first production-facing Wheel menu-bar shell.
@@ -382,10 +401,10 @@ public final class WheelAppViewModel: ObservableObject {
 
         hasStarted = false
         isGestureActive = false
-        lastDirection = fixture == .ready ? .left : nil
-        recognizedGestureCount = fixture == .ready ? 12 : 0
-        matchingTriggerSignalCount = fixture == .ready ? 2 : 0
-        lastTriggerSignalIsDown = fixture == .ready ? false : nil
+        lastDirection = nil
+        recognizedGestureCount = 0
+        matchingTriggerSignalCount = 0
+        lastTriggerSignalIsDown = nil
         eventTapRecoveryCount = 0
 
         switch fixture {
@@ -406,7 +425,20 @@ public final class WheelAppViewModel: ObservableObject {
             permissionGranted = true
             isPaused = false
             status = .ready
+            lastDirection = .left
+            recognizedGestureCount = 12
+            matchingTriggerSignalCount = 2
+            lastTriggerSignalIsDown = false
             notice = "LEFT recognized. Context restoration is not connected in this build yet."
+        case .triggerHeld:
+            isEnabled = true
+            permissionGranted = true
+            isPaused = false
+            isGestureActive = true
+            status = .ready
+            matchingTriggerSignalCount = 1
+            lastTriggerSignalIsDown = true
+            notice = "Gesture active — move left or right, then release."
         case .paused:
             isEnabled = true
             permissionGranted = true

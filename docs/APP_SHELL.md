@@ -60,6 +60,11 @@ menu-bar item and the in-app status pill say **Trigger Held** and use a distinct
 symbol. Recovery, pause, disable, configuration changes, and sleep/wake clear the
 edge so the interface never leaves a stale `DOWN` indication.
 
+Holding Right Option does not open a floating interface in APP-001. Trigger state
+is visible in the menu-bar item and in views the user has already opened. The
+delayed, nonactivating overlay is tracked separately as UI-001; adding it here
+would bypass its timing, focus, accessibility, and dependency gates.
+
 The Input screen can change the trigger, minimum horizontal distance, and
 horizontal-dominance ratio. Changing calibration safely replaces the running
 monitor; queued callbacks from the previous monitor generation are ignored.
@@ -86,12 +91,15 @@ native event tap. They are intended for visual review and future screenshot test
 swift run wheel-app --fixture disabled
 swift run wheel-app --fixture needs-permission
 swift run wheel-app --fixture ready
+swift run wheel-app --fixture trigger-held
 swift run wheel-app --fixture paused
 swift run wheel-app --fixture error
 ```
 
-The equivalent `--fixture=ready` form is also accepted. Controls are disabled in
-fixture mode so visual review cannot accidentally start global monitoring.
+The `trigger-held` fixture renders one matching `DOWN` edge and the active gesture
+state without opening an event tap. The equivalent `--fixture=ready` form is also
+accepted. Controls are disabled in fixture mode so visual review cannot
+accidentally start global monitoring.
 
 ## Current limitation
 
