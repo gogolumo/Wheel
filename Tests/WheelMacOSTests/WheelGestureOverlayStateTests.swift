@@ -266,7 +266,9 @@ final class WheelGestureOverlayStateTests: XCTestCase {
     func testDirectionOverlayFixturesExposeMatchingResultState() async {
         await MainActor.run {
             let right = WheelAppViewModel(overlayFixture: .right)
-            let none = WheelAppViewModel(overlayFixture: .none)
+            let none = WheelAppViewModel(
+                overlayFixture: WheelGestureOverlayFixture.none
+            )
 
             XCTAssertEqual(right.overlayState, .resultRight)
             XCTAssertEqual(right.lastDirection, .right)
@@ -274,7 +276,7 @@ final class WheelGestureOverlayStateTests: XCTestCase {
             XCTAssertFalse(right.isGestureActive)
 
             XCTAssertEqual(none.overlayState, .resultNone)
-            XCTAssertEqual(none.lastDirection, .none)
+            XCTAssertEqual(none.lastDirection, Direction.none)
             XCTAssertEqual(none.recognizedGestureCount, 0)
             XCTAssertFalse(none.isGestureActive)
         }
@@ -331,8 +333,10 @@ private struct OverlayHarness: @unchecked Sendable {
 
     @MainActor
     init(permission: PermissionBox) {
-        monitor = OverlayTestInputMonitor()
-        scheduler = ManualOverlayDismissScheduler()
+        let monitor = OverlayTestInputMonitor()
+        let scheduler = ManualOverlayDismissScheduler()
+        self.monitor = monitor
+        self.scheduler = scheduler
         viewModel = WheelAppViewModel(
             permissionProvider: { permission.granted },
             permissionRequester: { permission.granted },

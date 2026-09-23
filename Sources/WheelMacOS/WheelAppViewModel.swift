@@ -508,7 +508,7 @@ public final class WheelAppViewModel: ObservableObject {
             recognizedGestureCount = 1
             notice = "RIGHT recognized. Context restoration is not connected in this build yet."
         case .none:
-            lastDirection = .none
+            lastDirection = Direction.none
             recognizedGestureCount = 0
             notice = "Movement was too short or not horizontal enough."
         }

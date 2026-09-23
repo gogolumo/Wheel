@@ -103,7 +103,7 @@ public final class WheelGestureOverlayPanelController {
     }
 
     static func frame(
-        panelSize: NSSize = WheelGestureOverlayPanelController.panelSize,
+        panelSize: NSSize,
         in visibleFrame: NSRect
     ) -> NSRect {
         NSRect(
@@ -129,7 +129,10 @@ public final class WheelGestureOverlayPanelController {
         }
 
         if let screen = screenProvider() {
-            panel.setFrame(Self.frame(in: screen.visibleFrame), display: false)
+            panel.setFrame(
+                Self.frame(panelSize: Self.panelSize, in: screen.visibleFrame),
+                display: false
+            )
         }
 
         guard !panel.isVisible else {
