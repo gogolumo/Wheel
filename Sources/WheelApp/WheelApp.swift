@@ -7,11 +7,17 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
     let viewModel: WheelAppViewModel
 
     private let lifecycleCoordinator: WheelAppLifecycleCoordinator
-    private var gestureHUDController: WheelGestureHUDController?
+    private var overlayController: WheelGestureOverlayPanelController?
 
     override init() {
+        let overlayFixture = WheelGestureOverlayFixture.requested(
+            from: CommandLine.arguments
+        )
         let viewModel = WheelAppViewModel(
-            fixture: WheelAppFixture.requested(from: CommandLine.arguments)
+            fixture: overlayFixture == nil
+                ? WheelAppFixture.requested(from: CommandLine.arguments)
+                : .ready,
+            overlayFixture: overlayFixture
         )
         self.viewModel = viewModel
         lifecycleCoordinator = WheelAppLifecycleCoordinator(viewModel: viewModel)
@@ -20,6 +26,15 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.accessory)
+        let overlayView = NSHostingView(
+            rootView: WheelGestureOverlayView(viewModel: viewModel)
+        )
+        let overlayController = WheelGestureOverlayPanelController(
+            viewModel: viewModel,
+            contentView: overlayView
+        )
+        self.overlayController = overlayController
+        overlayController.start()
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(workspaceDidWake(_:)),
@@ -27,7 +42,6 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
         lifecycleCoordinator.launch()
-        gestureHUDController = WheelGestureHUDController(viewModel: viewModel)
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -41,8 +55,8 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
         lifecycleCoordinator.terminate()
-        gestureHUDController?.hide()
-        gestureHUDController = nil
+        overlayController?.shutdown()
+        overlayController = nil
     }
 
     @objc

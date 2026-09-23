@@ -8,6 +8,8 @@ The shell is intentionally honest about the current product boundary:
 - global gesture input is live and listen-only;
 - Input Monitoring onboarding and recovery are implemented;
 - pause, disable, wake recovery, and input calibration are implemented;
+- a click-through nonactivating HUD confirms trigger and gesture results over
+  the current application;
 - one app-level lifecycle coordinator owns launch, activation, wake, and shutdown;
 - context capture and restoration are visible as **not connected**;
 - recognizing LEFT or RIGHT does not mutate history or claim navigation success.
@@ -60,15 +62,16 @@ menu-bar item and the in-app status pill say **Trigger Held** and use a distinct
 symbol. Recovery, pause, disable, configuration changes, and sleep/wake clear the
 edge so the interface never leaves a stale `DOWN` indication.
 
-Holding Right Option also presents a compact gesture HUD above the current
-application. It is a borderless nonactivating panel: it does not become key,
-accept mouse input, or move focus away from Finder, Chrome, VS Code, or another
-frontmost app. Releasing the trigger, pausing, disabling, changing configuration,
-recovering the event tap, or waking the Mac hides it.
+The same trigger begin immediately presents a compact HUD over the current app.
+The HUD is a single borderless nonactivating `NSPanel`: it cannot become key or
+main, ignores mouse events, joins every Space, and is allowed alongside full-screen
+apps. Releasing the trigger shows LEFT, RIGHT, or No movement for half a second
+before the HUD dismisses. This feedback does not claim that navigation occurred;
+context restoration is still disconnected.
 
-This APP-001 HUD exposes held-state feedback only. UI-001 still owns the later
-direction-selection overlay, timing/delay policy, animation, and navigation
-feedback after the remaining gesture/input dependencies are complete.
+Pause, disable, permission loss, event-tap recovery, configuration replacement,
+sleep/wake, and termination all dismiss the HUD immediately. Delayed dismissal is
+generation-guarded so an old gesture cannot hide a newer one.
 
 The Input screen can change the trigger, minimum horizontal distance, and
 horizontal-dominance ratio. Changing calibration safely replaces the running
@@ -105,6 +108,27 @@ The `trigger-held` fixture renders one matching `DOWN` edge and the active gestu
 state, including the floating HUD, without opening an event tap. The equivalent
 `--fixture=ready` form is also accepted. Controls are disabled in fixture mode
 so visual review cannot accidentally start global monitoring.
+
+Overlay fixtures render the production HUD without checking permission or creating
+an event tap:
+
+```bash
+swift run wheel-app --overlay-fixture held
+swift run wheel-app --overlay-fixture left
+swift run wheel-app --overlay-fixture right
+swift run wheel-app --overlay-fixture none
+```
+
+The equivalent `--overlay-fixture=<state>` form is also accepted. Quit the fixture
+from the menu-bar item or with Control-C when launched through `swift run`.
+
+## Physical overlay check
+
+Run the real app, confirm **Ready**, and check Right Option DOWN / LEFT / RIGHT /
+NONE from Finder, Chrome, and VS Code. Repeat once in a full-screen Space and, if
+available, on a second display. The source application must remain frontmost and
+an active text field must continue accepting input after the gesture. Left Option
+must not present the HUD while Right Option is configured.
 
 ## Current limitation
 

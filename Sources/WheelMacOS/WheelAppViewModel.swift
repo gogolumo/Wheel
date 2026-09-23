@@ -98,15 +98,23 @@ public final class WheelAppViewModel: ObservableObject {
     @Published public private(set) var notice: String?
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var configuration: WheelAppConfiguration
+    @Published public private(set) var overlayState: WheelGestureOverlayState
+    /// Last visible payload, retained while the panel fades after becoming hidden.
+    @Published public private(set) var overlayContentState: WheelGestureOverlayState
 
     public let fixture: WheelAppFixture?
+    public let overlayFixture: WheelGestureOverlayFixture?
 
     private let permissionProvider: PermissionProvider
     private let permissionRequester: PermissionRequester
     private let monitorFactory: MonitorFactory
+    private let overlayResultDuration: TimeInterval
+    private let overlayDismissScheduler: WheelOverlayDismissScheduler
     private var monitor: (any InputEventMonitoring)?
     private var monitorGeneration = 0
     private var hasStarted = false
+    private var overlayGeneration = 0
+    private var overlayDismissAction: WheelOverlayScheduledAction?
 
     public init(
         configuration: WheelAppConfiguration = .init(),
@@ -120,18 +128,27 @@ public final class WheelAppViewModel: ObservableObject {
         monitorFactory: @escaping MonitorFactory = {
             GlobalInputMonitor(configuration: $0)
         },
-        fixture: WheelAppFixture? = nil
+        fixture: WheelAppFixture? = nil,
+        overlayFixture: WheelGestureOverlayFixture? = nil,
+        overlayResultDuration: TimeInterval = 0.5,
+        overlayDismissScheduler: WheelOverlayDismissScheduler = .mainQueue
     ) {
+        precondition(overlayResultDuration >= 0)
+
+        let effectiveFixture = fixture ?? (overlayFixture == nil ? nil : .ready)
         self.configuration = configuration
         self.isEnabled = isEnabled
         self.permissionProvider = permissionProvider
         self.permissionRequester = permissionRequester
         self.monitorFactory = monitorFactory
-        self.fixture = fixture
+        self.fixture = effectiveFixture
+        self.overlayFixture = overlayFixture
+        self.overlayResultDuration = overlayResultDuration
+        self.overlayDismissScheduler = overlayDismissScheduler
 
-        let granted = fixture == nil
+        let granted = effectiveFixture == nil
             ? permissionProvider()
-            : fixture != .needsPermission
+            : effectiveFixture != .needsPermission
         permissionGranted = granted
         isPaused = false
         isGestureActive = false
@@ -142,6 +159,8 @@ public final class WheelAppViewModel: ObservableObject {
         eventTapRecoveryCount = 0
         notice = nil
         errorMessage = nil
+        overlayState = .hidden
+        overlayContentState = .hidden
         status = isEnabled
             ? (granted ? .starting : .needsPermission)
             : .disabled
@@ -364,12 +383,14 @@ public final class WheelAppViewModel: ObservableObject {
         case .triggerBegan:
             guard !isGestureActive else { return }
             isGestureActive = true
+            presentOverlay(.triggerHeld)
             notice = "Gesture active — move left or right, then release."
 
         case let .triggerEnded(direction, _, _):
             guard isGestureActive else { return }
             isGestureActive = false
             lastDirection = direction
+            presentOverlayResult(direction)
 
             if direction == .none {
                 notice = "Movement was too short or not horizontal enough."
@@ -382,6 +403,7 @@ public final class WheelAppViewModel: ObservableObject {
         case .eventTapRecovered:
             isGestureActive = false
             lastTriggerSignalIsDown = nil
+            hideOverlay()
             eventTapRecoveryCount += 1
             notice = "Input monitoring recovered and cleared transient gesture state."
         }
@@ -394,12 +416,15 @@ public final class WheelAppViewModel: ObservableObject {
         monitor = nil
         isGestureActive = false
         lastTriggerSignalIsDown = nil
+        hideOverlay()
     }
 
     private func applyFixtureIfNeeded() {
         guard let fixture else { return }
 
         hasStarted = false
+        overlayState = .hidden
+        overlayContentState = .hidden
         isGestureActive = false
         lastDirection = nil
         recognizedGestureCount = 0
@@ -435,6 +460,8 @@ public final class WheelAppViewModel: ObservableObject {
             permissionGranted = true
             isPaused = false
             isGestureActive = true
+            overlayState = .triggerHeld
+            overlayContentState = .triggerHeld
             status = .ready
             matchingTriggerSignalCount = 1
             lastTriggerSignalIsDown = true
@@ -453,5 +480,75 @@ public final class WheelAppViewModel: ObservableObject {
             errorMessage = "macOS could not create the listen-only event tap."
             notice = nil
         }
+
+        applyOverlayFixtureIfNeeded()
+    }
+
+    private func applyOverlayFixtureIfNeeded() {
+        guard let overlayFixture else { return }
+
+        status = .ready
+        overlayState = overlayFixture.state
+        overlayContentState = overlayFixture.state
+        isGestureActive = overlayFixture == .held
+        matchingTriggerSignalCount = overlayFixture == .held ? 1 : 2
+        lastTriggerSignalIsDown = overlayFixture == .held
+
+        switch overlayFixture {
+        case .held:
+            lastDirection = nil
+            recognizedGestureCount = 0
+            notice = "Gesture active — move left or right, then release."
+        case .left:
+            lastDirection = .left
+            recognizedGestureCount = 1
+            notice = "LEFT recognized. Context restoration is not connected in this build yet."
+        case .right:
+            lastDirection = .right
+            recognizedGestureCount = 1
+            notice = "RIGHT recognized. Context restoration is not connected in this build yet."
+        case .none:
+            lastDirection = .none
+            recognizedGestureCount = 0
+            notice = "Movement was too short or not horizontal enough."
+        }
+    }
+
+    private func presentOverlay(_ state: WheelGestureOverlayState) {
+        overlayDismissAction?.cancel()
+        overlayDismissAction = nil
+        overlayGeneration += 1
+        overlayContentState = state
+        overlayState = state
+    }
+
+    private func presentOverlayResult(_ direction: Direction) {
+        let resultState: WheelGestureOverlayState
+        switch direction {
+        case .left:
+            resultState = .resultLeft
+        case .right:
+            resultState = .resultRight
+        case .none:
+            resultState = .resultNone
+        }
+
+        presentOverlay(resultState)
+        let generation = overlayGeneration
+        overlayDismissAction = overlayDismissScheduler.schedule(
+            after: overlayResultDuration
+        ) { [weak self] in
+            guard let self, self.overlayGeneration == generation else { return }
+
+            self.overlayDismissAction = nil
+            self.overlayState = .hidden
+        }
+    }
+
+    private func hideOverlay() {
+        overlayDismissAction?.cancel()
+        overlayDismissAction = nil
+        overlayGeneration += 1
+        overlayState = .hidden
     }
 }
