@@ -52,7 +52,6 @@ public final class WheelGestureOverlayPanelController {
             backing: .buffered,
             defer: false
         )
-        panel.level = .statusBar
         panel.collectionBehavior = [
             .canJoinAllSpaces,
             .fullScreenAuxiliary,
@@ -64,6 +63,7 @@ public final class WheelGestureOverlayPanelController {
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
         panel.isFloatingPanel = true
+        panel.level = .statusBar
         panel.becomesKeyOnlyIfNeeded = true
         panel.ignoresMouseEvents = true
         panel.isMovable = false
