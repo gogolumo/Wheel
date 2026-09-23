@@ -2,8 +2,8 @@ import Foundation
 
 public enum GestureSessionEvent: Equatable, Sendable {
     case start(id: UUID, triggerType: TriggerType)
-    case complete(Direction)
-    case cancel
+    case complete(id: UUID, direction: Direction)
+    case cancel(id: UUID)
 }
 
 public struct GestureSessionReducer: Equatable, Sendable {
@@ -21,14 +21,14 @@ public struct GestureSessionReducer: Equatable, Sendable {
             activeSession = GestureSession(id: id, triggerType: triggerType)
             return true
 
-        case let .complete(direction):
-            guard var session = activeSession else { return false }
+        case let .complete(id, direction):
+            guard var session = activeSession, session.id == id else { return false }
             guard session.complete(direction: direction) else { return false }
             activeSession = nil
             return true
 
-        case .cancel:
-            guard var session = activeSession else { return false }
+        case let .cancel(id):
+            guard var session = activeSession, session.id == id else { return false }
             guard session.cancel() else { return false }
             activeSession = nil
             return true
