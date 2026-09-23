@@ -60,10 +60,15 @@ menu-bar item and the in-app status pill say **Trigger Held** and use a distinct
 symbol. Recovery, pause, disable, configuration changes, and sleep/wake clear the
 edge so the interface never leaves a stale `DOWN` indication.
 
-Holding Right Option does not open a floating interface in APP-001. Trigger state
-is visible in the menu-bar item and in views the user has already opened. The
-delayed, nonactivating overlay is tracked separately as UI-001; adding it here
-would bypass its timing, focus, accessibility, and dependency gates.
+Holding Right Option also presents a compact gesture HUD above the current
+application. It is a borderless nonactivating panel: it does not become key,
+accept mouse input, or move focus away from Finder, Chrome, VS Code, or another
+frontmost app. Releasing the trigger, pausing, disabling, changing configuration,
+recovering the event tap, or waking the Mac hides it.
+
+This APP-001 HUD exposes held-state feedback only. UI-001 still owns the later
+direction-selection overlay, timing/delay policy, animation, and navigation
+feedback after the remaining gesture/input dependencies are complete.
 
 The Input screen can change the trigger, minimum horizontal distance, and
 horizontal-dominance ratio. Changing calibration safely replaces the running
@@ -97,9 +102,9 @@ swift run wheel-app --fixture error
 ```
 
 The `trigger-held` fixture renders one matching `DOWN` edge and the active gesture
-state without opening an event tap. The equivalent `--fixture=ready` form is also
-accepted. Controls are disabled in fixture mode so visual review cannot
-accidentally start global monitoring.
+state, including the floating HUD, without opening an event tap. The equivalent
+`--fixture=ready` form is also accepted. Controls are disabled in fixture mode
+so visual review cannot accidentally start global monitoring.
 
 ## Current limitation
 

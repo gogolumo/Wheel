@@ -7,6 +7,7 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
     let viewModel: WheelAppViewModel
 
     private let lifecycleCoordinator: WheelAppLifecycleCoordinator
+    private var gestureHUDController: WheelGestureHUDController?
 
     override init() {
         let viewModel = WheelAppViewModel(
@@ -26,6 +27,7 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
         lifecycleCoordinator.launch()
+        gestureHUDController = WheelGestureHUDController(viewModel: viewModel)
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
@@ -39,6 +41,8 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
         lifecycleCoordinator.terminate()
+        gestureHUDController?.hide()
+        gestureHUDController = nil
     }
 
     @objc
