@@ -15,21 +15,23 @@ final class GestureSessionReducerTests: XCTestCase {
     }
 
     func testTerminalEventClosesSessionAndDuplicateTerminalIsIgnored() {
+        let id = UUID()
         var reducer = GestureSessionReducer()
 
-        XCTAssertTrue(reducer.reduce(.start(id: UUID(), triggerType: .rightOption)))
-        XCTAssertTrue(reducer.reduce(.complete(.left)))
+        XCTAssertTrue(reducer.reduce(.start(id: id, triggerType: .rightOption)))
+        XCTAssertTrue(reducer.reduce(.complete(id: id, direction: .left)))
         XCTAssertNil(reducer.activeSession)
-        XCTAssertFalse(reducer.reduce(.complete(.right)))
-        XCTAssertFalse(reducer.reduce(.cancel))
+        XCTAssertFalse(reducer.reduce(.complete(id: id, direction: .right)))
+        XCTAssertFalse(reducer.reduce(.cancel(id: id)))
     }
 
     func testCancelReturnsReducerToIdleAndAllowsNextSession() {
+        let firstID = UUID()
         let nextID = UUID()
         var reducer = GestureSessionReducer()
 
-        XCTAssertTrue(reducer.reduce(.start(id: UUID(), triggerType: .capsLock)))
-        XCTAssertTrue(reducer.reduce(.cancel))
+        XCTAssertTrue(reducer.reduce(.start(id: firstID, triggerType: .capsLock)))
+        XCTAssertTrue(reducer.reduce(.cancel(id: firstID)))
         XCTAssertNil(reducer.activeSession)
 
         XCTAssertTrue(reducer.reduce(.start(id: nextID, triggerType: .rightOption)))
@@ -37,11 +39,27 @@ final class GestureSessionReducerTests: XCTestCase {
     }
 
     func testTerminalEventsAreIgnoredWhileIdle() {
+        let id = UUID()
         var reducer = GestureSessionReducer()
 
-        XCTAssertFalse(reducer.reduce(.complete(.left)))
-        XCTAssertFalse(reducer.reduce(.cancel))
+        XCTAssertFalse(reducer.reduce(.complete(id: id, direction: .left)))
+        XCTAssertFalse(reducer.reduce(.cancel(id: id)))
         XCTAssertNil(reducer.activeSession)
+    }
+
+    func testStaleTerminalCallbacksCannotCloseNewSession() {
+        let firstID = UUID()
+        let secondID = UUID()
+        var reducer = GestureSessionReducer()
+
+        XCTAssertTrue(reducer.reduce(.start(id: firstID, triggerType: .capsLock)))
+        XCTAssertTrue(reducer.reduce(.complete(id: firstID, direction: .left)))
+        XCTAssertTrue(reducer.reduce(.start(id: secondID, triggerType: .rightOption)))
+
+        XCTAssertFalse(reducer.reduce(.complete(id: firstID, direction: .right)))
+        XCTAssertFalse(reducer.reduce(.cancel(id: firstID)))
+        XCTAssertEqual(reducer.activeSession?.id, secondID)
+        XCTAssertEqual(reducer.activeSession?.status, .tracking)
     }
 
     func testSeededEventSequencesNeverCreateOverlappingSessions() {
@@ -52,6 +70,7 @@ final class GestureSessionReducerTests: XCTestCase {
             var acceptedTerminals = 0
 
             for step in 0..<256 {
+                let activeID = reducer.activeSession?.id
                 let event: GestureSessionEvent
                 switch generator.next() % 5 {
                 case 0:
@@ -59,13 +78,13 @@ final class GestureSessionReducerTests: XCTestCase {
                     let trigger: TriggerType = generator.next() & 1 == 0 ? .capsLock : .rightOption
                     event = .start(id: id, triggerType: trigger)
                 case 1:
-                    event = .complete(.left)
+                    event = .complete(id: activeID ?? UUID(), direction: .left)
                 case 2:
-                    event = .complete(.right)
+                    event = .complete(id: activeID ?? UUID(), direction: .right)
                 case 3:
-                    event = .complete(.none)
+                    event = .complete(id: activeID ?? UUID(), direction: .none)
                 default:
-                    event = .cancel
+                    event = .cancel(id: activeID ?? UUID())
                 }
 
                 let wasTracking = reducer.activeSession != nil
