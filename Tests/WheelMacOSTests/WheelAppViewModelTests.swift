@@ -108,7 +108,7 @@ final class WheelAppViewModelTests: XCTestCase {
         }
     }
 
-    func testRecognizedGestureUpdatesFeedbackWithoutClaimingNavigation() async {
+    func testRecognizedGestureWithoutCapturedAppsExplainsMissingHistory() async {
         let feedbackUpdated = expectation(description: "gesture feedback updated")
 
         await MainActor.run {
@@ -134,8 +134,9 @@ final class WheelAppViewModelTests: XCTestCase {
                 XCTAssertEqual(viewModel.lastDirection, .left)
                 XCTAssertEqual(viewModel.recognizedGestureCount, 1)
                 XCTAssertEqual(viewModel.status, .ready)
-                XCTAssertTrue(
-                    viewModel.notice?.contains("restoration is not connected") == true
+                XCTAssertEqual(
+                    viewModel.notice,
+                    "No previous applications are available yet."
                 )
                 feedbackUpdated.fulfill()
             }
@@ -405,7 +406,7 @@ final class WheelAppViewModelTests: XCTestCase {
             XCTAssertEqual(viewModel.lastTriggerSignalIsDown, true)
             XCTAssertEqual(
                 viewModel.notice,
-                "Gesture active — move left or right, then release."
+                "Gesture active — move toward an application and release."
             )
         }
     }
