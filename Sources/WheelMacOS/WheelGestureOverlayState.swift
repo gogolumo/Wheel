@@ -5,6 +5,7 @@ public enum WheelGestureOverlayState: Equatable, Sendable {
     case triggerHeld
     case resultLeft
     case resultRight
+    case resultSelection
     case resultNone
 
     public var isVisible: Bool {
