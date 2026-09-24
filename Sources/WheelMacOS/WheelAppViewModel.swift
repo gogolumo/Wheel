@@ -575,6 +575,9 @@ public final class WheelAppViewModel: ObservableObject {
             } else {
                 selectedApplicationIndex = nil
                 lastApplicationAction = nil
+                if direction != .none {
+                    recognizedGestureCount += 1
+                }
                 if wasOverlayPresented {
                     presentOverlayResult(direction)
                 } else {
