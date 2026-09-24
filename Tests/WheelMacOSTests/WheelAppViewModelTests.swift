@@ -272,7 +272,7 @@ final class WheelAppViewModelTests: XCTestCase {
                 XCTAssertEqual(viewModel.recognizedGestureCount, 0)
                 XCTAssertEqual(
                     viewModel.notice,
-                    "Movement was too short or not horizontal enough."
+                    "No previous applications are available yet."
                 )
                 feedbackUpdated.fulfill()
             }
