@@ -101,12 +101,11 @@ public final class WheelApplicationHistoryStore: ObservableObject {
         if currentIdentifier == identifier, let index = entries.firstIndex(
             where: { $0.stableIdentifier == identifier }
         ) {
-            entries[index].localizedName = observation.localizedName
-            entries[index].bundleIdentifier = observation.bundleIdentifier
-            entries[index].applicationURL = observation.applicationURL
-            entries[index].lastActivatedAt = date
-            entries[index].runState = .running
-            entries[index].terminatedAt = nil
+            refreshEntry(
+                at: index,
+                with: observation,
+                activatedAt: date
+            )
             persist()
             return
         }
@@ -120,16 +119,29 @@ public final class WheelApplicationHistoryStore: ObservableObject {
         )
         currentIdentifier = identifier
 
-        if entries.count > capacity {
-            entries.removeLast(entries.count - capacity)
+        markMatchingEntriesRunning(identifier: identifier)
+        trim(to: capacity, persistAfterChange: false)
+        persist()
+    }
+
+    /// Updates Wheel's current pointer after a Wheel-initiated restoration without
+    /// appending a second history transition.
+    public func recordRestoredActivation(
+        _ observation: WheelObservedApplication,
+        at date: Date = Date()
+    ) {
+        let identifier = observation.stableIdentifier
+        currentIdentifier = identifier
+
+        for index in entries.indices where entries[index].stableIdentifier == identifier {
+            refreshEntry(
+                at: index,
+                with: observation,
+                activatedAt: date
+            )
         }
 
-        markMatchingEntries(
-            identifier: identifier,
-            state: .running,
-            terminatedAt: nil,
-            keepingNewestActivation: true
-        )
+        markMatchingEntriesRunning(identifier: identifier)
         persist()
     }
 
@@ -192,6 +204,10 @@ public final class WheelApplicationHistoryStore: ObservableObject {
         }
     }
 
+    public func trim(to capacity: Int) {
+        trim(to: capacity, persistAfterChange: true)
+    }
+
     public func wheelEntries(limit: Int) -> [WheelApplicationContext] {
         guard limit > 0 else { return [] }
 
@@ -214,19 +230,36 @@ public final class WheelApplicationHistoryStore: ObservableObject {
         return result
     }
 
-    private func markMatchingEntries(
-        identifier: String,
-        state: WheelApplicationRunState,
-        terminatedAt: Date?,
-        keepingNewestActivation: Bool
+    private func refreshEntry(
+        at index: Int,
+        with observation: WheelObservedApplication,
+        activatedAt date: Date
     ) {
-        var skippedNewest = false
+        entries[index].localizedName = observation.localizedName
+        entries[index].bundleIdentifier = observation.bundleIdentifier
+        entries[index].applicationURL = observation.applicationURL
+        entries[index].lastActivatedAt = date
+        entries[index].runState = .running
+        entries[index].terminatedAt = nil
+    }
+
+    private func markMatchingEntriesRunning(identifier: String) {
         for index in entries.indices where entries[index].stableIdentifier == identifier {
-            if keepingNewestActivation && !skippedNewest {
-                skippedNewest = true
-            }
-            entries[index].runState = state
-            entries[index].terminatedAt = terminatedAt
+            entries[index].runState = .running
+            entries[index].terminatedAt = nil
+        }
+    }
+
+    private func trim(
+        to capacity: Int,
+        persistAfterChange: Bool
+    ) {
+        let capacity = max(1, capacity)
+        guard entries.count > capacity else { return }
+
+        entries.removeLast(entries.count - capacity)
+        if persistAfterChange {
+            persist()
         }
     }
 
