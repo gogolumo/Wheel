@@ -14,7 +14,7 @@ private final class WheelNonactivatingOverlayPanel: NSPanel {
 /// pointer coordinates.
 @MainActor
 public final class WheelGestureOverlayPanelController {
-    public typealias ScreenProvider = () -> NSScreen?
+    public typealias VisibleFrameProvider = () -> NSRect?
 
     public static let panelSize = NSSize(width: 404, height: 160)
 
@@ -22,8 +22,10 @@ public final class WheelGestureOverlayPanelController {
     public private(set) var isObserving = false
 
     private let viewModel: WheelAppViewModel
-    private let screenProvider: ScreenProvider
+    private let visibleFrameProvider: VisibleFrameProvider
+    private let notificationCenter: NotificationCenter
     private var overlayStateCancellable: AnyCancellable?
+    private var screenParametersCancellable: AnyCancellable?
     private var animationGeneration = 0
     private var hasShutdown = false
 
@@ -34,17 +36,20 @@ public final class WheelGestureOverlayPanelController {
         self.init(
             viewModel: viewModel,
             contentView: contentView,
-            screenProvider: Self.defaultScreen
+            visibleFrameProvider: Self.defaultVisibleFrame,
+            notificationCenter: .default
         )
     }
 
     public init(
         viewModel: WheelAppViewModel,
         contentView: NSView,
-        screenProvider: @escaping ScreenProvider
+        visibleFrameProvider: @escaping VisibleFrameProvider,
+        notificationCenter: NotificationCenter = .default
     ) {
         self.viewModel = viewModel
-        self.screenProvider = screenProvider
+        self.visibleFrameProvider = visibleFrameProvider
+        self.notificationCenter = notificationCenter
 
         let panel = WheelNonactivatingOverlayPanel(
             contentRect: NSRect(origin: .zero, size: Self.panelSize),
@@ -87,6 +92,13 @@ public final class WheelGestureOverlayPanelController {
             .sink { [weak self] state in
                 self?.apply(state)
             }
+        screenParametersCancellable = notificationCenter.publisher(
+            for: NSApplication.didChangeScreenParametersNotification
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.repositionVisiblePanel()
+        }
     }
 
     public func shutdown() {
@@ -96,6 +108,8 @@ public final class WheelGestureOverlayPanelController {
         isObserving = false
         overlayStateCancellable?.cancel()
         overlayStateCancellable = nil
+        screenParametersCancellable?.cancel()
+        screenParametersCancellable = nil
         animationGeneration += 1
         panel.alphaValue = 0
         panel.orderOut(nil)
@@ -128,12 +142,7 @@ public final class WheelGestureOverlayPanelController {
             return
         }
 
-        if let screen = screenProvider() {
-            panel.setFrame(
-                Self.frame(panelSize: Self.panelSize, in: screen.visibleFrame),
-                display: false
-            )
-        }
+        repositionPanel()
 
         guard !panel.isVisible else {
             panel.alphaValue = 1
@@ -178,7 +187,22 @@ public final class WheelGestureOverlayPanelController {
         }
     }
 
-    private static func defaultScreen() -> NSScreen? {
-        NSScreen.main ?? NSScreen.screens.first
+    private func repositionVisiblePanel() {
+        guard panel.isVisible else { return }
+
+        repositionPanel()
+    }
+
+    private func repositionPanel() {
+        guard let visibleFrame = visibleFrameProvider() else { return }
+
+        panel.setFrame(
+            Self.frame(panelSize: Self.panelSize, in: visibleFrame),
+            display: false
+        )
+    }
+
+    private static func defaultVisibleFrame() -> NSRect? {
+        (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame
     }
 }

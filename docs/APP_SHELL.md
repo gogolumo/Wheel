@@ -71,8 +71,11 @@ second before the HUD dismisses. This feedback does not claim that navigation
 occurred; context restoration is still disconnected.
 
 HUD placement uses the system's main-screen selection and never reads pointer
-coordinates. A second-display placement policy remains deliberately unclaimed
-until it can be validated without weakening Wheel's privacy boundary.
+coordinates. If the display arrangement changes while the HUD is visible, the
+same panel is recentered inside the newly selected screen's visible frame. The
+screen-change observer is removed during shutdown. A second-display placement
+policy remains deliberately unclaimed until it can be validated without
+weakening Wheel's privacy boundary.
 
 Pause, disable, permission loss, event-tap recovery, configuration replacement,
 sleep/wake, and termination cancel a pending presentation and dismiss a visible
