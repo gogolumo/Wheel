@@ -114,11 +114,11 @@ final class WheelApplicationNavigationTests: XCTestCase {
             pid: 11
         )
 
-        await MainActor.run {
+        let countBeforeRestore = await MainActor.run { () -> Int in
             harness.viewModel.start()
             harness.applicationMonitor.emitActivated(safari)
             harness.applicationMonitor.emitActivated(finder)
-            let countBeforeRestore = harness.historyStore.entries.count
+            let count = harness.historyStore.entries.count
 
             harness.inputMonitor.emit(
                 .triggerBegan(origin: .init(x: 0, y: 0))
@@ -130,6 +130,13 @@ final class WheelApplicationNavigationTests: XCTestCase {
                     duration: 0.2
                 )
             )
+            return count
+        }
+
+        await drainMainQueue()
+
+        await MainActor.run {
+            XCTAssertEqual(harness.activator.requestedContexts.count, 1)
             harness.applicationMonitor.emitActivated(safari)
 
             XCTAssertEqual(
