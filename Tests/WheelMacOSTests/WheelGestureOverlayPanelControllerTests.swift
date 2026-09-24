@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 import XCTest
 @testable import WheelMacOS
 
@@ -66,5 +67,19 @@ final class WheelGestureOverlayPanelControllerTests: XCTestCase {
             XCTAssertEqual(frame.midX, visibleFrame.midX)
             XCTAssertEqual(frame.midY, visibleFrame.midY)
         }
+    }
+
+    func testPanelControllerDoesNotReadPointerCoordinates() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent(
+                "Sources/WheelMacOS/WheelGestureOverlayPanelController.swift"
+            )
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertFalse(source.contains("NSEvent.mouseLocation"))
+        XCTAssertFalse(source.contains("CGEvent.location"))
     }
 }

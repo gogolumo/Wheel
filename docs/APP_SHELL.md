@@ -70,6 +70,10 @@ the trigger after the HUD appears shows LEFT, RIGHT, or No movement for half a
 second before the HUD dismisses. This feedback does not claim that navigation
 occurred; context restoration is still disconnected.
 
+HUD placement uses the system's main-screen selection and never reads pointer
+coordinates. A second-display placement policy remains deliberately unclaimed
+until it can be validated without weakening Wheel's privacy boundary.
+
 Pause, disable, permission loss, event-tap recovery, configuration replacement,
 sleep/wake, and termination cancel a pending presentation and dismiss a visible
 HUD immediately. Presentation and dismissal are generation-guarded so an old
@@ -127,8 +131,8 @@ from the menu-bar item or with Control-C when launched through `swift run`.
 ## Physical overlay check
 
 Run the real app, confirm **Ready**, and check Right Option DOWN / LEFT / RIGHT /
-NONE from Finder, Chrome, and VS Code. Repeat once in a full-screen Space and, if
-available, on a second display. The source application must remain frontmost and
+NONE from Finder, Chrome, and VS Code. Repeat once in a full-screen Space. The
+source application must remain frontmost and
 an active text field must continue accepting input after the gesture. Left Option
 must not present the HUD while Right Option is configured.
 

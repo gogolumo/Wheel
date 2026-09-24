@@ -34,7 +34,7 @@ public final class WheelGestureOverlayPanelController {
         self.init(
             viewModel: viewModel,
             contentView: contentView,
-            screenProvider: Self.screenContainingPointer
+            screenProvider: Self.defaultScreen
         )
     }
 
@@ -178,10 +178,7 @@ public final class WheelGestureOverlayPanelController {
         }
     }
 
-    private static func screenContainingPointer() -> NSScreen? {
-        let pointerLocation = NSEvent.mouseLocation
-        return NSScreen.screens.first { screen in
-            screen.frame.contains(pointerLocation)
-        } ?? NSScreen.main ?? NSScreen.screens.first
+    private static func defaultScreen() -> NSScreen? {
+        NSScreen.main ?? NSScreen.screens.first
     }
 }
