@@ -28,7 +28,7 @@ final class WheelGestureOverlayStateTests: XCTestCase {
         )
     }
 
-    func testTriggerBeginShowsHeldOverlayBeforePointerMovement() async {
+    func testTriggerBeginDelaysHeldOverlayUntilThreshold() async {
         let harness = await makeHarness()
 
         await MainActor.run {
@@ -37,9 +37,15 @@ final class WheelGestureOverlayStateTests: XCTestCase {
         await drainMainQueue()
 
         await MainActor.run {
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+            XCTAssertTrue(harness.viewModel.isGestureActive)
+            XCTAssertEqual(harness.scheduler.pendingActions.count, 1)
+            XCTAssertEqual(harness.scheduler.pendingActions.first?.delay, 0.18)
+
+            harness.scheduler.runPendingActions()
+
             XCTAssertEqual(harness.viewModel.overlayState, .triggerHeld)
             XCTAssertTrue(harness.viewModel.overlayState.isVisible)
-            XCTAssertTrue(harness.viewModel.isGestureActive)
         }
     }
 
@@ -53,9 +59,40 @@ final class WheelGestureOverlayStateTests: XCTestCase {
         await drainMainQueue()
 
         await MainActor.run {
-            XCTAssertEqual(harness.viewModel.overlayState, .triggerHeld)
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
             XCTAssertTrue(harness.viewModel.isGestureActive)
-            XCTAssertTrue(harness.scheduler.pendingActions.isEmpty)
+            XCTAssertEqual(harness.scheduler.pendingActions.count, 1)
+
+            harness.scheduler.runPendingActions()
+
+            XCTAssertEqual(harness.viewModel.overlayState, .triggerHeld)
+        }
+    }
+
+    func testReleaseBeforeThresholdNeverPresentsOverlayOrResult() async {
+        let harness = await makeHarness()
+
+        await MainActor.run {
+            harness.monitor.emit(.triggerBegan(origin: .init(x: 0, y: 0)))
+            harness.monitor.emit(
+                .triggerEnded(
+                    direction: .right,
+                    displacement: .init(horizontal: 120, vertical: 0),
+                    duration: 0.1
+                )
+            )
+        }
+        await drainMainQueue()
+
+        await MainActor.run {
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+            XCTAssertFalse(harness.viewModel.isGestureActive)
+            XCTAssertEqual(harness.viewModel.lastDirection, .right)
+            XCTAssertEqual(harness.viewModel.recognizedGestureCount, 1)
+
+            harness.scheduler.runPendingActions()
+
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
         }
     }
 
@@ -103,7 +140,7 @@ final class WheelGestureOverlayStateTests: XCTestCase {
         await drainMainQueue()
 
         await MainActor.run {
-            XCTAssertEqual(harness.viewModel.overlayState, .triggerHeld)
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
             harness.scheduler.runPendingActions()
             XCTAssertEqual(harness.viewModel.overlayState, .triggerHeld)
         }
@@ -138,6 +175,24 @@ final class WheelGestureOverlayStateTests: XCTestCase {
         await MainActor.run {
             harness.viewModel.pause()
             XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+        }
+    }
+
+    func testPauseBeforeThresholdCancelsPendingPresentation() async {
+        let harness = await makeHarness()
+
+        await MainActor.run {
+            harness.monitor.emit(.triggerBegan(origin: .init(x: 0, y: 0)))
+        }
+        await drainMainQueue()
+
+        await MainActor.run {
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+            harness.viewModel.pause()
+            harness.scheduler.runPendingActions()
+
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+            XCTAssertEqual(harness.viewModel.status, .paused)
         }
     }
 
@@ -176,6 +231,8 @@ final class WheelGestureOverlayStateTests: XCTestCase {
         await MainActor.run {
             XCTAssertEqual(harness.viewModel.overlayState, .hidden)
             XCTAssertFalse(harness.viewModel.isGestureActive)
+            harness.scheduler.runPendingActions()
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
         }
     }
 
@@ -295,14 +352,17 @@ final class WheelGestureOverlayStateTests: XCTestCase {
             harness.monitor.emit(.triggerBegan(origin: .init(x: 0, y: 0)))
         }
         await drainMainQueue()
+        await MainActor.run {
+            harness.scheduler.runPendingActions()
+        }
     }
 
     private func emitGesture(
         _ direction: Direction,
         harness: OverlayHarness
     ) async {
+        await beginGesture(harness)
         await MainActor.run {
-            harness.monitor.emit(.triggerBegan(origin: .init(x: 0, y: 0)))
             harness.monitor.emit(
                 .triggerEnded(
                     direction: direction,

@@ -108,12 +108,14 @@ public final class WheelAppViewModel: ObservableObject {
     private let permissionProvider: PermissionProvider
     private let permissionRequester: PermissionRequester
     private let monitorFactory: MonitorFactory
+    private let overlayPresentationDelay: TimeInterval
     private let overlayResultDuration: TimeInterval
     private let overlayDismissScheduler: WheelOverlayDismissScheduler
     private var monitor: (any InputEventMonitoring)?
     private var monitorGeneration = 0
     private var hasStarted = false
     private var overlayGeneration = 0
+    private var overlayPresentationAction: WheelOverlayScheduledAction?
     private var overlayDismissAction: WheelOverlayScheduledAction?
 
     public init(
@@ -130,9 +132,11 @@ public final class WheelAppViewModel: ObservableObject {
         },
         fixture: WheelAppFixture? = nil,
         overlayFixture: WheelGestureOverlayFixture? = nil,
+        overlayPresentationDelay: TimeInterval = 0.18,
         overlayResultDuration: TimeInterval = 0.5,
         overlayDismissScheduler: WheelOverlayDismissScheduler = .mainQueue
     ) {
+        precondition(overlayPresentationDelay >= 0)
         precondition(overlayResultDuration >= 0)
 
         let effectiveFixture = fixture ?? (overlayFixture == nil ? nil : .ready)
@@ -143,6 +147,7 @@ public final class WheelAppViewModel: ObservableObject {
         self.monitorFactory = monitorFactory
         self.fixture = effectiveFixture
         self.overlayFixture = overlayFixture
+        self.overlayPresentationDelay = overlayPresentationDelay
         self.overlayResultDuration = overlayResultDuration
         self.overlayDismissScheduler = overlayDismissScheduler
 
@@ -383,14 +388,19 @@ public final class WheelAppViewModel: ObservableObject {
         case .triggerBegan:
             guard !isGestureActive else { return }
             isGestureActive = true
-            presentOverlay(.triggerHeld)
+            scheduleHeldOverlayPresentation()
             notice = "Gesture active — move left or right, then release."
 
         case let .triggerEnded(direction, _, _):
             guard isGestureActive else { return }
             isGestureActive = false
             lastDirection = direction
-            presentOverlayResult(direction)
+            let wasOverlayPresented = overlayState == .triggerHeld
+            if wasOverlayPresented {
+                presentOverlayResult(direction)
+            } else {
+                hideOverlay()
+            }
 
             if direction == .none {
                 notice = "Movement was too short or not horizontal enough."
@@ -515,11 +525,33 @@ public final class WheelAppViewModel: ObservableObject {
     }
 
     private func presentOverlay(_ state: WheelGestureOverlayState) {
+        overlayPresentationAction?.cancel()
+        overlayPresentationAction = nil
         overlayDismissAction?.cancel()
         overlayDismissAction = nil
         overlayGeneration += 1
         overlayContentState = state
         overlayState = state
+    }
+
+    private func scheduleHeldOverlayPresentation() {
+        hideOverlay()
+        let generation = overlayGeneration
+        overlayPresentationAction = overlayDismissScheduler.schedule(
+            after: overlayPresentationDelay
+        ) { [weak self] in
+            guard let self,
+                  self.overlayGeneration == generation,
+                  self.isGestureActive,
+                  self.status == .ready
+            else {
+                return
+            }
+
+            self.overlayPresentationAction = nil
+            self.overlayContentState = .triggerHeld
+            self.overlayState = .triggerHeld
+        }
     }
 
     private func presentOverlayResult(_ direction: Direction) {
@@ -546,6 +578,8 @@ public final class WheelAppViewModel: ObservableObject {
     }
 
     private func hideOverlay() {
+        overlayPresentationAction?.cancel()
+        overlayPresentationAction = nil
         overlayDismissAction?.cancel()
         overlayDismissAction = nil
         overlayGeneration += 1

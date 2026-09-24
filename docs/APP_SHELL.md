@@ -62,16 +62,18 @@ menu-bar item and the in-app status pill say **Trigger Held** and use a distinct
 symbol. Recovery, pause, disable, configuration changes, and sleep/wake clear the
 edge so the interface never leaves a stale `DOWN` indication.
 
-The same trigger begin immediately presents a compact HUD over the current app.
-The HUD is a single borderless nonactivating `NSPanel`: it cannot become key or
-main, ignores mouse events, joins every Space, and is allowed alongside full-screen
-apps. Releasing the trigger shows LEFT, RIGHT, or No movement for half a second
-before the HUD dismisses. This feedback does not claim that navigation occurred;
-context restoration is still disconnected.
+After the trigger remains held for 180 ms, Wheel presents a compact HUD over the
+current app. A shorter press stays entirely HUD-free. The HUD is a single
+borderless nonactivating `NSPanel`: it cannot become key or main, ignores mouse
+events, joins every Space, and is allowed alongside full-screen apps. Releasing
+the trigger after the HUD appears shows LEFT, RIGHT, or No movement for half a
+second before the HUD dismisses. This feedback does not claim that navigation
+occurred; context restoration is still disconnected.
 
 Pause, disable, permission loss, event-tap recovery, configuration replacement,
-sleep/wake, and termination all dismiss the HUD immediately. Delayed dismissal is
-generation-guarded so an old gesture cannot hide a newer one.
+sleep/wake, and termination cancel a pending presentation and dismiss a visible
+HUD immediately. Presentation and dismissal are generation-guarded so an old
+gesture cannot show or hide a newer one.
 
 The Input screen can change the trigger, minimum horizontal distance, and
 horizontal-dominance ratio. Changing calibration safely replaces the running
@@ -136,3 +138,9 @@ This is a usable interface and input-status surface, not a complete global
 Back/Forward utility yet. Stable native context identity, capture, suppression of
 Wheel-originated activations, and truthful restoration results must land before
 the interface can move through real app/window history.
+
+The 180 ms gate is only a safety prerequisite for UI-001, not completion of that
+card. The current monitor publishes a classified direction only at the terminal
+release, so the HUD still shows a neutral held prompt while tracking instead of a
+live acquired LEFT / RIGHT / NONE state. UI-001 remains blocked on its input and
+gesture dependencies as well as physical focus, Space, and full-screen evidence.
