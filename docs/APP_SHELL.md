@@ -11,8 +11,9 @@ The shell is intentionally honest about the current product boundary:
 - a click-through nonactivating HUD confirms trigger and gesture results over
   the current application;
 - one app-level lifecycle coordinator owns launch, activation, wake, and shutdown;
-- context capture and restoration are visible as **not connected**;
-- recognizing LEFT or RIGHT does not mutate history or claim navigation success.
+- application-level capture is connected through public `NSWorkspace` lifecycle notifications;
+- recently terminated applications remain eligible targets and can be relaunched;
+- exact window/tab/folder/editor restoration is still not claimed.
 
 The separate `wheel-input-diagnostics` executable remains the evidence tool for
 SPIKE-002. The product shell does not replace its physical test matrix.
@@ -51,9 +52,10 @@ The default trigger is **Right Option**:
 3. Move the pointer left or right.
 4. Release the key.
 
-The interface shows the recognized direction and explicitly says that context
-restoration is not connected. Short or strongly vertical movement is reported as
-ignored rather than being forced into LEFT or RIGHT.
+The application-level branch presents recently visited apps around a radial Wheel.
+Raw pointer displacement selects a sector while the trigger is held; releasing over
+a populated sector activates a running app or relaunches a terminated one. Exact
+window/tab/file restoration remains outside this slice.
 
 The gesture card also shows a matching-signal count and the latest `DOWN` or `UP`
 edge. This makes a successful trigger observation visible even when the pointer
@@ -65,10 +67,10 @@ edge so the interface never leaves a stale `DOWN` indication.
 After the trigger remains held for 180 ms, Wheel presents a compact HUD over the
 current app. A shorter press stays entirely HUD-free. The HUD is a single
 borderless nonactivating `NSPanel`: it cannot become key or main, ignores mouse
-events, joins every Space, and is allowed alongside full-screen apps. Releasing
-the trigger after the HUD appears shows LEFT, RIGHT, or No movement for half a
-second before the HUD dismisses. This feedback does not claim that navigation
-occurred; context restoration is still disconnected.
+events, joins every Space, and is allowed alongside full-screen apps. Releasing the trigger after the HUD appears selects the populated radial sector,
+shows the chosen application briefly, and dismisses the HUD. When no captured app
+occupies the selected sector, the legacy LEFT / RIGHT / NONE feedback remains
+available for diagnostics.
 
 HUD placement uses the system's main-screen selection and never reads pointer
 coordinates. If the display arrangement changes while the HUD is visible, the
@@ -139,15 +141,57 @@ source application must remain frontmost and
 an active text field must continue accepting input after the gesture. Left Option
 must not present the HUD while Right Option is configured.
 
+## Application history and radial Wheel
+
+Application-level capture stores only serializable launch identity and timestamps:
+bundle identifier when available, application URL as fallback, display name, and
+run state. PID is transient and is never the persistent identity. The current app
+is retained as the history pointer but is excluded from the destination ring.
+
+Settings are persisted independently:
+
+- **Visible apps**: 3...12, default 8.
+- **Directions**: 2, 4, 6, 8, 10, or 12, default 8.
+- **History capacity**: 10...200, default 50.
+- **Remember closed applications**: on by default.
+
+The current UI uses one radial ring, so it can show at most
+`min(visible apps, directions)` destinations at once. The values remain separate
+in the model so later paging/rings do not force history capacity to equal sector
+count.
+
+Application history is persisted locally in
+`~/Library/Application Support/Wheel/application-history.json` for this vertical
+slice. This does **not** claim completion of the release persistence ADR; the
+project's release history store can still migrate behind its storage boundary.
+
+## Manual application-level check
+
+From the repository:
+
+```bash
+cd ~/Documents/Wheel/Wheel
+git fetch origin
+git switch feat/CTX-app-history-wheel
+git pull --ff-only
+swift build --product wheel-app
+swift test
+swift run wheel-app
+```
+
+Then activate Safari, Finder, Xcode, and another normal app. Hold Right Option
+longer than 180 ms: the radial Wheel should show prior applications without
+stealing focus. Change **Wheel → Directions** between 4, 6, and 8 and repeat.
+Quit one captured application with Command-Q, invoke Wheel again, select its icon,
+and verify macOS relaunches that application.
+
 ## Current limitation
 
-This is a usable interface and input-status surface, not a complete global
-Back/Forward utility yet. Stable native context identity, capture, suppression of
-Wheel-originated activations, and truthful restoration results must land before
-the interface can move through real app/window history.
+This branch implements **APPLICATION_ONLY** capture and restoration. It does not
+claim the previous window, browser tab, Finder folder, editor, scroll position, or
+unsaved state. Those require the window-identity spike and adapter contracts.
 
-The 180 ms gate is only a safety prerequisite for UI-001, not completion of that
-card. The current monitor publishes a classified direction only at the terminal
-release, so the HUD still shows a neutral held prompt while tracking instead of a
-live acquired LEFT / RIGHT / NONE state. UI-001 remains blocked on its input and
-gesture dependencies as well as physical focus, Space, and full-screen evidence.
+The radial multi-direction selector is also a product-semantics experiment on this
+stacked branch. The repository's established LEFT/RIGHT Back/Forward contract is
+not silently superseded by this implementation; adopting radial selection as the
+product grammar requires an explicit product/ADR decision.
