@@ -110,6 +110,7 @@ struct WheelDashboardView: View {
     enum Section: String, CaseIterable, Identifiable {
         case overview = "Overview"
         case input = "Input"
+        case wheel = "Wheel"
         case about = "About"
 
         var id: Self { self }
@@ -118,6 +119,7 @@ struct WheelDashboardView: View {
             switch self {
             case .overview: return "rectangle.grid.2x2"
             case .input: return "cursorarrow.motionlines"
+            case .wheel: return "circle.hexagongrid"
             case .about: return "info.circle"
             }
         }
@@ -171,6 +173,8 @@ struct WheelDashboardView: View {
                     OverviewView(viewModel: viewModel)
                 case .input:
                     InputSettingsView(viewModel: viewModel)
+                case .wheel:
+                    WheelSettingsView(viewModel: viewModel)
                 case .about:
                     AboutWheelView()
                 }
@@ -607,6 +611,128 @@ private struct MetricCard: View {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.07))
         }
+    }
+}
+
+private struct WheelSettingsView: View {
+    @ObservedObject var viewModel: WheelAppViewModel
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Wheel")
+                        .font(.largeTitle.weight(.semibold))
+                    Text("Control how many application targets Wheel presents and how they are arranged.")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                }
+
+                GroupBox("Radial layout") {
+                    VStack(alignment: .leading, spacing: 16) {
+                        LabeledContent("Visible apps") {
+                            Stepper(
+                                value: Binding(
+                                    get: { viewModel.settings.visibleItemCount },
+                                    set: viewModel.setVisibleItemCount
+                                ),
+                                in: WheelSettings.visibleItemRange
+                            ) {
+                                Text("\(viewModel.settings.visibleItemCount)")
+                                    .monospacedDigit()
+                            }
+                            .frame(width: 120)
+                        }
+
+                        LabeledContent("Directions") {
+                            Picker(
+                                "Directions",
+                                selection: Binding(
+                                    get: { viewModel.settings.directionCount },
+                                    set: viewModel.setDirectionCount
+                                )
+                            ) {
+                                ForEach(WheelSettings.supportedDirectionCounts, id: \.self) { count in
+                                    Text("\(count)").tag(count)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 120)
+                        }
+
+                        Text(
+                            "Application count and direction count are stored separately. "
+                                + "The current single-ring overlay can display up to the smaller "
+                                + "of the two values."
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 6)
+                }
+
+                GroupBox("History") {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Toggle(
+                            "Remember closed applications",
+                            isOn: Binding(
+                                get: { viewModel.settings.rememberClosedApplications },
+                                set: viewModel.setRememberClosedApplications
+                            )
+                        )
+
+                        LabeledContent("History capacity") {
+                            Stepper(
+                                value: Binding(
+                                    get: { viewModel.settings.historyCapacity },
+                                    set: viewModel.setHistoryCapacity
+                                ),
+                                in: WheelSettings.historyCapacityRange,
+                                step: 10
+                            ) {
+                                Text("\(viewModel.settings.historyCapacity)")
+                                    .monospacedDigit()
+                            }
+                            .frame(width: 120)
+                        }
+
+                        HStack {
+                            Label(
+                                "\(viewModel.applicationHistory.count) captured transitions",
+                                systemImage: "clock.arrow.circlepath"
+                            )
+                            Spacer()
+                            Text(
+                                "\(viewModel.wheelApplications.count) available now"
+                            )
+                            .foregroundStyle(.secondary)
+                        }
+                        .font(.caption)
+                    }
+                    .padding(.vertical, 6)
+                }
+
+                GroupBox("Selection") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(
+                            "Hold the configured trigger, move toward an application icon, "
+                                + "and release. Running apps are activated; terminated apps are relaunched."
+                        )
+                        .font(.callout)
+
+                        Label(
+                            "Exact window, tab, folder, and editor restoration are not claimed by this build.",
+                            systemImage: "info.circle"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 6)
+                }
+            }
+            .padding(28)
+        }
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.35))
     }
 }
 
