@@ -46,6 +46,18 @@ recovery count, and completion reason. It does not store pointer coordinates,
 window titles, URLs, paths, typed content, raw key history, account names, or
 device identifiers.
 
+Validate any exported file before attaching it to the card:
+
+```bash
+swift run wheel-evidence-check spike-002-right-option.json
+```
+
+The command rejects malformed or internally contradictory evidence, reports an
+interrupted run as `INCOMPLETE`, and checks the observed-sequence and callback
+latency thresholds. Even `PASS` covers only automated fields in one export; the
+device/application matrix, native side effects, stuck-state checks, and final
+`GO` / `ADJUST` / `STOP` decision remain manual.
+
 The matching-signal count and last DOWN/UP edge are transient troubleshooting
 feedback. They reset with the run and are intentionally absent from exported
 JSON, along with key codes and button numbers from individual events.
