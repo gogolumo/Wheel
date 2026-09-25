@@ -27,6 +27,25 @@ swift build --product wheel-app
 swift run wheel-app
 ```
 
+To build and install a real app bundle on macOS 14+:
+
+```bash
+bash scripts/build-app.sh
+cp -R dist/Wheel.app /Applications/Wheel.app
+open /Applications/Wheel.app
+```
+
+The script builds the existing SwiftPM `wheel-app` product in release mode,
+packages it with `CFBundleIdentifier=dev.gogolumo.Wheel`, `LSUIElement=true`
+and a placeholder icon, and applies an ad-hoc local signature. The bundle runs
+independently of Terminal. Quit any `swift run wheel-app` instance first.
+macOS associates Input Monitoring with this app bundle separately from
+Terminal/Xcode. The local signature is for development; distribution requires
+Developer ID signing and notarization. A future rebuild may require granting
+Input Monitoring again. The installed build can be removed by quitting Wheel
+and moving `/Applications/Wheel.app` to Trash; the local application history
+remains in Application Support unless deliberately removed.
+
 Wheel launches as an accessory app and places its icon in the menu bar. Open the
 menu to see live status or press **Open Wheel** for the full dashboard. The
 listen-only monitor starts with the application; opening either surface does not
@@ -36,8 +55,8 @@ The first launch normally shows **Needs Permission**:
 
 1. Press **Request Access** once.
 2. If macOS does not grant access immediately, press **Open Privacy Settings**.
-3. Enable the process that hosts Wheel. A `swift run` launch may be attributed to
-   Terminal; an Xcode launch may be attributed to Xcode.
+3. Enable the process that hosts Wheel. The installed bundle is **Wheel**;
+   a `swift run` launch may be attributed to Terminal, and an Xcode launch to Xcode.
 4. Return to Wheel and press **Check Again** if the status has not refreshed.
 
 Wheel never loops the system prompt automatically. When access is missing or

@@ -32,3 +32,10 @@ jobs:
 
       - name: Run domain demo
         run: swift run wheel-demo
+
+      - name: Build and verify installable Wheel.app
+        run: |
+          bash scripts/build-app.sh
+          test -x dist/Wheel.app/Contents/MacOS/Wheel
+          test -f dist/Wheel.app/Contents/Resources/Wheel.icns
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' dist/Wheel.app/Contents/Info.plist)" = 'dev.gogolumo.Wheel'
