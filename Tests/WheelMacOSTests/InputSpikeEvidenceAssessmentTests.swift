@@ -28,15 +28,9 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
     }
 
     func testRejectsTamperedDerivedFieldsWhenDecoded() throws {
-        let data = try makeSummary().encodedJSON()
-        var object = try XCTUnwrap(
-            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            try tamperedSummary { $0["observedTargetMet"] = false }
         )
-        object["observedTargetMet"] = false
-        let tampered = try JSONSerialization.data(withJSONObject: object)
-        let decoded = try JSONDecoder().decode(InputSpikeRunSummary.self, from: tampered)
-
-        let assessment = InputSpikeEvidenceAssessment.evaluate(decoded)
 
         XCTAssertEqual(assessment.outcome, .failed)
         XCTAssertTrue(
@@ -44,6 +38,118 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
                 "observedTargetMet contradicts the sequence counts"
             )
         )
+    }
+
+    func testRejectsUnknownTriggerAndTriggerButtonMismatch() throws {
+        let unknownTrigger = InputSpikeEvidenceAssessment.evaluate(
+            try tamperedSummary { $0["trigger"] = "keyboardShortcut" }
+        )
+        let unexpectedButton = InputSpikeEvidenceAssessment.evaluate(
+            try tamperedSummary { $0["mouseButtonNumber"] = 4 }
+        )
+        let missingButton = InputSpikeEvidenceAssessment.evaluate(
+            try tamperedSummary { $0["trigger"] = "mouseSideButton" }
+        )
+
+        XCTAssertEqual(unknownTrigger.outcome, .failed)
+        XCTAssertTrue(
+            unknownTrigger.findings.contains("trigger is not a supported TriggerType")
+        )
+        XCTAssertEqual(unexpectedButton.outcome, .failed)
+        XCTAssertTrue(
+            unexpectedButton.findings.contains(
+                "mouseButtonNumber is only valid for mouse-side-button evidence"
+            )
+        )
+        XCTAssertEqual(missingButton.outcome, .failed)
+        XCTAssertTrue(
+            missingButton.findings.contains(
+                "mouse-side-button evidence requires a button number of at least 3"
+            )
+        )
+    }
+
+    func testRejectsInvalidClassifierAndAggregateValues() throws {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            try tamperedSummary {
+                $0["minimumHorizontalDistance"] = 0
+                $0["minimumDominanceRatio"] = 0.5
+                $0["pointerMovementCount"] = -1
+                $0["eventTapRecoveryCount"] = -1
+                $0["latencyThresholdMilliseconds"] = 0
+            }
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "minimumHorizontalDistance must be finite and positive"
+            )
+        )
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "minimumDominanceRatio must be finite and at least 1"
+            )
+        )
+        XCTAssertTrue(
+            assessment.findings.contains("aggregate event counts must be non-negative")
+        )
+        XCTAssertTrue(
+            assessment.findings.contains("latency threshold must be finite and positive")
+        )
+    }
+
+    func testRejectsMissingMedianForRecordedCallbackSamples() throws {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            try tamperedSummary {
+                $0["medianCallbackLatencyMilliseconds"] = NSNull()
+                $0["latencyThresholdMet"] = NSNull()
+            }
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "callback sample count and median latency disagree"
+            )
+        )
+    }
+
+    func testRejectsInterruptedRunThatClaimsCompletedTarget() throws {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            try tamperedSummary { $0["completionReason"] = "interrupted" }
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "completionReason contradicts whether the target was met"
+            )
+        )
+    }
+
+    func testRejectsDirectionCountOverflowWithoutCrashing() throws {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            try tamperedSummary {
+                $0["leftCount"] = Int.max
+                $0["rightCount"] = Int.max
+            }
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(assessment.findings.contains("direction counts overflow"))
+    }
+
+    private func tamperedSummary(
+        _ update: (inout [String: Any]) -> Void
+    ) throws -> InputSpikeRunSummary {
+        let data = try makeSummary().encodedJSON()
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        update(&object)
+        let tampered = try JSONSerialization.data(withJSONObject: object)
+        return try JSONDecoder().decode(InputSpikeRunSummary.self, from: tampered)
     }
 
     private func makeSummary(

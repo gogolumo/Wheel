@@ -52,11 +52,14 @@ Validate any exported file before attaching it to the card:
 swift run wheel-evidence-check spike-002-right-option.json
 ```
 
-The command rejects malformed or internally contradictory evidence, reports an
-interrupted run as `INCOMPLETE`, and checks the observed-sequence and callback
-latency thresholds. Even `PASS` covers only automated fields in one export; the
-device/application matrix, native side effects, stuck-state checks, and final
-`GO` / `ADJUST` / `STOP` decision remain manual.
+The command rejects malformed or internally contradictory evidence, including
+unsupported triggers, trigger/button mismatches, invalid classifier settings,
+negative aggregate counts, inconsistent completion state, and missing or
+invalid latency measurements. It reports a valid interrupted run as
+`INCOMPLETE` and checks the observed-sequence and callback-latency thresholds.
+Even `PASS` covers only automated fields in one export; the device/application
+matrix, native side effects, stuck-state checks, and final `GO` / `ADJUST` /
+`STOP` decision remain manual.
 
 The matching-signal count and last DOWN/UP edge are transient troubleshooting
 feedback. They reset with the run and are intentionally absent from exported
