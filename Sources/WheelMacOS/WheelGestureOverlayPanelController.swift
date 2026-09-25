@@ -16,7 +16,7 @@ private final class WheelNonactivatingOverlayPanel: NSPanel {
 public final class WheelGestureOverlayPanelController {
     public typealias VisibleFrameProvider = () -> NSRect?
 
-    public static let panelSize = NSSize(width: 404, height: 160)
+    public static let panelSize = NSSize(width: 520, height: 520)
 
     public private(set) var panel: NSPanel
     public private(set) var isObserving = false

@@ -17,7 +17,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Wheel is an early engineering prototype, not a downloadable utility yet.** The history engine, navigation invariants, listen-only gesture input, and native menu-bar shell are working on the active development stack. Context capture and restoration are not connected yet.
+> **Wheel is an early engineering prototype, not a downloadable utility yet.** The history engine, navigation invariants, listen-only gesture input, and native menu-bar shell are working on the active development stack. The stacked application-history branch now captures and relaunches apps at `APPLICATION_ONLY` depth; exact window/tab/file restoration is still gated.
 
 ## The idea
 
@@ -146,8 +146,8 @@ swift run wheel-app
 ```
 
 Wheel appears in the macOS menu bar. Its interface reports permission and input
-readiness truthfully; it does not claim to navigate until native context capture
-and restoration are connected. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md) for
+readiness truthfully. The stacked radial application branch can capture and
+activate/relaunch apps, while deeper context restoration remains gated. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md) for
 permission steps, deterministic preview fixtures, and current limitations.
 
 To open the package directly in Xcode and run the first native feasibility
