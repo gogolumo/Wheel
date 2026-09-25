@@ -41,6 +41,12 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(workspaceWillSleep(_:)),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
         lifecycleCoordinator.launch()
     }
 
@@ -54,6 +60,11 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
             name: NSWorkspace.didWakeNotification,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.removeObserver(
+            self,
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
         lifecycleCoordinator.terminate()
         overlayController?.shutdown()
         overlayController = nil
@@ -62,6 +73,11 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
     @objc
     private func workspaceDidWake(_ notification: Notification) {
         lifecycleCoordinator.systemDidWake()
+    }
+
+    @objc
+    private func workspaceWillSleep(_ notification: Notification) {
+        lifecycleCoordinator.systemWillSleep()
     }
 }
 

@@ -78,9 +78,12 @@ policy remains deliberately unclaimed until it can be validated without
 weakening Wheel's privacy boundary.
 
 Pause, disable, permission loss, event-tap recovery, configuration replacement,
-sleep/wake, and termination cancel a pending presentation and dismiss a visible
-HUD immediately. Presentation and dismissal are generation-guarded so an old
-gesture cannot show or hide a newer one.
+system sleep, wake, and termination cancel a pending presentation and dismiss a
+visible HUD immediately. Before macOS sleeps, Wheel stops the event tap and clears
+held-state; after wake it rechecks permission and creates a fresh monitor. This
+prevents pre-sleep callbacks or a held trigger from leaking into the resumed
+session. Presentation and dismissal are generation-guarded so an old gesture
+cannot show or hide a newer one.
 
 The Input screen can change the trigger, minimum horizontal distance, and
 horizontal-dominance ratio. Changing calibration safely replaces the running
@@ -90,7 +93,7 @@ monitor; queued callbacks from the previous monitor generation are ignored.
 
 | State | Meaning |
 | --- | --- |
-| `Starting` | The app has not finished reconciling runtime state. |
+| `Starting` | The app has not finished reconciling runtime state, or monitoring is suspended until wake. |
 | `Disabled` | Wheel is off and observes no global input. |
 | `Needs Permission` | Input Monitoring is unavailable; the monitor is stopped. |
 | `Ready` | The listen-only event tap started successfully. |
