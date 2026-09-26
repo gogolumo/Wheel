@@ -16,7 +16,7 @@ if [[ "$(uname -s)" != Darwin ]]; then
     fail "bundle verification requires macOS 14 or newer"
 fi
 
-for command in plutil codesign; do
+for command in plutil codesign grep; do
     if ! command -v "$command" >/dev/null 2>&1; then
         fail "missing required macOS tool: $command"
     fi
@@ -53,10 +53,14 @@ expect_plist_value() {
 
 expect_plist_value CFBundleExecutable Wheel
 expect_plist_value CFBundleIdentifier dev.gogolumo.Wheel
+expect_plist_value CFBundleInfoDictionaryVersion 6.0
+expect_plist_value CFBundleName Wheel
+expect_plist_value CFBundleDisplayName Wheel
 expect_plist_value CFBundlePackageType APPL
 expect_plist_value CFBundleIconFile Wheel.icns
 expect_plist_value LSMinimumSystemVersion 14.0
 expect_plist_value LSUIElement true
+expect_plist_value NSHighResolutionCapable true
 
 short_version="$(plist_value CFBundleShortVersionString)" \
     || fail "missing Info.plist key CFBundleShortVersionString"
@@ -73,4 +77,7 @@ source_revision="$(plist_value WheelSourceRevision)" \
     || fail "invalid WheelSourceRevision '$source_revision'"
 
 codesign --verify --deep --strict --verbose=2 "$app"
+signature_details="$(codesign -dv --verbose=4 "$app" 2>&1)"
+grep -Fq "Identifier=dev.gogolumo.Wheel" <<<"$signature_details" \
+    || fail "code signature identifier does not match dev.gogolumo.Wheel"
 echo "Verified $app"
