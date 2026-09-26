@@ -24,11 +24,72 @@ jobs:
       - name: Swift version
         run: swift --version
 
+      - name: Validate packaging scripts
+        run: |
+          bash -n scripts/build-app.sh
+          bash -n scripts/verify-app.sh
+          bash -n scripts/install-app.sh
+          bash -n scripts/doctor-app.sh
+          bash -n scripts/uninstall-app.sh
+
       - name: Build package (including macOS input spike)
-        run: swift build
+        run: swift build -Xswiftc -warnings-as-errors
 
       - name: Run tests
-        run: swift test
+        run: swift test -Xswiftc -warnings-as-errors
 
       - name: Run domain demo
         run: swift run wheel-demo
+
+      - name: Build and verify installable Wheel.app
+        run: |
+          bash scripts/build-app.sh
+          bash scripts/verify-app.sh dist/Wheel.app
+
+          invalid_bundle="$RUNNER_TEMP/invalid-Wheel.app"
+          ditto dist/Wheel.app "$invalid_bundle"
+          plutil -replace LSUIElement -bool false "$invalid_bundle/Contents/Info.plist"
+          codesign --force --sign - "$invalid_bundle"
+          if bash scripts/verify-app.sh "$invalid_bundle"; then
+            echo "Verifier accepted malformed LSUIElement metadata" >&2
+            exit 1
+          fi
+
+          install_root="$RUNNER_TEMP/wheel-install"
+          mkdir -p "$install_root"
+          bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"
+          bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"
+          bash scripts/verify-app.sh "$install_root/Wheel.app"
+          bash scripts/doctor-app.sh "$install_root/Wheel.app"
+          test ! -e "$install_root/Wheel.app/Wheel.app"
+
+          foreign_root="$RUNNER_TEMP/wheel-foreign"
+          mkdir -p "$foreign_root"
+          ditto dist/Wheel.app "$foreign_root/Wheel.app"
+          plutil -replace CFBundleIdentifier -string com.example.NotWheel "$foreign_root/Wheel.app/Contents/Info.plist"
+          codesign --force --sign - "$foreign_root/Wheel.app"
+          if bash scripts/install-app.sh dist/Wheel.app "$foreign_root/Wheel.app"; then
+            echo "Installer replaced an unrelated Wheel.app target" >&2
+            exit 1
+          fi
+          test "$(plutil -extract CFBundleIdentifier raw "$foreign_root/Wheel.app/Contents/Info.plist")" = "com.example.NotWheel"
+          if bash scripts/uninstall-app.sh "$foreign_root/Wheel.app"; then
+            echo "Uninstaller removed an unrelated Wheel.app target" >&2
+            exit 1
+          fi
+          test -d "$foreign_root/Wheel.app"
+
+          locked_root="$RUNNER_TEMP/wheel-locked"
+          mkdir -p "$locked_root/.wheel-install.lock"
+          if bash scripts/install-app.sh dist/Wheel.app "$locked_root/Wheel.app"; then
+            echo "Installer ignored an active installation lock" >&2
+            exit 1
+          fi
+          test ! -e "$locked_root/Wheel.app"
+          rmdir "$locked_root/.wheel-install.lock"
+
+          uninstall_root="$RUNNER_TEMP/wheel-uninstall"
+          mkdir -p "$uninstall_root"
+          bash scripts/install-app.sh dist/Wheel.app "$uninstall_root/Wheel.app"
+          bash scripts/uninstall-app.sh "$uninstall_root/Wheel.app"
+          test ! -e "$uninstall_root/Wheel.app"
