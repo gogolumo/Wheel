@@ -74,15 +74,28 @@ Give every evidence run a privacy-safe label and an observed-sequence target:
 swift run wheel-input-spike \
   --trigger caps-lock \
   --sequences 100 \
-  --label "built-in-trackpad-finder-windowed"
+  --label "built-in-trackpad-finder-windowed" \
+  --summary-json "spike-001-built-in-trackpad.json"
 ```
 
 The label must describe the test setup, not contain a serial number, account
-name, document title, URL, or other personal data. The process prints live
+name, document title, URL, or other personal data. Both interfaces reject labels
+longer than 64 characters, line breaks, path/URL punctuation, and leading or
+trailing whitespace. The process prints live
 sequence counts and median event-callback latency, then emits an aggregate
 summary after the requested number of observed sequences. Pointer movement is
 counted but not printed by default: synchronous console output for every move
 can create event-tap backpressure and invalidate the latency measurement.
+
+The optional JSON file contains aggregate counters, the configured classifier
+and latency thresholds, and their threshold checks. A mouse-button run also
+records the configured button number. It never records coordinates, titles,
+paths, typed content, or hardware identifiers. It still requires manual review
+because the harness cannot know the physical-attempt count, stuck-state result,
+or native side effects.
+After the planned physical attempts, press Control-C if the observed target was
+not reached. The harness prints the partial summary and writes the JSON before
+exiting with status 130, preserving evidence of the missed sequence.
 
 For diagnosing event order only, enable detailed movement logs:
 
@@ -120,7 +133,8 @@ Repeat the minimum matrix with:
 - Caps Lock and `--trigger right-option`.
 
 If the harness has not reached its observed target after the planned physical
-attempts, stop and record the last printed count as a miss. Also record any
+attempts, press Control-C and retain the partial JSON as evidence of the miss.
+Also record any
 `event tap timed out and was re-enabled` warning and verify that the next
 sequence starts and ends normally rather than remaining stuck.
 

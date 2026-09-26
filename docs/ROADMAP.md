@@ -27,7 +27,8 @@ Validate the platform assumptions before building product UI:
 
 Each spike ends in **GO / ADJUST / STOP** rather than silently hard-coding an assumption.
 
-**Current work:** [global Caps Lock and pointer input spike](https://github.com/gogolumo/Wheel/issues/1).
+**Current work:** [global input reliability](https://github.com/gogolumo/Wheel/issues/1)
+and [candidate trigger conflicts](https://github.com/gogolumo/Wheel/issues/3).
 
 ## M2 — Menu-bar shell and permission onboarding
 
