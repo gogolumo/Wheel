@@ -33,6 +33,7 @@ To build and install a real app bundle on macOS 14+:
 bash scripts/build-app.sh
 bash scripts/install-app.sh
 open /Applications/Wheel.app
+bash scripts/doctor-app.sh /Applications/Wheel.app
 ```
 
 The script builds the existing SwiftPM `wheel-app` product in release mode,
@@ -44,6 +45,10 @@ and after installation, stages the copy beside the destination, and restores the
 previous installation if validation fails. Use it for updates as well as first
 installation; plain `cp -R` can nest the new bundle inside an existing
 `/Applications/Wheel.app`.
+Run `scripts/doctor-app.sh` after installation to verify the bundle contract,
+exact packaged source revision, code-signing identity, and current Spotlight
+metadata. A fresh install may report Spotlight as pending until macOS indexes
+the application; that informational state does not weaken bundle verification.
 macOS associates Input Monitoring with this app bundle separately from
 Terminal/Xcode. The local signature is for development; distribution requires
 Developer ID signing and notarization. A future rebuild may require granting
