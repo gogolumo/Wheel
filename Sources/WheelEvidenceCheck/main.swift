@@ -3,35 +3,48 @@ import Foundation
 import WheelMacOS
 
 private func printUsage() {
-    print("Usage: wheel-evidence-check PATH")
+    print("Usage: wheel-evidence-check PATH [PATH ...]")
 }
 
-guard CommandLine.arguments.count == 2 else {
+guard CommandLine.arguments.count >= 2 else {
     printUsage()
     exit(64)
 }
 
-do {
-    let url = URL(fileURLWithPath: CommandLine.arguments[1])
-    let data = try Data(contentsOf: url)
-    let summary = try JSONDecoder().decode(InputSpikeRunSummary.self, from: data)
-    let assessment = InputSpikeEvidenceAssessment.evaluate(summary)
+var assessments: [InputSpikeEvidenceAssessment] = []
+var unreadableFileCount = 0
 
-    print("Automated evidence checks: \(assessment.outcome.rawValue.uppercased())")
-    for finding in assessment.findings {
-        print("- \(finding)")
+for path in CommandLine.arguments.dropFirst() {
+    print("\nEvidence file: \(path)")
+    do {
+        let url = URL(fileURLWithPath: path)
+        let data = try Data(contentsOf: url)
+        let summary = try JSONDecoder().decode(InputSpikeRunSummary.self, from: data)
+        let assessment = InputSpikeEvidenceAssessment.evaluate(summary)
+        assessments.append(assessment)
+        print("Automated checks: \(assessment.outcome.rawValue.uppercased())")
+        for finding in assessment.findings {
+            print("- \(finding)")
+        }
+    } catch {
+        unreadableFileCount += 1
+        print("Automated checks: FAILED")
+        print("- unable to read or decode evidence: \(error)")
     }
-    print("Manual physical matrix review is still required; this is not a GO decision.")
+}
 
-    switch assessment.outcome {
-    case .passed:
-        exit(EXIT_SUCCESS)
-    case .incomplete:
-        exit(2)
-    case .failed:
-        exit(1)
-    }
-} catch {
-    fputs("Unable to validate evidence: \(error)\n", stderr)
+let batch = InputSpikeEvidenceBatchAssessment.evaluate(assessments)
+print(
+    "\nBatch result: \(batch.outcome.rawValue.uppercased()) "
+        + "(\(batch.passedCount) passed, \(batch.incompleteCount) incomplete, "
+        + "\(batch.failedCount + unreadableFileCount) failed)"
+)
+print("Manual physical matrix review is still required; this is not a GO decision.")
+
+if unreadableFileCount > 0 || batch.outcome == .failed {
     exit(1)
 }
+if batch.outcome == .incomplete {
+    exit(2)
+}
+exit(EXIT_SUCCESS)

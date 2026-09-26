@@ -46,19 +46,21 @@ recovery count, and completion reason. It does not store pointer coordinates,
 window titles, URLs, paths, typed content, raw key history, account names, or
 device identifiers.
 
-Validate any exported file before attaching it to the card:
+Validate exported files before attaching them to the card. Multiple paths can
+be checked in one batch:
 
 ```bash
-swift run wheel-evidence-check spike-002-right-option.json
+swift run wheel-evidence-check spike-002-*.json
 ```
 
-The command rejects malformed or internally contradictory evidence, including
-unsupported triggers, trigger/button mismatches, invalid classifier settings,
-negative aggregate counts, inconsistent completion state, and missing or
-invalid latency measurements. It reports a valid interrupted run as
-`INCOMPLETE` and checks the observed-sequence and callback-latency thresholds.
-Even `PASS` covers only automated fields in one export; the device/application
-matrix, native side effects, stuck-state checks, and final `GO` / `ADJUST` /
+Each file receives its own result, followed by a batch summary. The command
+rejects malformed or internally contradictory evidence, including unsupported
+triggers, trigger/button mismatches, invalid classifier settings, negative
+aggregate counts, inconsistent completion state, and missing or invalid latency
+measurements. A failed or unreadable file makes the batch fail; otherwise any
+valid interrupted run makes it `INCOMPLETE`. Even a batch `PASS` covers only
+automated fields in the supplied exports; completeness of the required matrix,
+native side effects, stuck-state checks, and the final `GO` / `ADJUST` /
 `STOP` decision remain manual.
 
 The matching-signal count and last DOWN/UP edge are transient troubleshooting
