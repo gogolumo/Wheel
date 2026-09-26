@@ -7,10 +7,14 @@ final class WheelApplicationMonitorTests: XCTestCase {
         let callbackDelivered = expectation(
             description: "termination callback delivered"
         )
-        let processIdentifier = ProcessInfo.processInfo.processIdentifier
         let box = await MainActor.run { WheelApplicationMonitorTestBox() }
 
         await MainActor.run {
+            guard let application = NSWorkspace.shared.runningApplications.first else {
+                XCTFail("Could not resolve a running application")
+                return
+            }
+            let processIdentifier = application.processIdentifier
             let monitor = WheelApplicationMonitor(
                 currentProcessIdentifier: processIdentifier + 1
             )
@@ -24,12 +28,6 @@ final class WheelApplicationMonitorTests: XCTestCase {
             }
             box.monitor = monitor
             monitor.start()
-            guard let application = NSRunningApplication(
-                processIdentifier: processIdentifier
-            ) else {
-                XCTFail("Could not resolve the XCTest process")
-                return
-            }
             NSWorkspace.shared.notificationCenter.post(
                 name: NSWorkspace.didTerminateApplicationNotification,
                 object: nil,
@@ -51,23 +49,20 @@ final class WheelApplicationMonitorTests: XCTestCase {
             description: "stopped monitor stays silent"
         )
         unexpectedCallback.isInverted = true
-        let processIdentifier = ProcessInfo.processInfo.processIdentifier
 
         await MainActor.run {
+            guard let application = NSWorkspace.shared.runningApplications.first else {
+                XCTFail("Could not resolve a running application")
+                return
+            }
             let monitor = WheelApplicationMonitor(
-                currentProcessIdentifier: processIdentifier + 1
+                currentProcessIdentifier: application.processIdentifier + 1
             )
             monitor.onTerminated = { _ in
                 unexpectedCallback.fulfill()
             }
             monitor.start()
             monitor.stop()
-            guard let application = NSRunningApplication(
-                processIdentifier: processIdentifier
-            ) else {
-                XCTFail("Could not resolve the XCTest process")
-                return
-            }
             NSWorkspace.shared.notificationCenter.post(
                 name: NSWorkspace.didTerminateApplicationNotification,
                 object: nil,
