@@ -53,3 +53,14 @@ jobs:
           bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"
           bash scripts/verify-app.sh "$install_root/Wheel.app"
           test ! -e "$install_root/Wheel.app/Wheel.app"
+
+          foreign_root="$RUNNER_TEMP/wheel-foreign"
+          mkdir -p "$foreign_root"
+          ditto dist/Wheel.app "$foreign_root/Wheel.app"
+          plutil -replace CFBundleIdentifier -string com.example.NotWheel "$foreign_root/Wheel.app/Contents/Info.plist"
+          codesign --force --sign - "$foreign_root/Wheel.app"
+          if bash scripts/install-app.sh dist/Wheel.app "$foreign_root/Wheel.app"; then
+            echo "Installer replaced an unrelated Wheel.app target" >&2
+            exit 1
+          fi
+          test "$(plutil -extract CFBundleIdentifier raw "$foreign_root/Wheel.app/Contents/Info.plist")" = "com.example.NotWheel"

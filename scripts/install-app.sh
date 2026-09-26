@@ -20,11 +20,14 @@ if [[ "$(uname -s)" != Darwin ]]; then
     fail "installation requires macOS 14 or newer"
 fi
 
-for command in ditto pgrep; do
+for command in ditto pgrep codesign; do
     if ! command -v "$command" >/dev/null 2>&1; then
         fail "missing required macOS tool: $command"
     fi
 done
+
+plist_buddy="/usr/libexec/PlistBuddy"
+[[ -x "$plist_buddy" ]] || fail "missing required macOS tool: $plist_buddy"
 
 [[ -d "$source_app" ]] || fail "source bundle not found at $source_app"
 [[ ! -L "$source_app" ]] || fail "source bundle must not be a symbolic link"
@@ -51,6 +54,21 @@ if pgrep -x Wheel >/dev/null 2>&1; then
 fi
 
 bash "$repo_root/scripts/verify-app.sh" "$source_app"
+
+if [[ -e "$target_app" ]]; then
+    existing_info="$target_app/Contents/Info.plist"
+    existing_executable="$target_app/Contents/MacOS/Wheel"
+    [[ -f "$existing_info" ]] \
+        || fail "existing target is not a recognizable Wheel.app bundle"
+    [[ -x "$existing_executable" ]] \
+        || fail "existing target is missing Contents/MacOS/Wheel"
+    existing_identifier="$("$plist_buddy" -c "Print :CFBundleIdentifier" "$existing_info" 2>/dev/null)" \
+        || fail "existing target has no CFBundleIdentifier"
+    [[ "$existing_identifier" == "dev.gogolumo.Wheel" ]] \
+        || fail "refusing to replace unrelated app with bundle id '$existing_identifier'"
+    codesign --verify --deep --strict "$target_app" >/dev/null 2>&1 \
+        || fail "existing Wheel.app has an invalid code signature; remove it manually before reinstalling"
+fi
 
 transaction_root="$(mktemp -d "$target_parent/.wheel-install.XXXXXX")"
 staging_root="$transaction_root/staging"
