@@ -55,6 +55,15 @@ fi
 
 bash "$repo_root/scripts/verify-app.sh" "$source_app"
 
+lock_dir="$target_parent/.wheel-install.lock"
+if ! mkdir "$lock_dir" 2>/dev/null; then
+    fail "another Wheel installation is already in progress for $target_parent"
+fi
+release_install_lock() {
+    rmdir "$lock_dir" 2>/dev/null || true
+}
+trap release_install_lock EXIT
+
 if [[ -e "$target_app" ]]; then
     existing_info="$target_app/Contents/Info.plist"
     existing_executable="$target_app/Contents/MacOS/Wheel"
@@ -104,6 +113,11 @@ cleanup() {
         rm -rf "$transaction_root"
     else
         echo "Automatic rollback was incomplete; recovery files remain at $transaction_root" >&2
+        status=1
+    fi
+
+    if ! rmdir "$lock_dir" 2>/dev/null; then
+        echo "Could not release installer lock at $lock_dir" >&2
         status=1
     fi
     exit "$status"

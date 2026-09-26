@@ -64,3 +64,12 @@ jobs:
             exit 1
           fi
           test "$(plutil -extract CFBundleIdentifier raw "$foreign_root/Wheel.app/Contents/Info.plist")" = "com.example.NotWheel"
+
+          locked_root="$RUNNER_TEMP/wheel-locked"
+          mkdir -p "$locked_root/.wheel-install.lock"
+          if bash scripts/install-app.sh dist/Wheel.app "$locked_root/Wheel.app"; then
+            echo "Installer ignored an active installation lock" >&2
+            exit 1
+          fi
+          test ! -e "$locked_root/Wheel.app"
+          rmdir "$locked_root/.wheel-install.lock"
