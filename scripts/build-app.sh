@@ -51,5 +51,5 @@ done
 iconutil -c icns "$iconset" -o "$app/Contents/Resources/Wheel.icns"
 
 codesign --force --sign "$signing_identity" "$app"
-codesign --verify --deep --strict --verbose=2 "$app"
+bash "$repo_root/scripts/verify-app.sh" "$app"
 echo "Built $app"

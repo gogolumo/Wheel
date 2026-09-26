@@ -36,6 +36,11 @@ jobs:
       - name: Build and verify installable Wheel.app
         run: |
           bash scripts/build-app.sh
-          test -x dist/Wheel.app/Contents/MacOS/Wheel
-          test -f dist/Wheel.app/Contents/Resources/Wheel.icns
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' dist/Wheel.app/Contents/Info.plist)" = 'dev.gogolumo.Wheel'
+          bash scripts/verify-app.sh dist/Wheel.app
+
+          install_root="$RUNNER_TEMP/wheel-install"
+          mkdir -p "$install_root"
+          bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"
+          bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"
+          bash scripts/verify-app.sh "$install_root/Wheel.app"
+          test ! -e "$install_root/Wheel.app/Wheel.app"

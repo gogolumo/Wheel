@@ -152,15 +152,19 @@ On macOS 14+ with the full Xcode command line tools, check out the
 
 ```bash
 bash scripts/build-app.sh
-cp -R dist/Wheel.app /Applications/Wheel.app
+bash scripts/install-app.sh
 open /Applications/Wheel.app
 ```
 
 The build writes `dist/Wheel.app`, including its bundle identifier, menu-bar
 agent metadata, placeholder icon, and local ad-hoc signature. It runs without
 Terminal after installation and appears in Spotlight/Launchpad once macOS has
-indexed `/Applications`. Quit the old `swift run wheel-app` process first so
-only one Wheel instance observes the trigger.
+indexed `/Applications`. The installer verifies the source bundle, stages it on
+the destination volume, safely replaces an existing installation, verifies the
+installed copy, and restores the previous copy if the update fails. It also
+refuses to update while Wheel is running. Do not update with `cp -R`: when
+`/Applications/Wheel.app` already exists, that can create a broken nested
+`Wheel.app/Wheel.app` bundle.
 
 **Input Monitoring** is required for the global Right Option trigger. From the
 Wheel menu, request access, open Privacy Settings if needed, enable **Wheel**

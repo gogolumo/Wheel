@@ -31,7 +31,7 @@ To build and install a real app bundle on macOS 14+:
 
 ```bash
 bash scripts/build-app.sh
-cp -R dist/Wheel.app /Applications/Wheel.app
+bash scripts/install-app.sh
 open /Applications/Wheel.app
 ```
 
@@ -39,6 +39,11 @@ The script builds the existing SwiftPM `wheel-app` product in release mode,
 packages it with `CFBundleIdentifier=dev.gogolumo.Wheel`, `LSUIElement=true`
 and a placeholder icon, and applies an ad-hoc local signature. The bundle runs
 independently of Terminal. Quit any `swift run wheel-app` instance first.
+`install-app.sh` refuses to replace a running Wheel, validates the bundle before
+and after installation, stages the copy beside the destination, and restores the
+previous installation if validation fails. Use it for updates as well as first
+installation; plain `cp -R` can nest the new bundle inside an existing
+`/Applications/Wheel.app`.
 macOS associates Input Monitoring with this app bundle separately from
 Terminal/Xcode. The local signature is for development; distribution requires
 Developer ID signing and notarization. A future rebuild may require granting
