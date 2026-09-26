@@ -24,6 +24,14 @@ jobs:
       - name: Swift version
         run: swift --version
 
+      - name: Validate packaging scripts
+        run: |
+          bash -n scripts/build-app.sh
+          bash -n scripts/verify-app.sh
+          bash -n scripts/install-app.sh
+          bash -n scripts/doctor-app.sh
+          bash -n scripts/uninstall-app.sh
+
       - name: Build package (including macOS input spike)
         run: swift build -Xswiftc -warnings-as-errors
 
@@ -65,6 +73,11 @@ jobs:
             exit 1
           fi
           test "$(plutil -extract CFBundleIdentifier raw "$foreign_root/Wheel.app/Contents/Info.plist")" = "com.example.NotWheel"
+          if bash scripts/uninstall-app.sh "$foreign_root/Wheel.app"; then
+            echo "Uninstaller removed an unrelated Wheel.app target" >&2
+            exit 1
+          fi
+          test -d "$foreign_root/Wheel.app"
 
           locked_root="$RUNNER_TEMP/wheel-locked"
           mkdir -p "$locked_root/.wheel-install.lock"
@@ -74,3 +87,9 @@ jobs:
           fi
           test ! -e "$locked_root/Wheel.app"
           rmdir "$locked_root/.wheel-install.lock"
+
+          uninstall_root="$RUNNER_TEMP/wheel-uninstall"
+          mkdir -p "$uninstall_root"
+          bash scripts/install-app.sh dist/Wheel.app "$uninstall_root/Wheel.app"
+          bash scripts/uninstall-app.sh "$uninstall_root/Wheel.app"
+          test ! -e "$uninstall_root/Wheel.app"

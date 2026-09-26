@@ -52,9 +52,15 @@ the application; that informational state does not weaken bundle verification.
 macOS associates Input Monitoring with this app bundle separately from
 Terminal/Xcode. The local signature is for development; distribution requires
 Developer ID signing and notarization. A future rebuild may require granting
-Input Monitoring again. The installed build can be removed by quitting Wheel
-and moving `/Applications/Wheel.app` to Trash; the local application history
-remains in Application Support unless deliberately removed.
+Input Monitoring again. The installed build can be removed safely after quitting Wheel with:
+
+```bash
+bash scripts/uninstall-app.sh /Applications/Wheel.app
+```
+
+The uninstaller refuses symbolic links, unrelated bundle identifiers, invalid
+signatures, and running Wheel processes. It removes only the app bundle; local
+application history remains in Application Support unless deliberately removed.
 
 Wheel launches as an accessory app and places its icon in the menu bar. Open the
 menu to see live status or press **Open Wheel** for the full dashboard. The

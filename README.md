@@ -175,6 +175,13 @@ for normal use. Screen Recording and Accessibility are not required by this
 application-only build. This package has no window snapshot or document
 recovery feature yet. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md).
 
+To remove the local alpha bundle without touching Wheel's Application Support
+data, quit Wheel and run:
+
+```bash
+bash scripts/uninstall-app.sh /Applications/Wheel.app
+```
+
 Wheel appears in the macOS menu bar. Its interface reports permission and input
 readiness truthfully. The stacked radial application branch can capture and
 activate/relaunch apps, while deeper context restoration remains gated. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md) for
