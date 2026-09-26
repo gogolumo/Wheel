@@ -67,5 +67,10 @@ build_version="$(plist_value CFBundleVersion)" \
 [[ "$build_version" =~ ^[0-9]+([.][0-9]+)*$ ]] \
     || fail "invalid CFBundleVersion '$build_version'"
 
+source_revision="$(plist_value WheelSourceRevision)" \
+    || fail "missing Info.plist key WheelSourceRevision"
+[[ "$source_revision" =~ ^[0-9a-fA-F]{40}$ ]] \
+    || fail "invalid WheelSourceRevision '$source_revision'"
+
 codesign --verify --deep --strict --verbose=2 "$app"
 echo "Verified $app"

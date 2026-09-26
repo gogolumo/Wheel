@@ -13,7 +13,7 @@ if [[ "$(uname -s)" != Darwin ]]; then
     exit 1
 fi
 
-for command in swift sips iconutil plutil codesign; do
+for command in swift git sips iconutil plutil codesign; do
     if ! command -v "$command" >/dev/null 2>&1; then
         echo "Missing required macOS tool: $command" >&2
         exit 1
@@ -35,6 +35,12 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$executable" "$app/Contents/MacOS/Wheel"
 cp packaging/Info.plist "$app/Contents/Info.plist"
+source_revision="${WHEEL_SOURCE_REVISION:-$(git rev-parse --verify HEAD)}"
+if [[ ! "$source_revision" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    echo "Invalid Wheel source revision: $source_revision" >&2
+    exit 1
+fi
+plutil -replace WheelSourceRevision -string "$source_revision" "$app/Contents/Info.plist"
 plutil -lint "$app/Contents/Info.plist"
 
 iconset="$(mktemp -d "${TMPDIR:-/tmp}/wheel-icon.XXXXXX")/Wheel.iconset"
