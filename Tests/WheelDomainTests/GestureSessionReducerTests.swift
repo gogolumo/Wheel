@@ -71,32 +71,39 @@ final class GestureSessionReducerTests: XCTestCase {
 
             for step in 0..<256 {
                 let activeID = reducer.activeSession?.id
+                let terminalID = generator.next() & 3 == 0
+                    ? deterministicID(seed: seed, step: step, salt: 1)
+                    : (activeID ?? deterministicID(seed: seed, step: step, salt: 2))
                 let event: GestureSessionEvent
                 switch generator.next() % 5 {
                 case 0:
-                    let id = UUID(uuidString: String(format: "00000000-0000-0000-0000-%012llx", UInt64(seed * 256 + step)))!
+                    let id = deterministicID(seed: seed, step: step, salt: 0)
                     let trigger: TriggerType = generator.next() & 1 == 0 ? .capsLock : .rightOption
                     event = .start(id: id, triggerType: trigger)
                 case 1:
-                    event = .complete(id: activeID ?? UUID(), direction: .left)
+                    event = .complete(id: terminalID, direction: .left)
                 case 2:
-                    event = .complete(id: activeID ?? UUID(), direction: .right)
+                    event = .complete(id: terminalID, direction: .right)
                 case 3:
-                    event = .complete(id: activeID ?? UUID(), direction: .none)
+                    event = .complete(id: terminalID, direction: .none)
                 default:
-                    event = .cancel(id: activeID ?? UUID())
+                    event = .cancel(id: terminalID)
                 }
 
-                let wasTracking = reducer.activeSession != nil
+                let sessionBefore = reducer.activeSession
                 let accepted = reducer.reduce(event)
 
                 switch event {
                 case .start:
-                    XCTAssertEqual(accepted, !wasTracking, "seed \(seed), step \(step)")
+                    XCTAssertEqual(accepted, sessionBefore == nil, "seed \(seed), step \(step)")
                     if accepted { acceptedStarts += 1 }
-                case .complete, .cancel:
-                    XCTAssertEqual(accepted, wasTracking, "seed \(seed), step \(step)")
+                case let .complete(id, _), let .cancel(id):
+                    let expectedAcceptance = sessionBefore?.id == id
+                    XCTAssertEqual(accepted, expectedAcceptance, "seed \(seed), step \(step)")
                     if accepted { acceptedTerminals += 1 }
+                    if !expectedAcceptance {
+                        XCTAssertEqual(reducer.activeSession, sessionBefore, "seed \(seed), step \(step)")
+                    }
                 }
 
                 if let activeSession = reducer.activeSession {
@@ -106,6 +113,16 @@ final class GestureSessionReducerTests: XCTestCase {
                 XCTAssertLessThanOrEqual(acceptedStarts - acceptedTerminals, 1)
             }
         }
+    }
+
+    private func deterministicID(seed: Int, step: Int, salt: Int) -> UUID {
+        let value = UInt64(seed * 1_024 + step * 4 + salt)
+        return UUID(
+            uuidString: String(
+                format: "00000000-0000-0000-0000-%012llx",
+                value
+            )
+        )!
     }
 }
 
