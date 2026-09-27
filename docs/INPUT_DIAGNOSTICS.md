@@ -57,8 +57,9 @@ Each file receives its own result, followed by a batch summary. The command
 rejects malformed or internally contradictory evidence, including unsupported
 triggers, trigger/button mismatches, invalid classifier settings, negative
 aggregate counts, inconsistent completion state, and missing or invalid latency
-measurements. A failed or unreadable file makes the batch fail; otherwise any
-valid interrupted run makes it `INCOMPLETE`. Even a batch `PASS` covers only
+measurements. A failed or unreadable file, or a duplicated `runLabel`, makes
+the batch fail; otherwise any valid interrupted run makes it `INCOMPLETE`.
+Use a unique condition label for every physical run. Even a batch `PASS` covers only
 automated fields in the supplied exports; completeness of the required matrix,
 native side effects, stuck-state checks, and the final `GO` / `ADJUST` /
 `STOP` decision remain manual.

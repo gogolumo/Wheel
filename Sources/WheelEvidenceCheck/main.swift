@@ -11,7 +11,7 @@ guard CommandLine.arguments.count >= 2 else {
     exit(64)
 }
 
-var assessments: [InputSpikeEvidenceAssessment] = []
+var entries: [InputSpikeEvidenceBatchEntry] = []
 var unreadableFileCount = 0
 
 for path in CommandLine.arguments.dropFirst() {
@@ -21,7 +21,12 @@ for path in CommandLine.arguments.dropFirst() {
         let data = try Data(contentsOf: url)
         let summary = try JSONDecoder().decode(InputSpikeRunSummary.self, from: data)
         let assessment = InputSpikeEvidenceAssessment.evaluate(summary)
-        assessments.append(assessment)
+        entries.append(
+            InputSpikeEvidenceBatchEntry(
+                runLabel: summary.runLabel,
+                assessment: assessment
+            )
+        )
         print("Automated checks: \(assessment.outcome.rawValue.uppercased())")
         for finding in assessment.findings {
             print("- \(finding)")
@@ -33,12 +38,15 @@ for path in CommandLine.arguments.dropFirst() {
     }
 }
 
-let batch = InputSpikeEvidenceBatchAssessment.evaluate(assessments)
+let batch = InputSpikeEvidenceBatchAssessment.evaluate(entries)
 print(
     "\nBatch result: \(batch.outcome.rawValue.uppercased()) "
         + "(\(batch.passedCount) passed, \(batch.incompleteCount) incomplete, "
         + "\(batch.failedCount + unreadableFileCount) failed)"
 )
+if !batch.duplicateRunLabels.isEmpty {
+    print("- duplicate runLabel values: \(batch.duplicateRunLabels.joined(separator: \", \"))")
+}
 print("Manual physical matrix review is still required; this is not a GO decision.")
 
 if unreadableFileCount > 0 || batch.outcome == .failed {
