@@ -62,6 +62,26 @@ final class GestureSessionReducerTests: XCTestCase {
         XCTAssertEqual(reducer.activeSession?.status, .tracking)
     }
 
+    func testRejectedReentrantStartAndStaleTerminalPreserveTrackedSessionUntilValidCompletion() {
+        let activeID = UUID()
+        let rejectedID = UUID()
+        var reducer = GestureSessionReducer()
+
+        XCTAssertTrue(reducer.reduce(.start(id: activeID, triggerType: .rightOption)))
+        let expectedSession = reducer.activeSession
+
+        XCTAssertFalse(reducer.reduce(.start(id: rejectedID, triggerType: .capsLock)))
+        XCTAssertEqual(reducer.activeSession, expectedSession)
+
+        XCTAssertFalse(reducer.reduce(.complete(id: rejectedID, direction: .left)))
+        XCTAssertFalse(reducer.reduce(.cancel(id: rejectedID)))
+        XCTAssertEqual(reducer.activeSession, expectedSession)
+
+        XCTAssertTrue(reducer.reduce(.complete(id: activeID, direction: .right)))
+        XCTAssertNil(reducer.activeSession)
+        XCTAssertFalse(reducer.reduce(.complete(id: activeID, direction: .left)))
+    }
+
     func testSeededEventSequencesNeverCreateOverlappingSessions() {
         for seed in 0..<64 {
             var generator = SeededGenerator(seed: UInt64(seed) + 1)
