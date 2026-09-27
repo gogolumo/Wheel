@@ -32,9 +32,9 @@ To build and install a real app bundle on macOS 14+:
 ```bash
 bash scripts/build-app.sh
 bash scripts/install-app.sh
-open /Applications/Wheel.app
 bash scripts/doctor-app.sh /Applications/Wheel.app
 bash scripts/smoke-app.sh /Applications/Wheel.app
+open /Applications/Wheel.app
 ```
 
 The script builds the existing SwiftPM `wheel-app` product in release mode,
