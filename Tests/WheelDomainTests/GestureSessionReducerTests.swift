@@ -83,6 +83,9 @@ final class GestureSessionReducerTests: XCTestCase {
     }
 
     func testSeededEventSequencesNeverCreateOverlappingSessions() {
+        var rejectedStartsWhileTracking = 0
+        var rejectedTerminalsWhileTracking = 0
+
         for seed in 0..<64 {
             var generator = SeededGenerator(seed: UInt64(seed) + 1)
             var reducer = GestureSessionReducer()
@@ -116,12 +119,19 @@ final class GestureSessionReducerTests: XCTestCase {
                 switch event {
                 case .start:
                     XCTAssertEqual(accepted, sessionBefore == nil, "seed \(seed), step \(step)")
-                    if accepted { acceptedStarts += 1 }
+                    if accepted {
+                        acceptedStarts += 1
+                    } else if sessionBefore != nil {
+                        rejectedStartsWhileTracking += 1
+                    }
                 case let .complete(id, _), let .cancel(id):
                     let expectedAcceptance = sessionBefore?.id == id
                     XCTAssertEqual(accepted, expectedAcceptance, "seed \(seed), step \(step)")
                     if accepted { acceptedTerminals += 1 }
                     if !expectedAcceptance {
+                        if sessionBefore != nil {
+                            rejectedTerminalsWhileTracking += 1
+                        }
                         XCTAssertEqual(reducer.activeSession, sessionBefore, "seed \(seed), step \(step)")
                     }
                 }
@@ -133,6 +143,13 @@ final class GestureSessionReducerTests: XCTestCase {
                 XCTAssertLessThanOrEqual(acceptedStarts - acceptedTerminals, 1)
             }
         }
+
+        XCTAssertGreaterThan(rejectedStartsWhileTracking, 0, "seeded coverage must exercise reentrant starts")
+        XCTAssertGreaterThan(
+            rejectedTerminalsWhileTracking,
+            0,
+            "seeded coverage must exercise stale terminal callbacks while tracking"
+        )
     }
 
     private func deterministicID(seed: Int, step: Int, salt: Int) -> UUID {
