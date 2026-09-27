@@ -157,12 +157,16 @@ open /Applications/Wheel.app
 ```
 
 The build writes `dist/Wheel.app`, including its bundle identifier, menu-bar
-agent metadata, placeholder icon, and local ad-hoc signature. It runs without
-Terminal after installation and appears in Spotlight/Launchpad once macOS has
-indexed `/Applications`. The installer verifies the source bundle, stages it on
-the destination volume, safely replaces an existing installation, verifies the
-installed copy, and restores the previous copy if the update fails. It also
-refuses to update while Wheel is running. Do not update with `cp -R`: when
+agent metadata, placeholder icon, and local ad-hoc signature. Packaging happens
+in a private staging directory and replaces the previous verified build only
+after the new bundle passes validation. Concurrent builds are rejected, and a
+failed replacement restores the previous artifact. The builder will not replace
+a symbolic link or an unverified `Wheel.app` at the output path. The app runs
+without Terminal after installation and appears in Spotlight/Launchpad once
+macOS has indexed `/Applications`. The installer verifies the source bundle,
+stages it on the destination volume, safely replaces an existing installation,
+verifies the installed copy, and restores the previous copy if the update fails.
+It also refuses to update while Wheel is running. Do not update with `cp -R`: when
 `/Applications/Wheel.app` already exists, that can create a broken nested
 `Wheel.app/Wheel.app` bundle.
 

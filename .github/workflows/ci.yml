@@ -47,6 +47,37 @@ jobs:
           bash scripts/build-app.sh
           bash scripts/verify-app.sh dist/Wheel.app
 
+          stale_marker="dist/Wheel.app/Contents/Resources/stale-build-marker"
+          touch "$stale_marker"
+          codesign --force --sign - dist/Wheel.app
+          bash scripts/build-app.sh
+          test ! -e "$stale_marker"
+          test ! -e dist/.wheel-build.lock
+          if compgen -G 'dist/.wheel-build.*' >/dev/null; then
+            echo "Builder left transaction artifacts behind" >&2
+            exit 1
+          fi
+
+          foreign_build_root="$RUNNER_TEMP/wheel-build-foreign"
+          mkdir -p "$foreign_build_root"
+          ditto dist/Wheel.app "$foreign_build_root/Wheel.app"
+          plutil -replace CFBundleIdentifier -string com.example.NotWheel "$foreign_build_root/Wheel.app/Contents/Info.plist"
+          codesign --force --sign - "$foreign_build_root/Wheel.app"
+          if bash scripts/build-app.sh "$foreign_build_root"; then
+            echo "Builder replaced an unrelated Wheel.app output" >&2
+            exit 1
+          fi
+          test "$(plutil -extract CFBundleIdentifier raw "$foreign_build_root/Wheel.app/Contents/Info.plist")" = "com.example.NotWheel"
+
+          locked_build_root="$RUNNER_TEMP/wheel-build-locked"
+          mkdir -p "$locked_build_root/.wheel-build.lock"
+          if bash scripts/build-app.sh "$locked_build_root"; then
+            echo "Builder ignored an active build lock" >&2
+            exit 1
+          fi
+          test ! -e "$locked_build_root/Wheel.app"
+          rmdir "$locked_build_root/.wheel-build.lock"
+
           invalid_bundle="$RUNNER_TEMP/invalid-Wheel.app"
           ditto dist/Wheel.app "$invalid_bundle"
           plutil -replace LSUIElement -bool false "$invalid_bundle/Contents/Info.plist"
