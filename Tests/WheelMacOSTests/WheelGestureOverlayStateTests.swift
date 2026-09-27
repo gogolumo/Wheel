@@ -258,6 +258,67 @@ final class WheelGestureOverlayStateTests: XCTestCase {
         }
     }
 
+    func testSleepCancelsHeldOverlayAndPendingActions() async {
+        let harness = await makeHarness()
+        await beginGesture(harness)
+
+        await MainActor.run {
+            XCTAssertEqual(harness.viewModel.overlayState, .triggerHeld)
+
+            harness.viewModel.handleSystemSleep()
+
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+            XCTAssertFalse(harness.viewModel.isGestureActive)
+            XCTAssertNil(harness.viewModel.lastTriggerSignalIsDown)
+            XCTAssertFalse(harness.viewModel.isMonitoring)
+            XCTAssertEqual(harness.viewModel.status, .starting)
+
+            harness.scheduler.runPendingActions()
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+        }
+    }
+
+    func testSleepBeforeThresholdCancelsPendingPresentation() async {
+        let harness = await makeHarness()
+
+        await MainActor.run {
+            harness.monitor.emit(.triggerBegan(origin: .init(x: 0, y: 0)))
+        }
+        await drainMainQueue()
+
+        await MainActor.run {
+            XCTAssertTrue(harness.viewModel.isGestureActive)
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+
+            harness.viewModel.handleSystemSleep()
+            harness.scheduler.runPendingActions()
+
+            XCTAssertFalse(harness.viewModel.isGestureActive)
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+            XCTAssertFalse(harness.viewModel.isMonitoring)
+        }
+    }
+
+    func testQueuedPreSleepCallbackCannotRestoreHeldState() async {
+        let harness = await makeHarness()
+
+        await MainActor.run {
+            harness.monitor.emit(.triggerBegan(origin: .init(x: 0, y: 0)))
+            harness.viewModel.handleSystemSleep()
+
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+            XCTAssertFalse(harness.viewModel.isGestureActive)
+        }
+        await drainMainQueue()
+
+        await MainActor.run {
+            harness.scheduler.runPendingActions()
+            XCTAssertEqual(harness.viewModel.overlayState, .hidden)
+            XCTAssertFalse(harness.viewModel.isGestureActive)
+            XCTAssertEqual(harness.viewModel.status, .starting)
+        }
+    }
+
     func testShutdownHidesHeldOverlay() async {
         let harness = await makeHarness()
         await beginGesture(harness)

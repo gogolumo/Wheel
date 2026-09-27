@@ -82,6 +82,44 @@ final class WheelAppLifecycleCoordinatorTests: XCTestCase {
             )
         }
     }
+
+    func testStopsBeforeSleepAndStartsFreshMonitorAfterWake() async {
+        await MainActor.run {
+            let firstMonitor = LifecycleTestInputMonitor()
+            let secondMonitor = LifecycleTestInputMonitor()
+            var monitors = [firstMonitor, secondMonitor]
+            let viewModel = WheelAppViewModel(
+                permissionProvider: { true },
+                permissionRequester: { true },
+                monitorFactory: { _ in monitors.removeFirst() }
+            )
+            let coordinator = WheelAppLifecycleCoordinator(viewModel: viewModel)
+
+            coordinator.launch()
+            coordinator.systemWillSleep()
+
+            XCTAssertEqual(firstMonitor.stopCallCount, 1)
+            XCTAssertFalse(viewModel.isMonitoring)
+            XCTAssertEqual(viewModel.status, .starting)
+            XCTAssertEqual(
+                viewModel.notice,
+                "Wheel suspended input monitoring while your Mac sleeps."
+            )
+
+            coordinator.applicationDidBecomeActive()
+
+            XCTAssertFalse(viewModel.isMonitoring)
+            XCTAssertEqual(viewModel.status, .starting)
+            XCTAssertEqual(secondMonitor.startCallCount, 0)
+
+            coordinator.systemDidWake()
+
+            XCTAssertEqual(firstMonitor.stopCallCount, 1)
+            XCTAssertEqual(secondMonitor.startCallCount, 1)
+            XCTAssertTrue(viewModel.isMonitoring)
+            XCTAssertEqual(viewModel.status, .ready)
+        }
+    }
 }
 
 private final class LifecycleTestInputMonitor: InputEventMonitoring {

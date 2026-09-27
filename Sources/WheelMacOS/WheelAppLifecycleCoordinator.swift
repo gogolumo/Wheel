@@ -32,6 +32,12 @@ public final class WheelAppLifecycleCoordinator {
         viewModel.handleSystemWake()
     }
 
+    public func systemWillSleep() {
+        guard hasLaunched else { return }
+
+        viewModel.handleSystemSleep()
+    }
+
     public func terminate() {
         guard hasLaunched else { return }
 
