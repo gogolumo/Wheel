@@ -30,6 +30,7 @@ jobs:
           bash -n scripts/verify-app.sh
           bash -n scripts/install-app.sh
           bash -n scripts/doctor-app.sh
+          bash -n scripts/smoke-app.sh
           bash -n scripts/uninstall-app.sh
 
       - name: Build package (including macOS input spike)
@@ -61,6 +62,7 @@ jobs:
           bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"
           bash scripts/verify-app.sh "$install_root/Wheel.app"
           bash scripts/doctor-app.sh "$install_root/Wheel.app"
+          bash scripts/smoke-app.sh "$install_root/Wheel.app"
           test ! -e "$install_root/Wheel.app/Wheel.app"
 
           foreign_root="$RUNNER_TEMP/wheel-foreign"

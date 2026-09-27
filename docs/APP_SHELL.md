@@ -34,6 +34,7 @@ bash scripts/build-app.sh
 bash scripts/install-app.sh
 open /Applications/Wheel.app
 bash scripts/doctor-app.sh /Applications/Wheel.app
+bash scripts/smoke-app.sh /Applications/Wheel.app
 ```
 
 The script builds the existing SwiftPM `wheel-app` product in release mode,
@@ -49,6 +50,12 @@ Run `scripts/doctor-app.sh` after installation to verify the bundle contract,
 exact packaged source revision, code-signing identity, and current Spotlight
 metadata. A fresh install may report Spotlight as pending until macOS indexes
 the application; that informational state does not weaken bundle verification.
+`smoke-app.sh` launches the verified bundle through Launch Services with the
+deterministic `ready` fixture, confirms that the expected packaged executable
+stays alive, and then terminates it. Fixture mode does not request Input
+Monitoring or start the native event tap. This is an automated packaging check,
+not evidence that the menu-bar item is visible or that Finder, Dock, TCC, the
+overlay, or application relaunch behavior passed on a user's Mac.
 macOS associates Input Monitoring with this app bundle separately from
 Terminal/Xcode. The local signature is for development; distribution requires
 Developer ID signing and notarization. A future rebuild may require granting

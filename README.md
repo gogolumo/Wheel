@@ -147,8 +147,8 @@ swift run wheel-app
 
 ### Install a local Wheel.app
 
-On macOS 14+ with the full Xcode command line tools, check out the
-`feat/CTX-app-history-wheel` branch (or a descendant with packaging) and run:
+On macOS 14+ with the full Xcode command line tools, check out the active
+`feat/APP-002-installable-bundle` branch and run:
 
 ```bash
 bash scripts/build-app.sh
@@ -174,6 +174,17 @@ ad-hoc signed bundle can prompt for access again; keep the same installed copy
 for normal use. Screen Recording and Accessibility are not required by this
 application-only build. This package has no window snapshot or document
 recovery feature yet. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md).
+
+For a non-interactive packaging check that launches the installed bundle through
+Launch Services in permission-free fixture mode, quit Wheel and run:
+
+```bash
+bash scripts/smoke-app.sh /Applications/Wheel.app
+```
+
+This confirms that the packaged executable starts and remains alive briefly. It
+does not replace visually checking the menu-bar item, Dock behavior, overlay, or
+Input Monitoring attribution on a real Mac.
 
 To remove the local alpha bundle without touching Wheel's Application Support
 data, quit Wheel and run:
