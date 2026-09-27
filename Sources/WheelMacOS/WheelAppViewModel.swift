@@ -124,6 +124,7 @@ public final class WheelAppViewModel: ObservableObject {
     private var monitor: (any InputEventMonitoring)?
     private var monitorGeneration = 0
     private var hasStarted = false
+    private var isSystemSleeping = false
     private var overlayGeneration = 0
     private var overlayPresentationAction: WheelOverlayScheduledAction?
     private var overlayDismissAction: WheelOverlayScheduledAction?
@@ -320,7 +321,10 @@ public final class WheelAppViewModel: ObservableObject {
     }
 
     public func handleSystemWake() {
-        guard fixture == nil, hasStarted, isEnabled, !isPaused else { return }
+        guard fixture == nil, hasStarted else { return }
+
+        isSystemSleeping = false
+        guard isEnabled, !isPaused else { return }
 
         stopMonitor()
         permissionGranted = permissionProvider()
@@ -328,10 +332,25 @@ public final class WheelAppViewModel: ObservableObject {
         reconcileRuntime(preservingNotice: true)
     }
 
+    public func handleSystemSleep() {
+        guard fixture == nil, hasStarted else { return }
+
+        let wasReady = status == .ready
+        isSystemSleeping = true
+        stopMonitor()
+
+        guard wasReady else { return }
+
+        status = .starting
+        errorMessage = nil
+        notice = "Wheel suspended input monitoring while your Mac sleeps."
+    }
+
     public func shutdown() {
         guard fixture == nil else { return }
 
         hasStarted = false
+        isSystemSleeping = false
         stopMonitor()
         applicationMonitor.stop()
         clearRestoreSuppression()
@@ -443,6 +462,13 @@ public final class WheelAppViewModel: ObservableObject {
         guard !isPaused else {
             stopMonitor()
             status = .paused
+            errorMessage = nil
+            return
+        }
+
+        guard !isSystemSleeping else {
+            stopMonitor()
+            status = .starting
             errorMessage = nil
             return
         }
