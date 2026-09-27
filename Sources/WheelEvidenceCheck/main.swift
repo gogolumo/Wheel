@@ -45,7 +45,8 @@ print(
         + "\(batch.failedCount + unreadableFileCount) failed)"
 )
 if !batch.duplicateRunLabels.isEmpty {
-    print("- duplicate runLabel values: \(batch.duplicateRunLabels.joined(separator: \", \"))")
+    let labels = batch.duplicateRunLabels.joined(separator: ", ")
+    print("- duplicate runLabel values: \(labels)")
 }
 print("Manual physical matrix review is still required; this is not a GO decision.")
 
