@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app="${1:-/Applications/Wheel.app}"
+source "$repo_root/scripts/lib/app-process.sh"
 
 fail() {
     echo "Wheel.app doctor failed: $*" >&2
@@ -21,6 +22,9 @@ plist_buddy="/usr/libexec/PlistBuddy"
 [[ -x "$plist_buddy" ]] || fail "missing required macOS tool: $plist_buddy"
 
 bash "$repo_root/scripts/verify-app.sh" "$app"
+
+app_parent="$(cd "$(dirname "$app")" && pwd -P)"
+app="$app_parent/$(basename "$app")"
 
 info_plist="$app/Contents/Info.plist"
 plist_value() {
@@ -51,8 +55,13 @@ else
     echo "Spotlight metadata: UNAVAILABLE (mdls missing)"
 fi
 
-if command -v pgrep >/dev/null 2>&1 && pgrep -x Wheel >/dev/null 2>&1; then
-    echo "Running process: YES"
+if command -v pgrep >/dev/null 2>&1 && command -v ps >/dev/null 2>&1; then
+    running_pid="$(wheel_find_running_pid "$app/Contents/MacOS/Wheel" || true)"
+    if [[ -n "$running_pid" ]]; then
+        echo "Running installed process: YES"
+    else
+        echo "Running installed process: NO"
+    fi
 else
-    echo "Running process: NO"
+    echo "Running installed process: UNAVAILABLE (pgrep or ps missing)"
 fi
