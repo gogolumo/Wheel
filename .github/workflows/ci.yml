@@ -112,6 +112,17 @@ jobs:
           fi
           test -d "$foreign_root/Wheel.app"
 
+          malformed_uninstall_root="$RUNNER_TEMP/wheel-malformed-uninstall"
+          mkdir -p "$malformed_uninstall_root"
+          ditto dist/Wheel.app "$malformed_uninstall_root/Wheel.app"
+          rm "$malformed_uninstall_root/Wheel.app/Contents/Resources/Wheel.icns"
+          codesign --force --sign - "$malformed_uninstall_root/Wheel.app"
+          if bash scripts/uninstall-app.sh "$malformed_uninstall_root/Wheel.app"; then
+            echo "Uninstaller removed a malformed same-identifier bundle" >&2
+            exit 1
+          fi
+          test -d "$malformed_uninstall_root/Wheel.app"
+
           locked_root="$RUNNER_TEMP/wheel-locked"
           mkdir -p "$locked_root/.wheel-install.lock"
           if bash scripts/install-app.sh dist/Wheel.app "$locked_root/Wheel.app"; then
