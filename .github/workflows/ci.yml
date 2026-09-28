@@ -32,6 +32,9 @@ jobs:
           bash -n scripts/doctor-app.sh
           bash -n scripts/smoke-app.sh
           bash -n scripts/uninstall-app.sh
+          bash -n scripts/lib/app-process.sh
+          bash -n scripts/test-app-process.sh
+          bash scripts/test-app-process.sh
 
       - name: Build package (including macOS input spike)
         run: swift build -Xswiftc -warnings-as-errors
@@ -44,8 +47,45 @@ jobs:
 
       - name: Build and verify installable Wheel.app
         run: |
+          running_dist_pid=""
+          running_installed_pid=""
+          unrelated_wheel_pid=""
+          cleanup_test_processes() {
+            for pid in "$running_dist_pid" "$running_installed_pid" "$unrelated_wheel_pid"; do
+              if [[ -n "$pid" ]] && kill -0 "$pid" >/dev/null 2>&1; then
+                kill -TERM "$pid" >/dev/null 2>&1 || true
+                wait "$pid" >/dev/null 2>&1 || true
+              fi
+            done
+          }
+          trap cleanup_test_processes EXIT
+
           bash scripts/build-app.sh
           bash scripts/verify-app.sh dist/Wheel.app
+
+          dist_executable="$PWD/dist/Wheel.app/Contents/MacOS/Wheel"
+          "$dist_executable" --fixture ready &
+          running_dist_pid=$!
+          sleep 1
+          kill -0 "$running_dist_pid"
+          if bash scripts/build-app.sh; then
+            echo "Builder replaced a running Wheel.app output" >&2
+            exit 1
+          fi
+          kill -TERM "$running_dist_pid"
+          wait "$running_dist_pid" || true
+          running_dist_pid=""
+          test ! -e dist/.wheel-build.lock
+
+          unrelated_root="$RUNNER_TEMP/unrelated-wheel-process"
+          mkdir -p "$unrelated_root"
+          cp /bin/sleep "$unrelated_root/Wheel"
+          "$unrelated_root/Wheel" 300 &
+          unrelated_wheel_pid=$!
+          sleep 1
+          kill -0 "$unrelated_wheel_pid"
+          source scripts/lib/app-process.sh
+          test "$(wheel_find_running_pid "$unrelated_root/Wheel")" = "$unrelated_wheel_pid"
 
           stale_marker="dist/Wheel.app/Contents/Resources/stale-build-marker"
           touch "$stale_marker"
@@ -90,10 +130,31 @@ jobs:
           install_root="$RUNNER_TEMP/wheel-install"
           mkdir -p "$install_root"
           bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"
+
+          installed_executable="$install_root/Wheel.app/Contents/MacOS/Wheel"
+          "$installed_executable" --fixture ready &
+          running_installed_pid=$!
+          sleep 1
+          kill -0 "$running_installed_pid"
+          if bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"; then
+            echo "Installer replaced a running installed Wheel.app" >&2
+            exit 1
+          fi
+          if bash scripts/uninstall-app.sh "$install_root/Wheel.app"; then
+            echo "Uninstaller removed a running installed Wheel.app" >&2
+            exit 1
+          fi
+          kill -TERM "$running_installed_pid"
+          wait "$running_installed_pid" || true
+          running_installed_pid=""
+
           bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"
           bash scripts/verify-app.sh "$install_root/Wheel.app"
-          bash scripts/doctor-app.sh "$install_root/Wheel.app"
+          doctor_output="$(bash scripts/doctor-app.sh "$install_root/Wheel.app")"
+          echo "$doctor_output"
+          grep -Fq "Running installed process: NO" <<<"$doctor_output"
           bash scripts/smoke-app.sh "$install_root/Wheel.app"
+          kill -0 "$unrelated_wheel_pid"
           test ! -e "$install_root/Wheel.app/Wheel.app"
 
           foreign_root="$RUNNER_TEMP/wheel-foreign"
@@ -145,3 +206,7 @@ jobs:
           bash scripts/uninstall-app.sh "$uninstall_root/Wheel.app"
           test ! -e "$uninstall_root/Wheel.app"
           test ! -e "$uninstall_root/.wheel-install.lock"
+          kill -0 "$unrelated_wheel_pid"
+          kill -TERM "$unrelated_wheel_pid"
+          wait "$unrelated_wheel_pid" || true
+          unrelated_wheel_pid=""

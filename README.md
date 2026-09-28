@@ -167,7 +167,10 @@ macOS has indexed `/Applications`. The installer verifies the source bundle,
 stages it on the destination volume, safely replaces an existing installation,
 verifies the installed copy, and restores the previous copy if the update fails.
 Install, update, and removal share one lock so those operations cannot race. The
-installer also refuses to update while Wheel is running. Do not update with `cp -R`: when
+installer also refuses to update while that exact installed Wheel executable is
+running. Lifecycle checks match the canonical executable path rather than only
+the process name, so an unrelated binary named `Wheel` is neither treated as
+the app nor terminated by the smoke test. Do not update with `cp -R`: when
 `/Applications/Wheel.app` already exists, that can create a broken nested
 `Wheel.app/Wheel.app` bundle.
 

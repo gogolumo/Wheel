@@ -50,6 +50,10 @@ and after installation, stages the copy beside the destination, and restores the
 previous installation if validation fails. Use it for updates as well as first
 installation; plain `cp -R` can nest the new bundle inside an existing
 `/Applications/Wheel.app`.
+Build, install, diagnostics, smoke, and removal identify a running bundle by its
+exact canonical `Contents/MacOS/Wheel` path, not just by the process name. An
+unrelated executable also named `Wheel` is ignored, and smoke cleanup rechecks
+ownership before sending a signal so it cannot terminate that process.
 Run `scripts/doctor-app.sh` after installation to verify the bundle contract,
 exact packaged source revision, code-signing identity, and current Spotlight
 metadata. A fresh install may report Spotlight as pending until macOS indexes
