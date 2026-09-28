@@ -1,0 +1,136 @@
+import AppKit
+import Foundation
+
+public enum WheelPinnedApplicationResolutionError: Error, Equatable {
+    case notApplicationBundle
+    case unsupportedBundleType
+    case systemUtility
+}
+
+extension WheelPinnedApplicationResolutionError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .notApplicationBundle:
+            return "Choose a macOS application (.app)."
+        case .unsupportedBundleType:
+            return "Wheel can only pin normal application bundles."
+        case .systemUtility:
+            return "That system utility is not a user-facing application Wheel can pin."
+        }
+    }
+}
+
+/// Resolves a persisted pin back to an installed app without making its old path
+/// the source of truth. Bundle identifier wins; the stored URL is a fallback.
+@MainActor
+public final class WheelPinnedApplicationResolver {
+    private let workspace: NSWorkspace
+    private let fileManager: FileManager
+
+    public init(
+        workspace: NSWorkspace = .shared,
+        fileManager: FileManager = .default
+    ) {
+        self.workspace = workspace
+        self.fileManager = fileManager
+    }
+
+    public func pinnedApplication(
+        from applicationURL: URL
+    ) throws -> WheelPinnedApplication {
+        let url = applicationURL.standardizedFileURL
+        let lowercasedPath = url.path.lowercased()
+
+        guard url.pathExtension.lowercased() == "app",
+              !lowercasedPath.contains(".app/contents/")
+        else {
+            throw WheelPinnedApplicationResolutionError.notApplicationBundle
+        }
+
+        guard let bundle = Bundle(url: url) else {
+            throw WheelPinnedApplicationResolutionError.notApplicationBundle
+        }
+
+        if let packageType = bundle.object(
+            forInfoDictionaryKey: "CFBundlePackageType"
+        ) as? String,
+           packageType != "APPL"
+        {
+            throw WheelPinnedApplicationResolutionError.unsupportedBundleType
+        }
+
+        let bundleIdentifier = bundle.bundleIdentifier
+        if bundleIdentifier == "com.apple.loginwindow"
+            || bundleIdentifier == "com.apple.SecurityAgent"
+        {
+            throw WheelPinnedApplicationResolutionError.systemUtility
+        }
+
+        let displayName = (
+            bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+        )
+            ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            ?? url.deletingPathExtension().lastPathComponent
+
+        let stableIdentifier: String
+        if let bundleIdentifier, !bundleIdentifier.isEmpty {
+            stableIdentifier = "bundle:\(bundleIdentifier)"
+        } else {
+            stableIdentifier = "url:\(url.path)"
+        }
+
+        return WheelPinnedApplication(
+            stableIdentifier: stableIdentifier,
+            localizedName: displayName,
+            bundleIdentifier: bundleIdentifier,
+            applicationURL: url
+        )
+    }
+
+    public func resolve(
+        _ pinned: WheelPinnedApplication,
+        liveContexts: [WheelApplicationContext]
+    ) -> WheelApplicationContext {
+        if let live = liveContexts.first(where: {
+            $0.stableIdentifier == pinned.stableIdentifier
+                || (
+                    pinned.bundleIdentifier != nil
+                        && $0.bundleIdentifier == pinned.bundleIdentifier
+                )
+        }) {
+            return live
+        }
+
+        let resolvedURL = installedURL(for: pinned)
+
+        return WheelApplicationContext(
+            stableIdentifier: pinned.stableIdentifier,
+            localizedName: pinned.localizedName,
+            bundleIdentifier: pinned.bundleIdentifier,
+            applicationURL: resolvedURL ?? pinned.applicationURL,
+            firstSeenAt: .distantPast,
+            lastActivatedAt: .distantPast,
+            runState: resolvedURL == nil ? .unavailable : .terminated
+        )
+    }
+
+    private func installedURL(
+        for pinned: WheelPinnedApplication
+    ) -> URL? {
+        if let bundleIdentifier = pinned.bundleIdentifier,
+           let resolved = workspace.urlForApplication(
+                withBundleIdentifier: bundleIdentifier
+           )
+        {
+            return resolved
+        }
+
+        if let storedURL = pinned.applicationURL,
+           fileManager.fileExists(atPath: storedURL.path)
+        {
+            return storedURL
+        }
+
+        return nil
+    }
+}
