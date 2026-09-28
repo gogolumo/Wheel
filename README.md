@@ -79,6 +79,7 @@ Wheel never advances its internal position when restoration fails, is cancelled,
 - [x] CLI demo for the canonical `A → B → C` flow
 - [x] macOS GitHub Actions CI
 - [x] Native menu-bar application shell
+- [x] Persistent pinned application slots mixed with dynamic history
 - [x] Input Monitoring onboarding and recovery UI
 - [ ] Accessibility onboarding
 - [ ] Global trigger and pointer feasibility gate
@@ -138,6 +139,8 @@ cd Wheel
 swift test
 swift run wheel-demo
 ```
+
+Pinned applications can be assigned to exact radial sectors from **Wheel → Pinned Apps**. Those sectors stay fixed while every unpinned sector continues to use recent application history. Pins persist across restarts and hidden pins are retained when the direction count is reduced.
 
 Run the native menu-bar shell from the active APP-001 branch:
 

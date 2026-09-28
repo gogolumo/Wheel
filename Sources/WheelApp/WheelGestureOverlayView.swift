@@ -25,10 +25,12 @@ struct WheelGestureOverlayView: View {
             sectorGuides
 
             ForEach(
-                Array(viewModel.wheelApplications.enumerated()),
-                id: \.element.id
+                Array(viewModel.wheelSlots.enumerated()),
+                id: \.offset
             ) { index, application in
-                applicationItem(application, index: index)
+                if let application {
+                    applicationItem(application, index: index)
+                }
             }
 
             centerHub
@@ -77,7 +79,7 @@ struct WheelGestureOverlayView: View {
         )
 
         return VStack(spacing: 6) {
-            ZStack(alignment: .bottomTrailing) {
+            ZStack {
                 Circle()
                     .fill(
                         selected
@@ -98,22 +100,49 @@ struct WheelGestureOverlayView: View {
                 applicationIcon(application)
                     .frame(width: 50, height: 50)
 
-                if application.runState != .running {
-                    Image(
-                        systemName: application.runState == .terminated
-                            ? "arrow.clockwise.circle.fill"
-                            : "exclamationmark.circle.fill"
-                    )
-                    .font(.system(size: 19, weight: .semibold))
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(
-                        application.runState == .terminated
-                            ? Color.accentColor
-                            : Color.orange,
-                        Color(nsColor: .windowBackgroundColor)
-                    )
-                    .background(Circle().fill(Color(nsColor: .windowBackgroundColor)))
+                VStack {
+                    HStack {
+                        if viewModel.isPinnedSlot(index) {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(Color.accentColor)
+                                .padding(5)
+                                .background(
+                                    Circle().fill(
+                                        Color(nsColor: .windowBackgroundColor)
+                                    )
+                                )
+                        }
+                        Spacer()
+                    }
+
+                    Spacer()
+
+                    HStack {
+                        Spacer()
+                        if application.runState != .running {
+                            Image(
+                                systemName: application.runState == .terminated
+                                    ? "arrow.clockwise.circle.fill"
+                                    : "exclamationmark.circle.fill"
+                            )
+                            .font(.system(size: 19, weight: .semibold))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(
+                                application.runState == .terminated
+                                    ? Color.accentColor
+                                    : Color.orange,
+                                Color(nsColor: .windowBackgroundColor)
+                            )
+                            .background(
+                                Circle().fill(
+                                    Color(nsColor: .windowBackgroundColor)
+                                )
+                            )
+                        }
+                    }
                 }
+                .frame(width: 76, height: 76)
             }
 
             Text(application.localizedName)
@@ -230,9 +259,10 @@ struct WheelGestureOverlayView: View {
         switch viewModel.overlayContentState {
         case .hidden, .triggerHeld:
             if let index = viewModel.hoveredApplicationIndex,
-               viewModel.wheelApplications.indices.contains(index)
+               viewModel.wheelSlots.indices.contains(index),
+               let application = viewModel.wheelSlots[index]
             {
-                return viewModel.wheelApplications[index].localizedName
+                return application.localizedName
             }
             return "Move toward an app"
         case .resultSelection:

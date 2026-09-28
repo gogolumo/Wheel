@@ -150,6 +150,62 @@ final class WheelApplicationNavigationTests: XCTestCase {
         }
     }
 
+    func testPinnedSlotStaysFixedWhileDynamicHistoryChanges() async {
+        let harness = await MainActor.run { NavigationHarness() }
+
+        await MainActor.run {
+            harness.pinnedStore.pin(
+                WheelPinnedApplication(
+                    stableIdentifier: "bundle:net.whatsapp.WhatsApp",
+                    localizedName: "WhatsApp",
+                    bundleIdentifier: "net.whatsapp.WhatsApp",
+                    applicationURL: URL(
+                        fileURLWithPath: "/Applications/WhatsApp.app"
+                    )
+                ),
+                at: 2
+            )
+
+            harness.viewModel.start()
+            harness.applicationMonitor.emitActivated(
+                observation(name: "Safari", bundle: "com.apple.Safari", pid: 10)
+            )
+            harness.applicationMonitor.emitActivated(
+                observation(name: "Finder", bundle: "com.apple.finder", pid: 11)
+            )
+            harness.applicationMonitor.emitActivated(
+                observation(name: "Notes", bundle: "com.apple.Notes", pid: 12)
+            )
+
+            XCTAssertEqual(
+                harness.viewModel.wheelSlots[2]?.localizedName,
+                "WhatsApp"
+            )
+            XCTAssertTrue(harness.viewModel.isPinnedSlot(2))
+
+            harness.inputMonitor.emit(
+                .triggerBegan(origin: .init(x: 0, y: 0))
+            )
+            harness.inputMonitor.emit(
+                .triggerEnded(
+                    direction: .none,
+                    displacement: .init(horizontal: 0, vertical: 140),
+                    duration: 0.25
+                )
+            )
+        }
+
+        await drainMainQueue()
+
+        await MainActor.run {
+            XCTAssertEqual(
+                harness.activator.requestedContexts.last?.localizedName,
+                "WhatsApp"
+            )
+            XCTAssertEqual(harness.viewModel.selectedApplicationIndex, 2)
+        }
+    }
+
     private func observation(
         name: String,
         bundle: String,
@@ -183,6 +239,7 @@ private final class NavigationHarness {
         persistence: NavigationHistoryPersistence()
     )
     let settings: WheelSettings
+    let pinnedStore: WheelPinnedSlotStore
     let viewModel: WheelAppViewModel
 
     init() {
@@ -190,6 +247,7 @@ private final class NavigationHarness {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         settings = WheelSettings(defaults: defaults)
+        pinnedStore = WheelPinnedSlotStore(defaults: defaults)
 
         viewModel = WheelAppViewModel(
             permissionProvider: { true },
@@ -198,7 +256,8 @@ private final class NavigationHarness {
             settings: settings,
             applicationMonitor: applicationMonitor,
             applicationActivator: activator,
-            applicationHistoryStore: historyStore
+            applicationHistoryStore: historyStore,
+            pinnedSlotStore: pinnedStore
         )
     }
 }
