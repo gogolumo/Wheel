@@ -72,11 +72,12 @@ public enum WheelAppFixture: String, CaseIterable, Sendable {
     }
 }
 
-/// Runtime state for the first production-facing Wheel menu-bar shell.
+/// Runtime state for Wheel's menu-bar shell, global trigger handling, and
+/// application-level context navigation.
 ///
-/// This view model owns only input readiness and gesture feedback. Context capture
-/// and restoration remain outside this slice, so recognizing a gesture never
-/// mutates `ContextHistory` or claims that navigation occurred.
+/// Window/tab/file identity still belongs to the later adapter/capture milestones.
+/// This slice intentionally uses only NSWorkspace application identity so every
+/// captured destination can be restored honestly at APPLICATION_ONLY depth.
 @MainActor
 public final class WheelAppViewModel: ObservableObject {
     public typealias PermissionProvider = () -> Bool
@@ -101,9 +102,15 @@ public final class WheelAppViewModel: ObservableObject {
     @Published public private(set) var overlayState: WheelGestureOverlayState
     /// Last visible payload, retained while the panel fades after becoming hidden.
     @Published public private(set) var overlayContentState: WheelGestureOverlayState
+    @Published public private(set) var applicationHistory: [WheelApplicationContext]
+    @Published public private(set) var hoveredApplicationIndex: Int?
+    @Published public private(set) var selectedApplicationIndex: Int?
+    @Published public private(set) var lastApplicationAction: String?
 
     public let fixture: WheelAppFixture?
     public let overlayFixture: WheelGestureOverlayFixture?
+    public let settings: WheelSettings
+    public let pinnedSlots: WheelPinnedSlotStore
 
     private let permissionProvider: PermissionProvider
     private let permissionRequester: PermissionRequester
@@ -111,6 +118,11 @@ public final class WheelAppViewModel: ObservableObject {
     private let overlayPresentationDelay: TimeInterval
     private let overlayResultDuration: TimeInterval
     private let overlayDismissScheduler: WheelOverlayDismissScheduler
+    private let applicationMonitor: any WheelApplicationMonitoring
+    private let applicationActivator: any WheelApplicationActivating
+    private let applicationHistoryStore: WheelApplicationHistoryStore
+    private let pinnedApplicationResolver: WheelPinnedApplicationResolver
+
     private var monitor: (any InputEventMonitoring)?
     private var monitorGeneration = 0
     private var hasStarted = false
@@ -118,6 +130,11 @@ public final class WheelAppViewModel: ObservableObject {
     private var overlayGeneration = 0
     private var overlayPresentationAction: WheelOverlayScheduledAction?
     private var overlayDismissAction: WheelOverlayScheduledAction?
+    private var historyCancellable: AnyCancellable?
+    private var settingsCancellable: AnyCancellable?
+    private var pinnedSlotsCancellable: AnyCancellable?
+    private var suppressedActivationIdentifier: String?
+    private var suppressedActivationDeadline: Date?
 
     public init(
         configuration: WheelAppConfiguration = .init(),
@@ -135,12 +152,24 @@ public final class WheelAppViewModel: ObservableObject {
         overlayFixture: WheelGestureOverlayFixture? = nil,
         overlayPresentationDelay: TimeInterval = 0.18,
         overlayResultDuration: TimeInterval = 0.5,
-        overlayDismissScheduler: WheelOverlayDismissScheduler = .mainQueue
+        overlayDismissScheduler: WheelOverlayDismissScheduler = .mainQueue,
+        settings: WheelSettings? = nil,
+        applicationMonitor: (any WheelApplicationMonitoring)? = nil,
+        applicationActivator: (any WheelApplicationActivating)? = nil,
+        applicationHistoryStore: WheelApplicationHistoryStore? = nil,
+        pinnedSlotStore: WheelPinnedSlotStore? = nil,
+        pinnedApplicationResolver: WheelPinnedApplicationResolver? = nil
     ) {
         precondition(overlayPresentationDelay >= 0)
         precondition(overlayResultDuration >= 0)
 
         let effectiveFixture = fixture ?? (overlayFixture == nil ? nil : .ready)
+        let settings = settings ?? WheelSettings()
+        let historyStore = applicationHistoryStore ?? WheelApplicationHistoryStore()
+        let pinnedSlotStore = pinnedSlotStore ?? WheelPinnedSlotStore()
+        let pinnedApplicationResolver =
+            pinnedApplicationResolver ?? WheelPinnedApplicationResolver()
+
         self.configuration = configuration
         self.isEnabled = isEnabled
         self.permissionProvider = permissionProvider
@@ -151,6 +180,13 @@ public final class WheelAppViewModel: ObservableObject {
         self.overlayPresentationDelay = overlayPresentationDelay
         self.overlayResultDuration = overlayResultDuration
         self.overlayDismissScheduler = overlayDismissScheduler
+        self.settings = settings
+        pinnedSlots = pinnedSlotStore
+        self.applicationMonitor = applicationMonitor ?? WheelApplicationMonitor()
+        self.applicationActivator = applicationActivator ?? WheelApplicationActivator()
+        self.applicationHistoryStore = historyStore
+        self.pinnedApplicationResolver = pinnedApplicationResolver
+        applicationHistory = historyStore.entries
 
         let granted = effectiveFixture == nil
             ? permissionProvider()
@@ -167,10 +203,14 @@ public final class WheelAppViewModel: ObservableObject {
         errorMessage = nil
         overlayState = .hidden
         overlayContentState = .hidden
+        hoveredApplicationIndex = nil
+        selectedApplicationIndex = nil
+        lastApplicationAction = nil
         status = isEnabled
             ? (granted ? .starting : .needsPermission)
             : .disabled
 
+        connectApplicationRuntime()
         applyFixtureIfNeeded()
     }
 
@@ -190,10 +230,96 @@ public final class WheelAppViewModel: ObservableObject {
         fixture == nil && isEnabled && !permissionGranted
     }
 
+    public var wheelSlots: [WheelApplicationContext?] {
+        let directionCount = settings.directionCount
+        let visiblePins = pinnedSlots.visibleSlots(
+            directionCount: directionCount
+        )
+        let dynamicBudget = max(
+            0,
+            displayedWheelItemLimit - visiblePins.count
+        )
+        let candidates = applicationHistoryStore.wheelEntries(
+            limit: max(
+                settings.visibleItemCount + visiblePins.count,
+                directionCount
+            )
+        )
+
+        return pinnedSlots.merge(
+            dynamic: candidates,
+            directionCount: directionCount,
+            dynamicLimit: dynamicBudget
+        ) { pinned in
+            pinnedApplicationResolver.resolve(
+                pinned,
+                liveContexts: applicationHistory
+            )
+        }
+    }
+
+    public var wheelApplications: [WheelApplicationContext] {
+        wheelSlots.compactMap { $0 }
+    }
+
+    public var displayedWheelItemLimit: Int {
+        min(settings.visibleItemCount, settings.directionCount)
+    }
+
+    public func pinnedApplication(
+        at position: Int
+    ) -> WheelPinnedApplication? {
+        pinnedSlots.application(at: position)
+    }
+
+    public func isPinnedSlot(_ position: Int) -> Bool {
+        pinnedSlots.isPinned(position: position)
+    }
+
+    public func pinApplication(
+        at applicationURL: URL,
+        to position: Int
+    ) throws {
+        guard (0..<settings.directionCount).contains(position) else { return }
+
+        let application = try pinnedApplicationResolver.pinnedApplication(
+            from: applicationURL
+        )
+        let previousPosition = pinnedSlots.position(
+            of: application.stableIdentifier
+        )
+        let replacedApplication = pinnedSlots.application(at: position)
+
+        pinnedSlots.pin(application, at: position)
+        clearWheelSelection()
+
+        if let previousPosition, previousPosition != position {
+            notice = "Moved \(application.localizedName) to Wheel slot \(position + 1)."
+        } else if let replacedApplication,
+                  replacedApplication.stableIdentifier
+                    != application.stableIdentifier
+        {
+            notice = "Pinned \(application.localizedName), replacing \(replacedApplication.localizedName)."
+        } else {
+            notice = "Pinned \(application.localizedName) to Wheel slot \(position + 1)."
+        }
+    }
+
+    public func unpinApplication(at position: Int) {
+        guard let application = pinnedSlots.application(at: position) else {
+            return
+        }
+
+        pinnedSlots.unpin(position: position)
+        clearWheelSelection()
+        notice = "Unpinned \(application.localizedName) from Wheel."
+    }
+
     public func start() {
         guard fixture == nil else { return }
 
         hasStarted = true
+        startApplicationCaptureIfNeeded()
         reconcileRuntime()
     }
 
@@ -217,6 +343,9 @@ public final class WheelAppViewModel: ObservableObject {
         isEnabled = enabled
         if enabled {
             isPaused = false
+            startApplicationCaptureIfNeeded()
+        } else {
+            applicationMonitor.stop()
         }
         reconcileRuntime()
     }
@@ -228,7 +357,7 @@ public final class WheelAppViewModel: ObservableObject {
         stopMonitor()
         status = .paused
         errorMessage = nil
-        notice = "Wheel is paused. No global input is being observed."
+        notice = "Wheel input is paused. Application history continues to update."
     }
 
     public func resume() {
@@ -252,6 +381,25 @@ public final class WheelAppViewModel: ObservableObject {
 
         stopMonitor()
         startMonitorIfPossible()
+    }
+
+    public func setVisibleItemCount(_ value: Int) {
+        settings.setVisibleItemCount(value)
+        clearWheelSelection()
+    }
+
+    public func setDirectionCount(_ value: Int) {
+        settings.setDirectionCount(value)
+        clearWheelSelection()
+    }
+
+    public func setHistoryCapacity(_ value: Int) {
+        settings.setHistoryCapacity(value)
+        applicationHistoryStore.trim(to: settings.historyCapacity)
+    }
+
+    public func setRememberClosedApplications(_ value: Bool) {
+        settings.setRememberClosedApplications(value)
     }
 
     public func handleSystemWake() {
@@ -286,6 +434,95 @@ public final class WheelAppViewModel: ObservableObject {
         hasStarted = false
         isSystemSleeping = false
         stopMonitor()
+        applicationMonitor.stop()
+        clearRestoreSuppression()
+    }
+
+    private func connectApplicationRuntime() {
+        historyCancellable = applicationHistoryStore.$entries
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] entries in
+                self?.applicationHistory = entries
+            }
+
+        settingsCancellable = settings.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+
+        pinnedSlotsCancellable = pinnedSlots.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+
+        applicationMonitor.onActivated = { [weak self] observation in
+            self?.handleApplicationActivated(observation)
+        }
+        applicationMonitor.onLaunched = { [weak self] observation in
+            self?.applicationHistoryStore.recordLaunch(observation)
+        }
+        applicationMonitor.onTerminated = { [weak self] observation in
+            guard let self else { return }
+            self.applicationHistoryStore.recordTermination(
+                observation,
+                rememberClosedApplications: self.settings.rememberClosedApplications
+            )
+        }
+    }
+
+    private func startApplicationCaptureIfNeeded() {
+        guard hasStarted, isEnabled else { return }
+        applicationMonitor.start()
+    }
+
+    private func handleApplicationActivated(
+        _ observation: WheelObservedApplication
+    ) {
+        if shouldSuppressActivation(observation) {
+            applicationHistoryStore.recordRestoredActivation(observation)
+            clearRestoreSuppression()
+            return
+        }
+
+        if suppressedActivationIdentifier != nil {
+            clearRestoreSuppression()
+        }
+
+        applicationHistoryStore.recordActivation(
+            observation,
+            capacity: settings.historyCapacity
+        )
+    }
+
+    private func shouldSuppressActivation(
+        _ observation: WheelObservedApplication
+    ) -> Bool {
+        guard let expected = suppressedActivationIdentifier,
+              let deadline = suppressedActivationDeadline
+        else {
+            return false
+        }
+
+        guard Date() <= deadline else {
+            clearRestoreSuppression()
+            return false
+        }
+
+        return expected == observation.stableIdentifier
+    }
+
+    private func beginRestoreSuppression(
+        for context: WheelApplicationContext
+    ) {
+        suppressedActivationIdentifier = context.stableIdentifier
+        suppressedActivationDeadline = Date().addingTimeInterval(2)
+    }
+
+    private func clearRestoreSuppression() {
+        suppressedActivationIdentifier = nil
+        suppressedActivationDeadline = nil
     }
 
     private func reconcileRuntime(preservingNotice: Bool = false) {
@@ -295,7 +532,7 @@ public final class WheelAppViewModel: ObservableObject {
             status = .disabled
             errorMessage = nil
             if !preservingNotice {
-                notice = "Wheel is off. No global input is being observed."
+                notice = "Wheel is off. Input and application capture are stopped."
             }
             return
         }
@@ -305,7 +542,7 @@ public final class WheelAppViewModel: ObservableObject {
             status = .needsPermission
             errorMessage = nil
             if !preservingNotice {
-                notice = nil
+                notice = "Application history is active, but gesture input needs permission."
             }
             return
         }
@@ -399,8 +636,12 @@ public final class WheelAppViewModel: ObservableObject {
         guard generation == monitorGeneration, status == .ready else { return }
 
         switch event {
-        case .callbackObserved, .pointerMoved:
+        case .callbackObserved:
             break
+
+        case let .pointerMoved(displacement):
+            guard isGestureActive else { return }
+            updateWheelSelection(displacement)
 
         case let .modifierSignal(_, sampledDown, _):
             matchingTriggerSignalCount += 1
@@ -414,34 +655,108 @@ public final class WheelAppViewModel: ObservableObject {
         case .triggerBegan:
             guard !isGestureActive else { return }
             isGestureActive = true
+            clearWheelSelection()
             scheduleHeldOverlayPresentation()
-            notice = "Gesture active — move left or right, then release."
 
-        case let .triggerEnded(direction, _, _):
+            if wheelApplications.isEmpty {
+                notice = "Gesture active — switch between a few apps first so Wheel has history."
+            } else {
+                notice = "Gesture active — move toward an application and release."
+            }
+
+        case let .triggerEnded(direction, displacement, _):
             guard isGestureActive else { return }
             isGestureActive = false
             lastDirection = direction
-            let wasOverlayPresented = overlayState == .triggerHeld
-            if wasOverlayPresented {
-                presentOverlayResult(direction)
-            } else {
-                hideOverlay()
-            }
 
-            if direction == .none {
-                notice = "Movement was too short or not horizontal enough."
-            } else {
+            let wasOverlayPresented = overlayState == .triggerHeld
+            updateWheelSelection(displacement)
+
+            if let index = hoveredApplicationIndex,
+               wheelSlots.indices.contains(index),
+               let context = wheelSlots[index]
+            {
+                selectedApplicationIndex = index
                 recognizedGestureCount += 1
-                notice = "\(direction.rawValue.uppercased()) recognized. "
-                    + "Context restoration is not connected in this build yet."
+                lastApplicationAction = context.localizedName
+                if wasOverlayPresented {
+                    presentOverlay(.resultSelection)
+                    scheduleOverlayDismissal()
+                } else {
+                    hideOverlay()
+                }
+                activateApplication(context)
+            } else {
+                selectedApplicationIndex = nil
+                lastApplicationAction = nil
+                if direction != .none {
+                    recognizedGestureCount += 1
+                }
+                if wasOverlayPresented {
+                    presentOverlayResult(direction)
+                } else {
+                    hideOverlay()
+                }
+
+                if wheelApplications.isEmpty {
+                    notice = "No previous applications are available yet."
+                } else {
+                    notice = "No Wheel sector was selected."
+                }
             }
 
         case .eventTapRecovered:
             isGestureActive = false
             lastTriggerSignalIsDown = nil
+            clearWheelSelection()
             hideOverlay()
             eventTapRecoveryCount += 1
             notice = "Input monitoring recovered and cleared transient gesture state."
+        }
+    }
+
+    private func updateWheelSelection(
+        _ displacement: PointerDisplacement
+    ) {
+        let selected = WheelSectorLayout.selectedIndex(
+            displacement: displacement,
+            sectorCount: settings.directionCount,
+            minimumDistance: configuration.minimumHorizontalDistance
+        )
+
+        guard let selected,
+              wheelSlots.indices.contains(selected),
+              wheelSlots[selected] != nil
+        else {
+            hoveredApplicationIndex = nil
+            return
+        }
+
+        hoveredApplicationIndex = selected
+    }
+
+    private func activateApplication(
+        _ context: WheelApplicationContext
+    ) {
+        beginRestoreSuppression(for: context)
+
+        let verb = context.runState == .running ? "Switching to" : "Reopening"
+        notice = "\(verb) \(context.localizedName)…"
+
+        applicationActivator.activate(context) { [weak self] result in
+            guard let self else { return }
+
+            switch result {
+            case .success:
+                let verb = context.runState == .running ? "Switched to" : "Reopened"
+                self.notice = "\(verb) \(context.localizedName)."
+            case let .failure(error):
+                self.clearRestoreSuppression()
+                if context.runState != .running {
+                    self.applicationHistoryStore.markUnavailable(context)
+                }
+                self.notice = error.localizedDescription
+            }
         }
     }
 
@@ -452,7 +767,14 @@ public final class WheelAppViewModel: ObservableObject {
         monitor = nil
         isGestureActive = false
         lastTriggerSignalIsDown = nil
+        clearWheelSelection()
         hideOverlay()
+    }
+
+    private func clearWheelSelection() {
+        hoveredApplicationIndex = nil
+        selectedApplicationIndex = nil
+        lastApplicationAction = nil
     }
 
     private func applyFixtureIfNeeded() {
@@ -467,6 +789,7 @@ public final class WheelAppViewModel: ObservableObject {
         matchingTriggerSignalCount = 0
         lastTriggerSignalIsDown = nil
         eventTapRecoveryCount = 0
+        clearWheelSelection()
 
         switch fixture {
         case .disabled:
@@ -474,13 +797,13 @@ public final class WheelAppViewModel: ObservableObject {
             permissionGranted = true
             isPaused = false
             status = .disabled
-            notice = "Wheel is off. No global input is being observed."
+            notice = "Wheel is off. Input and application capture are stopped."
         case .needsPermission:
             isEnabled = true
             permissionGranted = false
             isPaused = false
             status = .needsPermission
-            notice = nil
+            notice = "Application history is available without Input Monitoring permission."
         case .ready:
             isEnabled = true
             permissionGranted = true
@@ -490,7 +813,7 @@ public final class WheelAppViewModel: ObservableObject {
             recognizedGestureCount = 12
             matchingTriggerSignalCount = 2
             lastTriggerSignalIsDown = false
-            notice = "LEFT recognized. Context restoration is not connected in this build yet."
+            notice = "Wheel is ready. Application capture is connected."
         case .triggerHeld:
             isEnabled = true
             permissionGranted = true
@@ -501,13 +824,13 @@ public final class WheelAppViewModel: ObservableObject {
             status = .ready
             matchingTriggerSignalCount = 1
             lastTriggerSignalIsDown = true
-            notice = "Gesture active — move left or right, then release."
+            notice = "Gesture active — move toward an application and release."
         case .paused:
             isEnabled = true
             permissionGranted = true
             isPaused = true
             status = .paused
-            notice = "Wheel is paused. No global input is being observed."
+            notice = "Wheel input is paused. Application history continues to update."
         case .error:
             isEnabled = true
             permissionGranted = true
@@ -534,19 +857,19 @@ public final class WheelAppViewModel: ObservableObject {
         case .held:
             lastDirection = nil
             recognizedGestureCount = 0
-            notice = "Gesture active — move left or right, then release."
+            notice = "Gesture active — move toward an application and release."
         case .left:
             lastDirection = .left
             recognizedGestureCount = 1
-            notice = "LEFT recognized. Context restoration is not connected in this build yet."
+            notice = "LEFT recognized."
         case .right:
             lastDirection = .right
             recognizedGestureCount = 1
-            notice = "RIGHT recognized. Context restoration is not connected in this build yet."
+            notice = "RIGHT recognized."
         case .none:
             lastDirection = Direction.none
             recognizedGestureCount = 0
-            notice = "Movement was too short or not horizontal enough."
+            notice = "Movement was too short or no Wheel sector was selected."
         }
     }
 
@@ -592,6 +915,10 @@ public final class WheelAppViewModel: ObservableObject {
         }
 
         presentOverlay(resultState)
+        scheduleOverlayDismissal()
+    }
+
+    private func scheduleOverlayDismissal() {
         let generation = overlayGeneration
         overlayDismissAction = overlayDismissScheduler.schedule(
             after: overlayResultDuration

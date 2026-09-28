@@ -17,7 +17,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Wheel is an early engineering prototype, not a downloadable utility yet.** The history engine, navigation invariants, listen-only gesture input, and native menu-bar shell are working on the active development stack. Context capture and restoration are not connected yet.
+> **Wheel is an early engineering prototype.** On the application-history branch it can be packaged as a locally built `Wheel.app`, capture and relaunch apps at `APPLICATION_ONLY` depth. It is not yet a signed or notarized public release; exact window/tab/file restoration is still gated.
 
 ## The idea
 
@@ -79,6 +79,7 @@ Wheel never advances its internal position when restoration fails, is cancelled,
 - [x] CLI demo for the canonical `A → B → C` flow
 - [x] macOS GitHub Actions CI
 - [x] Native menu-bar application shell
+- [x] Persistent pinned application slots mixed with dynamic history
 - [x] Input Monitoring onboarding and recovery UI
 - [ ] Accessibility onboarding
 - [ ] Global trigger and pointer feasibility gate
@@ -139,15 +140,73 @@ swift test
 swift run wheel-demo
 ```
 
+Pinned applications can be assigned to exact radial sectors from **Wheel → Pinned Apps**. Those sectors stay fixed while every unpinned sector continues to use recent application history. Pins persist across restarts and hidden pins are retained when the direction count is reduced.
+
 Run the native menu-bar shell from the active APP-001 branch:
 
 ```bash
 swift run wheel-app
 ```
 
+### Install a local Wheel.app
+
+On macOS 14+ with the full Xcode command line tools, check out the active
+`feat/APP-002-installable-bundle` branch and run:
+
+```bash
+bash scripts/build-app.sh
+bash scripts/install-app.sh
+open /Applications/Wheel.app
+```
+
+The build writes `dist/Wheel.app`, including its bundle identifier, menu-bar
+agent metadata, placeholder icon, and local ad-hoc signature. Packaging happens
+in a private staging directory and replaces the previous verified build only
+after the new bundle passes validation. Concurrent builds are rejected, and a
+failed replacement restores the previous artifact. The builder will not replace
+a symbolic link or an unverified `Wheel.app` at the output path. The app runs
+without Terminal after installation and appears in Spotlight/Launchpad once
+macOS has indexed `/Applications`. The installer verifies the source bundle,
+stages it on the destination volume, safely replaces an existing installation,
+verifies the installed copy, and restores the previous copy if the update fails.
+Install, update, and removal share one lock so those operations cannot race. The
+installer also refuses to update while that exact installed Wheel executable is
+running. Lifecycle checks match the canonical executable path rather than only
+the process name, so an unrelated binary named `Wheel` is neither treated as
+the app nor terminated by the smoke test. Do not update with `cp -R`: when
+`/Applications/Wheel.app` already exists, that can create a broken nested
+`Wheel.app/Wheel.app` bundle.
+
+**Input Monitoring** is required for the global Right Option trigger. From the
+Wheel menu, request access, open Privacy Settings if needed, enable **Wheel**
+in Input Monitoring, then use **Check Again**. Permissions granted to Terminal
+for `swift run` do not automatically apply to `Wheel.app`. A locally rebuilt
+ad-hoc signed bundle can prompt for access again; keep the same installed copy
+for normal use. Screen Recording and Accessibility are not required by this
+application-only build. This package has no window snapshot or document
+recovery feature yet. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md).
+
+For a non-interactive packaging check that launches the installed bundle through
+Launch Services in permission-free fixture mode, quit Wheel and run:
+
+```bash
+bash scripts/smoke-app.sh /Applications/Wheel.app
+```
+
+This confirms that the packaged executable starts and remains alive briefly. It
+does not replace visually checking the menu-bar item, Dock behavior, overlay, or
+Input Monitoring attribution on a real Mac.
+
+To remove the local alpha bundle without touching Wheel's Application Support
+data, quit Wheel and run:
+
+```bash
+bash scripts/uninstall-app.sh /Applications/Wheel.app
+```
+
 Wheel appears in the macOS menu bar. Its interface reports permission and input
-readiness truthfully; it does not claim to navigate until native context capture
-and restoration are connected. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md) for
+readiness truthfully. The stacked radial application branch can capture and
+activate/relaunch apps, while deeper context restoration remains gated. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md) for
 permission steps, deterministic preview fixtures, and current limitations.
 
 To open the package directly in Xcode and run the first native feasibility
