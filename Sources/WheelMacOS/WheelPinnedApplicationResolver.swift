@@ -59,6 +59,12 @@ public final class WheelPinnedApplicationResolver {
             throw WheelPinnedApplicationResolutionError.unsupportedBundleType
         }
 
+        if bundle.object(forInfoDictionaryKey: "LSUIElement") as? Bool == true
+            || bundle.object(forInfoDictionaryKey: "LSBackgroundOnly") as? Bool == true
+        {
+            throw WheelPinnedApplicationResolutionError.unsupportedBundleType
+        }
+
         let bundleIdentifier = bundle.bundleIdentifier
         if bundleIdentifier == "com.apple.loginwindow"
             || bundleIdentifier == "com.apple.SecurityAgent"
@@ -99,6 +105,23 @@ public final class WheelPinnedApplicationResolver {
                 )
         }) {
             return live
+        }
+
+        if let bundleIdentifier = pinned.bundleIdentifier,
+           let running = NSRunningApplication
+            .runningApplications(withBundleIdentifier: bundleIdentifier)
+            .first(where: { !$0.isTerminated })
+        {
+            let runningURL = running.bundleURL ?? installedURL(for: pinned)
+            return WheelApplicationContext(
+                stableIdentifier: pinned.stableIdentifier,
+                localizedName: running.localizedName ?? pinned.localizedName,
+                bundleIdentifier: bundleIdentifier,
+                applicationURL: runningURL ?? pinned.applicationURL,
+                firstSeenAt: .distantPast,
+                lastActivatedAt: .distantPast,
+                runState: .running
+            )
         }
 
         let resolvedURL = installedURL(for: pinned)
