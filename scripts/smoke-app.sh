@@ -7,6 +7,7 @@ set -euo pipefail
 # visible Finder/menu-bar/TCC checks that require a real user session.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app="${1:-/Applications/Wheel.app}"
+source "$repo_root/scripts/lib/app-process.sh"
 
 fail() {
     echo "Wheel.app launch smoke failed: $*" >&2
@@ -33,9 +34,9 @@ app_parent="$(cd "$(dirname "$app")" && pwd -P)"
 app="$app_parent/$(basename "$app")"
 expected_executable="$app/Contents/MacOS/Wheel"
 
-if pgrep -x Wheel >/dev/null 2>&1; then
-    fail "Wheel is already running; quit it before the launch smoke"
-fi
+running_pid="$(wheel_find_running_pid "$expected_executable" || true)"
+[[ -z "$running_pid" ]] \
+    || fail "this Wheel.app is already running; quit it before the launch smoke"
 
 launcher_pid=""
 wheel_pid=""
@@ -45,13 +46,16 @@ cleanup() {
     trap - EXIT INT TERM
     set +e
 
-    if [[ -n "$wheel_pid" ]] && kill -0 "$wheel_pid" >/dev/null 2>&1; then
+    if [[ -n "$wheel_pid" ]] \
+        && kill -0 "$wheel_pid" >/dev/null 2>&1 \
+        && wheel_process_matches_executable "$wheel_pid" "$expected_executable"; then
         kill -TERM "$wheel_pid" >/dev/null 2>&1
         for ((attempt = 0; attempt < 50; attempt += 1)); do
             kill -0 "$wheel_pid" >/dev/null 2>&1 || break
             sleep 0.1
         done
-        if kill -0 "$wheel_pid" >/dev/null 2>&1; then
+        if kill -0 "$wheel_pid" >/dev/null 2>&1 \
+            && wheel_process_matches_executable "$wheel_pid" "$expected_executable"; then
             kill -KILL "$wheel_pid" >/dev/null 2>&1
         fi
     fi
@@ -72,9 +76,8 @@ open -n -W "$app" --args --fixture ready &
 launcher_pid=$!
 
 for ((attempt = 0; attempt < 100; attempt += 1)); do
-    candidates="$(pgrep -x Wheel || true)"
-    if [[ -n "$candidates" ]]; then
-        wheel_pid="${candidates%%$'\n'*}"
+    wheel_pid="$(wheel_find_running_pid "$expected_executable" || true)"
+    if [[ -n "$wheel_pid" ]]; then
         break
     fi
     if ! kill -0 "$launcher_pid" >/dev/null 2>&1; then
@@ -86,10 +89,8 @@ done
 
 [[ -n "$wheel_pid" ]] || fail "Wheel did not start within 10 seconds"
 
-command_line="$(ps -p "$wheel_pid" -o command=)" \
-    || fail "could not inspect launched Wheel process"
-[[ "$command_line" == "$expected_executable"* ]] \
-    || fail "unexpected executable for PID $wheel_pid: $command_line"
+wheel_process_matches_executable "$wheel_pid" "$expected_executable" \
+    || fail "the launched Wheel process no longer matches the installed executable"
 
 sleep 1
 kill -0 "$wheel_pid" >/dev/null 2>&1 \
