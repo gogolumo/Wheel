@@ -6,6 +6,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source_app="${1:-$repo_root/dist/Wheel.app}"
 target_app="${2:-/Applications/Wheel.app}"
+source "$repo_root/scripts/lib/app-process.sh"
 
 fail() {
     echo "Wheel.app installation failed: $*" >&2
@@ -20,7 +21,7 @@ if [[ "$(uname -s)" != Darwin ]]; then
     fail "installation requires macOS 14 or newer"
 fi
 
-for command in ditto pgrep codesign; do
+for command in ditto pgrep ps codesign; do
     if ! command -v "$command" >/dev/null 2>&1; then
         fail "missing required macOS tool: $command"
     fi
@@ -49,10 +50,6 @@ if [[ -e "$target_app" && ! -d "$target_app" ]]; then
     fail "target exists but is not an application bundle directory"
 fi
 
-if pgrep -x Wheel >/dev/null 2>&1; then
-    fail "Wheel is running; quit it from the menu bar before installing an update"
-fi
-
 bash "$repo_root/scripts/verify-app.sh" "$source_app"
 
 lock_dir="$target_parent/.wheel-install.lock"
@@ -78,6 +75,11 @@ if [[ -e "$target_app" ]]; then
     codesign --verify --deep --strict "$target_app" >/dev/null 2>&1 \
         || fail "existing Wheel.app has an invalid code signature; remove it manually before reinstalling"
 fi
+
+target_executable="$target_app/Contents/MacOS/Wheel"
+running_pid="$(wheel_find_running_pid "$target_executable" || true)"
+[[ -z "$running_pid" ]] \
+    || fail "the installed Wheel.app is running; quit it from the menu bar before updating"
 
 transaction_root="$(mktemp -d "$target_parent/.wheel-install.XXXXXX")"
 staging_root="$transaction_root/staging"
@@ -126,6 +128,12 @@ trap cleanup EXIT
 
 ditto --rsrc --extattr "$source_app" "$staged_app"
 bash "$repo_root/scripts/verify-app.sh" "$staged_app"
+
+# Narrow the launch race before replacing the installed bundle. The exact
+# executable path matters; another process merely named Wheel is unrelated.
+running_pid="$(wheel_find_running_pid "$target_executable" || true)"
+[[ -z "$running_pid" ]] \
+    || fail "the installed Wheel.app started during staging; quit it and retry"
 
 rollback_required=1
 if [[ -e "$target_app" ]]; then
