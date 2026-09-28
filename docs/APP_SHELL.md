@@ -220,6 +220,36 @@ Application history is persisted locally in
 slice. This does **not** claim completion of the release persistence ADR; the
 project's release history store can still migrate behind its storage boundary.
 
+## Pinned applications
+
+Wheel settings now include a **Pinned Apps** section for every active radial
+sector. A slot can remain **Automatic** or point to a selected macOS `.app`
+bundle.
+
+Pinned and dynamic targets deliberately share one layout:
+
+- a pinned application keeps its exact sector and is never displaced by recent
+  history;
+- unpinned sectors continue to fill from the existing application history;
+- choosing an application that is already pinned moves that pin instead of
+  creating a duplicate;
+- replacing a slot removes only the previous application assigned to that slot;
+- removing a pin immediately returns that sector to automatic history;
+- pins are stored in `UserDefaults` and survive Wheel restarts and macOS
+  logout/reboot;
+- reducing the direction count hides out-of-range pins without deleting them;
+  restoring the larger direction count brings those pins back.
+
+The app picker accepts normal application bundles and rejects nested helper
+applications. Persistent identity prefers the bundle identifier over the stored
+path. When an application moves, Wheel asks Launch Services for its current URL.
+When the application cannot be resolved, the pinned sector remains visible as
+unavailable rather than silently deleting the user's configuration.
+
+The overlay marks pinned applications with a small pin badge. Running targets
+are activated; installed but terminated targets are relaunched through the
+existing `NSWorkspace` activation layer.
+
 ## Manual application-level check
 
 From the repository:
