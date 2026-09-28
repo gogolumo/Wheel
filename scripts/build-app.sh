@@ -7,6 +7,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 output_dir="${1:-$repo_root/dist}"
 signing_identity="${WHEEL_CODESIGN_IDENTITY:--}"
+source "$repo_root/scripts/lib/app-process.sh"
 
 fail() {
     echo "Wheel.app build failed: $*" >&2
@@ -21,7 +22,7 @@ if [[ "$(uname -s)" != Darwin ]]; then
     fail "packaging requires macOS 14 or newer"
 fi
 
-for command in swift git sips iconutil plutil codesign; do
+for command in swift git sips iconutil plutil codesign pgrep ps; do
     if ! command -v "$command" >/dev/null 2>&1; then
         fail "missing required macOS tool: $command"
     fi
@@ -95,6 +96,10 @@ if [[ -e "$app" ]]; then
         || fail "existing output is not a verified Wheel.app; inspect or remove it manually"
 fi
 
+running_pid="$(wheel_find_running_pid "$app/Contents/MacOS/Wheel" || true)"
+[[ -z "$running_pid" ]] \
+    || fail "the output Wheel.app is running; quit it before rebuilding"
+
 cd "$repo_root"
 swift build --configuration release --product wheel-app
 bin_dir="$(swift build --configuration release --show-bin-path)"
@@ -128,6 +133,12 @@ iconutil -c icns "$iconset" -o "$staged_app/Contents/Resources/Wheel.icns"
 
 codesign --force --sign "$signing_identity" "$staged_app"
 bash "$repo_root/scripts/verify-app.sh" "$staged_app"
+
+# Recheck immediately before replacement so a bundle launched during the
+# release build is not silently swapped underneath a running process.
+running_pid="$(wheel_find_running_pid "$app/Contents/MacOS/Wheel" || true)"
+[[ -z "$running_pid" ]] \
+    || fail "the output Wheel.app started during the build; quit it and retry"
 
 rollback_required=1
 if [[ -e "$app" ]]; then
