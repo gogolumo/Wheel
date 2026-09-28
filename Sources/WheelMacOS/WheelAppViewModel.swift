@@ -110,6 +110,7 @@ public final class WheelAppViewModel: ObservableObject {
     public let fixture: WheelAppFixture?
     public let overlayFixture: WheelGestureOverlayFixture?
     public let settings: WheelSettings
+    public let pinnedSlots: WheelPinnedSlotStore
 
     private let permissionProvider: PermissionProvider
     private let permissionRequester: PermissionRequester
@@ -120,6 +121,7 @@ public final class WheelAppViewModel: ObservableObject {
     private let applicationMonitor: any WheelApplicationMonitoring
     private let applicationActivator: any WheelApplicationActivating
     private let applicationHistoryStore: WheelApplicationHistoryStore
+    private let pinnedApplicationResolver: WheelPinnedApplicationResolver
 
     private var monitor: (any InputEventMonitoring)?
     private var monitorGeneration = 0
@@ -130,6 +132,7 @@ public final class WheelAppViewModel: ObservableObject {
     private var overlayDismissAction: WheelOverlayScheduledAction?
     private var historyCancellable: AnyCancellable?
     private var settingsCancellable: AnyCancellable?
+    private var pinnedSlotsCancellable: AnyCancellable?
     private var suppressedActivationIdentifier: String?
     private var suppressedActivationDeadline: Date?
 
@@ -153,7 +156,9 @@ public final class WheelAppViewModel: ObservableObject {
         settings: WheelSettings? = nil,
         applicationMonitor: (any WheelApplicationMonitoring)? = nil,
         applicationActivator: (any WheelApplicationActivating)? = nil,
-        applicationHistoryStore: WheelApplicationHistoryStore? = nil
+        applicationHistoryStore: WheelApplicationHistoryStore? = nil,
+        pinnedSlotStore: WheelPinnedSlotStore? = nil,
+        pinnedApplicationResolver: WheelPinnedApplicationResolver? = nil
     ) {
         precondition(overlayPresentationDelay >= 0)
         precondition(overlayResultDuration >= 0)
@@ -161,6 +166,9 @@ public final class WheelAppViewModel: ObservableObject {
         let effectiveFixture = fixture ?? (overlayFixture == nil ? nil : .ready)
         let settings = settings ?? WheelSettings()
         let historyStore = applicationHistoryStore ?? WheelApplicationHistoryStore()
+        let pinnedSlotStore = pinnedSlotStore ?? WheelPinnedSlotStore()
+        let pinnedApplicationResolver =
+            pinnedApplicationResolver ?? WheelPinnedApplicationResolver()
 
         self.configuration = configuration
         self.isEnabled = isEnabled
@@ -173,9 +181,11 @@ public final class WheelAppViewModel: ObservableObject {
         self.overlayResultDuration = overlayResultDuration
         self.overlayDismissScheduler = overlayDismissScheduler
         self.settings = settings
+        pinnedSlots = pinnedSlotStore
         self.applicationMonitor = applicationMonitor ?? WheelApplicationMonitor()
         self.applicationActivator = applicationActivator ?? WheelApplicationActivator()
         self.applicationHistoryStore = historyStore
+        self.pinnedApplicationResolver = pinnedApplicationResolver
         applicationHistory = historyStore.entries
 
         let granted = effectiveFixture == nil
@@ -220,17 +230,89 @@ public final class WheelAppViewModel: ObservableObject {
         fixture == nil && isEnabled && !permissionGranted
     }
 
-    public var wheelApplications: [WheelApplicationContext] {
-        applicationHistoryStore.wheelEntries(
-            limit: min(
-                settings.visibleItemCount,
-                settings.directionCount
+    public var wheelSlots: [WheelApplicationContext?] {
+        let directionCount = settings.directionCount
+        let visiblePins = pinnedSlots.visibleSlots(
+            directionCount: directionCount
+        )
+        let dynamicBudget = max(
+            0,
+            displayedWheelItemLimit - visiblePins.count
+        )
+        let candidates = applicationHistoryStore.wheelEntries(
+            limit: max(
+                settings.visibleItemCount + visiblePins.count,
+                directionCount
             )
         )
+
+        return pinnedSlots.merge(
+            dynamic: candidates,
+            directionCount: directionCount,
+            dynamicLimit: dynamicBudget
+        ) { [pinnedApplicationResolver, applicationHistory] pinned in
+            pinnedApplicationResolver.resolve(
+                pinned,
+                liveContexts: applicationHistory
+            )
+        }
+    }
+
+    public var wheelApplications: [WheelApplicationContext] {
+        wheelSlots.compactMap { $0 }
     }
 
     public var displayedWheelItemLimit: Int {
         min(settings.visibleItemCount, settings.directionCount)
+    }
+
+    public func pinnedApplication(
+        at position: Int
+    ) -> WheelPinnedApplication? {
+        pinnedSlots.application(at: position)
+    }
+
+    public func isPinnedSlot(_ position: Int) -> Bool {
+        pinnedSlots.isPinned(position: position)
+    }
+
+    public func pinApplication(
+        at applicationURL: URL,
+        to position: Int
+    ) throws {
+        guard (0..<settings.directionCount).contains(position) else { return }
+
+        let application = try pinnedApplicationResolver.pinnedApplication(
+            from: applicationURL
+        )
+        let previousPosition = pinnedSlots.position(
+            of: application.stableIdentifier
+        )
+        let replacedApplication = pinnedSlots.application(at: position)
+
+        pinnedSlots.pin(application, at: position)
+        clearWheelSelection()
+
+        if let previousPosition, previousPosition != position {
+            notice = "Moved \(application.localizedName) to Wheel slot \(position + 1)."
+        } else if let replacedApplication,
+                  replacedApplication.stableIdentifier
+                    != application.stableIdentifier
+        {
+            notice = "Pinned \(application.localizedName), replacing \(replacedApplication.localizedName)."
+        } else {
+            notice = "Pinned \(application.localizedName) to Wheel slot \(position + 1)."
+        }
+    }
+
+    public func unpinApplication(at position: Int) {
+        guard let application = pinnedSlots.application(at: position) else {
+            return
+        }
+
+        pinnedSlots.unpin(position: position)
+        clearWheelSelection()
+        notice = "Unpinned \(application.localizedName) from Wheel."
     }
 
     public func start() {
@@ -364,6 +446,12 @@ public final class WheelAppViewModel: ObservableObject {
             }
 
         settingsCancellable = settings.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+
+        pinnedSlotsCancellable = pinnedSlots.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -585,11 +673,11 @@ public final class WheelAppViewModel: ObservableObject {
             updateWheelSelection(displacement)
 
             if let index = hoveredApplicationIndex,
-               wheelApplications.indices.contains(index)
+               wheelSlots.indices.contains(index),
+               let context = wheelSlots[index]
             {
                 selectedApplicationIndex = index
                 recognizedGestureCount += 1
-                let context = wheelApplications[index]
                 lastApplicationAction = context.localizedName
                 if wasOverlayPresented {
                     presentOverlay(.resultSelection)
@@ -637,7 +725,8 @@ public final class WheelAppViewModel: ObservableObject {
         )
 
         guard let selected,
-              wheelApplications.indices.contains(selected)
+              wheelSlots.indices.contains(selected),
+              wheelSlots[selected] != nil
         else {
             hoveredApplicationIndex = nil
             return
