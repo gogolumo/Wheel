@@ -74,21 +74,44 @@ public final class WheelPinnedSlotStore: ObservableObject {
         slots.first { $0.position == position }?.application
     }
 
+    public func position(of stableIdentifier: String) -> Int? {
+        slots.first {
+            $0.application.stableIdentifier == stableIdentifier
+        }?.position
+    }
+
+    public func isPinned(position: Int) -> Bool {
+        application(at: position) != nil
+    }
+
     /// Pins outside the currently visible direction count are retained rather than destroyed.
     public func visibleSlots(directionCount: Int) -> [WheelPinnedSlot] {
         slots.filter { $0.position < directionCount }
     }
 
-    public func merge(dynamic contexts: [WheelApplicationContext], directionCount: Int) -> [WheelApplicationContext?] {
+    public func merge(
+        dynamic contexts: [WheelApplicationContext],
+        directionCount: Int,
+        dynamicLimit: Int? = nil,
+        resolvePinned: ((WheelPinnedApplication) -> WheelApplicationContext)? = nil
+    ) -> [WheelApplicationContext?] {
         guard directionCount > 0 else { return [] }
-        var result = Array<WheelApplicationContext?>(repeating: nil, count: directionCount)
+
+        var result = Array<WheelApplicationContext?>(
+            repeating: nil,
+            count: directionCount
+        )
         let visiblePins = visibleSlots(directionCount: directionCount)
         let pinnedIDs = Set(visiblePins.map(\.application.stableIdentifier))
 
         for slot in visiblePins {
             let app = slot.application
-            if let live = contexts.first(where: { $0.stableIdentifier == app.stableIdentifier }) {
+            if let live = contexts.first(
+                where: { $0.stableIdentifier == app.stableIdentifier }
+            ) {
                 result[slot.position] = live
+            } else if let resolvePinned {
+                result[slot.position] = resolvePinned(app)
             } else {
                 result[slot.position] = WheelApplicationContext(
                     stableIdentifier: app.stableIdentifier,
@@ -102,10 +125,23 @@ public final class WheelPinnedSlotStore: ObservableObject {
             }
         }
 
-        var dynamic = contexts.filter { !pinnedIDs.contains($0.stableIdentifier) }.makeIterator()
+        let requestedDynamicLimit = dynamicLimit ?? directionCount
+        let availableDynamicSlots = max(
+            0,
+            min(requestedDynamicLimit, directionCount - visiblePins.count)
+        )
+        var insertedDynamicCount = 0
+        var dynamic = contexts
+            .filter { !pinnedIDs.contains($0.stableIdentifier) }
+            .makeIterator()
+
         for index in result.indices where result[index] == nil {
-            result[index] = dynamic.next()
+            guard insertedDynamicCount < availableDynamicSlots else { break }
+            guard let next = dynamic.next() else { break }
+            result[index] = next
+            insertedDynamicCount += 1
         }
+
         return result
     }
 

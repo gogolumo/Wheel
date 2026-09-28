@@ -4,14 +4,13 @@ import XCTest
 
 final class WheelSettingsTests: XCTestCase {
     func testDefaultsMatchMVPConfiguration() async {
-        let suiteName = "WheelSettingsTests.defaults.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else {
-            XCTFail("Could not create isolated defaults")
-            return
-        }
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
         await MainActor.run {
+            let suiteName = "WheelSettingsTests.defaults.\(UUID().uuidString)"
+            guard let defaults = UserDefaults(suiteName: suiteName) else {
+                XCTFail("Could not create isolated defaults")
+                return
+            }
+            defer { defaults.removePersistentDomain(forName: suiteName) }
             let settings = WheelSettings(defaults: defaults)
 
             XCTAssertEqual(settings.visibleItemCount, 8)
@@ -22,14 +21,13 @@ final class WheelSettingsTests: XCTestCase {
     }
 
     func testValuesPersistAndUnsupportedDirectionsAreRejected() async {
-        let suiteName = "WheelSettingsTests.persistence.\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suiteName) else {
-            XCTFail("Could not create isolated defaults")
-            return
-        }
-        defer { defaults.removePersistentDomain(forName: suiteName) }
-
         await MainActor.run {
+            let suiteName = "WheelSettingsTests.persistence.\(UUID().uuidString)"
+            guard let defaults = UserDefaults(suiteName: suiteName) else {
+                XCTFail("Could not create isolated defaults")
+                return
+            }
+            defer { defaults.removePersistentDomain(forName: suiteName) }
             let first = WheelSettings(defaults: defaults)
             first.setVisibleItemCount(12)
             first.setDirectionCount(6)

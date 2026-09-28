@@ -39,13 +39,16 @@ public final class WheelApplicationMonitor: WheelApplicationMonitoring {
         guard !isStarted else { return }
         isStarted = true
 
+        // NotificationCenter invokes each block on OperationQueue.main. The
+        // synchronous queue guarantee is what makes assumeIsolated safe below.
         observers.append(notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let self, let observation = self.observation(from: notification) else { return }
-            self.onActivated?(observation)
+            MainActor.assumeIsolated {
+                self?.handleActivated(notification)
+            }
         })
 
         observers.append(notificationCenter.addObserver(
@@ -53,8 +56,9 @@ public final class WheelApplicationMonitor: WheelApplicationMonitoring {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let self, let observation = self.observation(from: notification) else { return }
-            self.onLaunched?(observation)
+            MainActor.assumeIsolated {
+                self?.handleLaunched(notification)
+            }
         })
 
         // Termination is intentionally allowed for applications that were useful contexts.
@@ -64,20 +68,9 @@ public final class WheelApplicationMonitor: WheelApplicationMonitoring {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let self,
-                  let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-                  application.processIdentifier != self.currentProcessIdentifier
-            else { return }
-            let name = application.localizedName
-                ?? application.bundleURL?.deletingPathExtension().lastPathComponent
-                ?? application.bundleIdentifier
-                ?? "Unknown Application"
-            self.onTerminated?(WheelObservedApplication(
-                localizedName: name,
-                bundleIdentifier: application.bundleIdentifier,
-                applicationURL: application.bundleURL,
-                processIdentifier: application.processIdentifier
-            ))
+            MainActor.assumeIsolated {
+                self?.handleTerminated(notification)
+            }
         })
 
         if let application = workspace.frontmostApplication,
@@ -91,6 +84,34 @@ public final class WheelApplicationMonitor: WheelApplicationMonitoring {
         isStarted = false
         observers.forEach(notificationCenter.removeObserver)
         observers.removeAll()
+    }
+
+    private func handleActivated(_ notification: Notification) {
+        guard let observation = observation(from: notification) else { return }
+        onActivated?(observation)
+    }
+
+    private func handleLaunched(_ notification: Notification) {
+        guard let observation = observation(from: notification) else { return }
+        onLaunched?(observation)
+    }
+
+    private func handleTerminated(_ notification: Notification) {
+        guard let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+            as? NSRunningApplication,
+              application.processIdentifier != currentProcessIdentifier
+        else { return }
+
+        let name = application.localizedName
+            ?? application.bundleURL?.deletingPathExtension().lastPathComponent
+            ?? application.bundleIdentifier
+            ?? "Unknown Application"
+        onTerminated?(WheelObservedApplication(
+            localizedName: name,
+            bundleIdentifier: application.bundleIdentifier,
+            applicationURL: application.bundleURL,
+            processIdentifier: application.processIdentifier
+        ))
     }
 
     private func observation(from notification: Notification) -> WheelObservedApplication? {

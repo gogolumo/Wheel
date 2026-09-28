@@ -27,6 +27,58 @@ swift build --product wheel-app
 swift run wheel-app
 ```
 
+To build and install a real app bundle on macOS 14+:
+
+```bash
+bash scripts/build-app.sh
+bash scripts/install-app.sh
+bash scripts/doctor-app.sh /Applications/Wheel.app
+bash scripts/smoke-app.sh /Applications/Wheel.app
+open /Applications/Wheel.app
+```
+
+The script builds the existing SwiftPM `wheel-app` product in release mode,
+packages it with `CFBundleIdentifier=dev.gogolumo.Wheel`, `LSUIElement=true`
+and a placeholder icon, and applies an ad-hoc local signature. The bundle runs
+independently of Terminal. The builder stages and verifies the complete bundle
+before replacing an earlier verified artifact, serializes builds per output
+directory, and rolls back a failed replacement. It refuses symbolic-link and
+unverified `Wheel.app` output targets instead of deleting them. Quit any
+`swift run wheel-app` instance first.
+`install-app.sh` refuses to replace a running Wheel, validates the bundle before
+and after installation, stages the copy beside the destination, and restores the
+previous installation if validation fails. Use it for updates as well as first
+installation; plain `cp -R` can nest the new bundle inside an existing
+`/Applications/Wheel.app`.
+Build, install, diagnostics, smoke, and removal identify a running bundle by its
+exact canonical `Contents/MacOS/Wheel` path, not just by the process name. An
+unrelated executable also named `Wheel` is ignored, and smoke cleanup rechecks
+ownership before sending a signal so it cannot terminate that process.
+Run `scripts/doctor-app.sh` after installation to verify the bundle contract,
+exact packaged source revision, code-signing identity, and current Spotlight
+metadata. A fresh install may report Spotlight as pending until macOS indexes
+the application; that informational state does not weaken bundle verification.
+`smoke-app.sh` launches the verified bundle through Launch Services with the
+deterministic `ready` fixture, confirms that the expected packaged executable
+stays alive, and then terminates it. Fixture mode does not request Input
+Monitoring or start the native event tap. This is an automated packaging check,
+not evidence that the menu-bar item is visible or that Finder, Dock, TCC, the
+overlay, or application relaunch behavior passed on a user's Mac.
+macOS associates Input Monitoring with this app bundle separately from
+Terminal/Xcode. The local signature is for development; distribution requires
+Developer ID signing and notarization. A future rebuild may require granting
+Input Monitoring again. The installed build can be removed safely after quitting Wheel with:
+
+```bash
+bash scripts/uninstall-app.sh /Applications/Wheel.app
+```
+
+The uninstaller refuses symbolic links, unrelated or malformed bundles, invalid
+signatures, and running Wheel processes. Installation, update, and removal share
+one per-directory lock so they cannot replace or delete the bundle concurrently.
+It removes only the app bundle; local application history remains in Application
+Support unless deliberately removed.
+
 Wheel launches as an accessory app and places its icon in the menu bar. Open the
 menu to see live status or press **Open Wheel** for the full dashboard. The
 listen-only monitor starts with the application; opening either surface does not
@@ -36,8 +88,8 @@ The first launch normally shows **Needs Permission**:
 
 1. Press **Request Access** once.
 2. If macOS does not grant access immediately, press **Open Privacy Settings**.
-3. Enable the process that hosts Wheel. A `swift run` launch may be attributed to
-   Terminal; an Xcode launch may be attributed to Xcode.
+3. Enable the process that hosts Wheel. The installed bundle is **Wheel**;
+   a `swift run` launch may be attributed to Terminal, and an Xcode launch to Xcode.
 4. Return to Wheel and press **Check Again** if the status has not refreshed.
 
 Wheel never loops the system prompt automatically. When access is missing or
@@ -167,6 +219,36 @@ Application history is persisted locally in
 `~/Library/Application Support/Wheel/application-history.json` for this vertical
 slice. This does **not** claim completion of the release persistence ADR; the
 project's release history store can still migrate behind its storage boundary.
+
+## Pinned applications
+
+Wheel settings now include a **Pinned Apps** section for every active radial
+sector. A slot can remain **Automatic** or point to a selected macOS `.app`
+bundle.
+
+Pinned and dynamic targets deliberately share one layout:
+
+- a pinned application keeps its exact sector and is never displaced by recent
+  history;
+- unpinned sectors continue to fill from the existing application history;
+- choosing an application that is already pinned moves that pin instead of
+  creating a duplicate;
+- replacing a slot removes only the previous application assigned to that slot;
+- removing a pin immediately returns that sector to automatic history;
+- pins are stored in `UserDefaults` and survive Wheel restarts and macOS
+  logout/reboot;
+- reducing the direction count hides out-of-range pins without deleting them;
+  restoring the larger direction count brings those pins back.
+
+The app picker accepts normal application bundles and rejects nested helper
+applications. Persistent identity prefers the bundle identifier over the stored
+path. When an application moves, Wheel asks Launch Services for its current URL.
+When the application cannot be resolved, the pinned sector remains visible as
+unavailable rather than silently deleting the user's configuration.
+
+The overlay marks pinned applications with a small pin badge. Running targets
+are activated; installed but terminated targets are relaunched through the
+existing `NSWorkspace` activation layer.
 
 ## Manual application-level check
 
