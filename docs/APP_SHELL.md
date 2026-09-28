@@ -69,9 +69,11 @@ Input Monitoring again. The installed build can be removed safely after quitting
 bash scripts/uninstall-app.sh /Applications/Wheel.app
 ```
 
-The uninstaller refuses symbolic links, unrelated bundle identifiers, invalid
-signatures, and running Wheel processes. It removes only the app bundle; local
-application history remains in Application Support unless deliberately removed.
+The uninstaller refuses symbolic links, unrelated or malformed bundles, invalid
+signatures, and running Wheel processes. Installation, update, and removal share
+one per-directory lock so they cannot replace or delete the bundle concurrently.
+It removes only the app bundle; local application history remains in Application
+Support unless deliberately removed.
 
 Wheel launches as an accessory app and places its icon in the menu bar. Open the
 menu to see live status or press **Open Wheel** for the full dashboard. The

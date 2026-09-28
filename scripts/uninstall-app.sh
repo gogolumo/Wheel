@@ -27,6 +27,27 @@ parent_input="$(dirname "$app")"
 parent="$(cd "$parent_input" && pwd -P)"
 app="$parent/Wheel.app"
 
+lock_dir="$parent/.wheel-install.lock"
+lock_acquired=0
+
+cleanup() {
+    local status=$?
+    trap - EXIT
+    set +e
+
+    if [[ $lock_acquired -eq 1 ]] && ! rmdir "$lock_dir" 2>/dev/null; then
+        echo "Could not release installer lock at $lock_dir" >&2
+        status=1
+    fi
+    exit "$status"
+}
+trap cleanup EXIT
+
+if ! mkdir "$lock_dir" 2>/dev/null; then
+    fail "another Wheel installation or removal is already in progress for $parent"
+fi
+lock_acquired=1
+
 [[ -e "$app" ]] || fail "Wheel.app is not installed at $app"
 [[ -d "$app" ]] || fail "target is not an application bundle directory"
 [[ ! -L "$app" ]] || fail "refusing to remove a symbolic-link target"

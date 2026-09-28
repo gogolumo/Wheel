@@ -166,7 +166,8 @@ without Terminal after installation and appears in Spotlight/Launchpad once
 macOS has indexed `/Applications`. The installer verifies the source bundle,
 stages it on the destination volume, safely replaces an existing installation,
 verifies the installed copy, and restores the previous copy if the update fails.
-It also refuses to update while Wheel is running. Do not update with `cp -R`: when
+Install, update, and removal share one lock so those operations cannot race. The
+installer also refuses to update while Wheel is running. Do not update with `cp -R`: when
 `/Applications/Wheel.app` already exists, that can create a broken nested
 `Wheel.app/Wheel.app` bundle.
 

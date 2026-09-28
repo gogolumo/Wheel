@@ -135,5 +135,13 @@ jobs:
           uninstall_root="$RUNNER_TEMP/wheel-uninstall"
           mkdir -p "$uninstall_root"
           bash scripts/install-app.sh dist/Wheel.app "$uninstall_root/Wheel.app"
+          mkdir "$uninstall_root/.wheel-install.lock"
+          if bash scripts/uninstall-app.sh "$uninstall_root/Wheel.app"; then
+            echo "Uninstaller ignored an active installation lock" >&2
+            exit 1
+          fi
+          test -d "$uninstall_root/Wheel.app"
+          rmdir "$uninstall_root/.wheel-install.lock"
           bash scripts/uninstall-app.sh "$uninstall_root/Wheel.app"
           test ! -e "$uninstall_root/Wheel.app"
+          test ! -e "$uninstall_root/.wheel-install.lock"
