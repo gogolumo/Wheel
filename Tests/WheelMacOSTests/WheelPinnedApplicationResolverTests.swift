@@ -28,6 +28,30 @@ final class WheelPinnedApplicationResolverTests: XCTestCase {
         XCTAssertEqual(pinned.applicationURL, applicationURL.standardizedFileURL)
     }
 
+    func testRejectsBackgroundOnlyApplicationBundle() async throws {
+        let applicationURL = try makeApplicationBundle(
+            name: "Background Helper",
+            bundleIdentifier: "dev.gogolumo.background-helper",
+            extraInfo: ["LSUIElement": true]
+        )
+        defer { try? FileManager.default.removeItem(
+            at: applicationURL.deletingLastPathComponent()
+        ) }
+
+        await MainActor.run {
+            XCTAssertThrowsError(
+                try WheelPinnedApplicationResolver().pinnedApplication(
+                    from: applicationURL
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? WheelPinnedApplicationResolutionError,
+                    .unsupportedBundleType
+                )
+            }
+        }
+    }
+
     func testRejectsNestedHelperApplicationPath() async {
         let helperURL = URL(
             fileURLWithPath:
@@ -50,7 +74,8 @@ final class WheelPinnedApplicationResolverTests: XCTestCase {
 
     private func makeApplicationBundle(
         name: String,
-        bundleIdentifier: String
+        bundleIdentifier: String,
+        extraInfo: [String: Any] = [:]
     ) throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -67,13 +92,14 @@ final class WheelPinnedApplicationResolverTests: XCTestCase {
             withIntermediateDirectories: true
         )
 
-        let info: [String: Any] = [
+        var info: [String: Any] = [
             "CFBundleIdentifier": bundleIdentifier,
             "CFBundleName": name,
             "CFBundleDisplayName": name,
             "CFBundlePackageType": "APPL",
             "CFBundleExecutable": "TestExecutable"
         ]
+        info.merge(extraInfo) { _, new in new }
         let data = try PropertyListSerialization.data(
             fromPropertyList: info,
             format: .xml,
