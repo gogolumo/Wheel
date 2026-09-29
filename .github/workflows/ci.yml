@@ -32,17 +32,22 @@ jobs:
       - name: Build
         run: |
           set -o pipefail
-          swift build 2>&1 | tee build.log
+          swift build -Xswiftc -warnings-as-errors 2>&1 | tee build.log
+
+      - name: Build release configuration
+        run: |
+          set -o pipefail
+          swift build -c release -Xswiftc -warnings-as-errors 2>&1 | tee release-build.log
 
       - name: Run tests
         run: |
           set -o pipefail
-          swift test 2>&1 | tee test.log
+          swift test -Xswiftc -warnings-as-errors 2>&1 | tee test.log
 
       - name: Run domain demo
         run: |
           set -o pipefail
-          swift run wheel-demo 2>&1 | tee demo.log
+          swift run -Xswiftc -warnings-as-errors wheel-demo 2>&1 | tee demo.log
 
       - name: Upload failure diagnostics
         if: failure()
@@ -51,6 +56,7 @@ jobs:
           name: wheel-ci-diagnostics-${{ github.run_id }}
           path: |
             build.log
+            release-build.log
             test.log
             demo.log
           if-no-files-found: ignore

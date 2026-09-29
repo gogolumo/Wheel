@@ -9,13 +9,16 @@ printf 'Repository: %s\n' "$ROOT"
 
 command -v swift >/dev/null || { echo 'error: swift is required' >&2; exit 1; }
 
-printf '\n[1/3] swift build\n'
-swift build
+printf '\n[1/4] swift build (warnings as errors)\n'
+swift build -Xswiftc -warnings-as-errors
 
-printf '\n[2/3] swift test\n'
-swift test
+printf '\n[2/4] release build (warnings as errors)\n'
+swift build -c release -Xswiftc -warnings-as-errors
 
-printf '\n[3/3] wheel-demo\n'
-swift run wheel-demo
+printf '\n[3/4] swift test (warnings as errors)\n'
+swift test -Xswiftc -warnings-as-errors
+
+printf '\n[4/4] wheel-demo (warnings as errors)\n'
+swift run -Xswiftc -warnings-as-errors wheel-demo
 
 printf '\nM0 bootstrap check PASS\n'
