@@ -117,7 +117,7 @@ public final class WheelPinnedApplicationResolver {
                 stableIdentifier: pinned.stableIdentifier,
                 localizedName: running.localizedName ?? pinned.localizedName,
                 bundleIdentifier: bundleIdentifier,
-                applicationURL: runningURL ?? pinned.applicationURL,
+                applicationURL: runningURL,
                 firstSeenAt: .distantPast,
                 lastActivatedAt: .distantPast,
                 runState: .running
@@ -130,7 +130,7 @@ public final class WheelPinnedApplicationResolver {
             stableIdentifier: pinned.stableIdentifier,
             localizedName: pinned.localizedName,
             bundleIdentifier: pinned.bundleIdentifier,
-            applicationURL: resolvedURL ?? pinned.applicationURL,
+            applicationURL: resolvedURL,
             firstSeenAt: .distantPast,
             lastActivatedAt: .distantPast,
             runState: resolvedURL == nil ? .unavailable : .terminated
@@ -142,18 +142,66 @@ public final class WheelPinnedApplicationResolver {
     ) -> URL? {
         if let bundleIdentifier = pinned.bundleIdentifier,
            let resolved = workspace.urlForApplication(
-                withBundleIdentifier: bundleIdentifier
+               withBundleIdentifier: bundleIdentifier
+           ),
+           isValidApplicationURL(
+               resolved,
+               expectedBundleIdentifier: bundleIdentifier
            )
         {
-            return resolved
+            return resolved.standardizedFileURL
         }
 
         if let storedURL = pinned.applicationURL,
-           fileManager.fileExists(atPath: storedURL.path)
+           isValidApplicationURL(
+               storedURL,
+               expectedBundleIdentifier: pinned.bundleIdentifier
+           )
         {
-            return storedURL
+            return storedURL.standardizedFileURL
         }
 
         return nil
+    }
+
+    /// A persisted path is only a hint. It must still identify the same normal
+    /// application bundle before Wheel exposes it as a launch target.
+    private func isValidApplicationURL(
+        _ applicationURL: URL,
+        expectedBundleIdentifier: String?
+    ) -> Bool {
+        let url = applicationURL.standardizedFileURL
+        let lowercasedPath = url.path.lowercased()
+
+        guard url.pathExtension.lowercased() == "app",
+              !lowercasedPath.contains(".app/contents/"),
+              fileManager.fileExists(atPath: url.path),
+              let bundle = Bundle(url: url)
+        else {
+            return false
+        }
+
+        if let packageType = bundle.object(
+            forInfoDictionaryKey: "CFBundlePackageType"
+        ) as? String,
+           packageType != "APPL"
+        {
+            return false
+        }
+
+        if bundle.object(forInfoDictionaryKey: "LSUIElement") as? Bool == true
+            || bundle.object(forInfoDictionaryKey: "LSBackgroundOnly") as? Bool == true
+        {
+            return false
+        }
+
+        if let expectedBundleIdentifier,
+           bundle.bundleIdentifier != expectedBundleIdentifier
+        {
+            return false
+        }
+
+        return bundle.bundleIdentifier != "com.apple.loginwindow"
+            && bundle.bundleIdentifier != "com.apple.SecurityAgent"
     }
 }
