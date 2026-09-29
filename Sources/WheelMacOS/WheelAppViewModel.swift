@@ -251,9 +251,9 @@ public final class WheelAppViewModel: ObservableObject {
             directionCount: directionCount,
             dynamicLimit: dynamicBudget
         ) { pinned in
-            pinnedApplicationResolver.resolve(
+            self.pinnedApplicationResolver.resolve(
                 pinned,
-                liveContexts: applicationHistory
+                liveContexts: self.applicationHistory
             )
         }
     }
