@@ -34,17 +34,19 @@ final class WheelPinnedApplicationResolverTests: XCTestCase {
                 "/Applications/Example.app/Contents/Helpers/Example Helper.app"
         )
 
-        await MainActor.run {
-            XCTAssertThrowsError(
+        let result = await MainActor.run {
+            Result {
                 try WheelPinnedApplicationResolver().pinnedApplication(
                     from: helperURL
                 )
-            ) { error in
-                XCTAssertEqual(
-                    error as? WheelPinnedApplicationResolutionError,
-                    .notApplicationBundle
-                )
             }
+        }
+
+        XCTAssertThrowsError(try result.get()) { error in
+            XCTAssertEqual(
+                error as? WheelPinnedApplicationResolutionError,
+                .notApplicationBundle
+            )
         }
     }
 
