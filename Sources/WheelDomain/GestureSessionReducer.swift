@@ -9,8 +9,17 @@ public enum GestureSessionEvent: Equatable, Sendable {
 public struct GestureSessionReducer: Equatable, Sendable {
     public private(set) var activeSession: GestureSession?
 
+    /// Restores only a session that can still accept terminal input.
+    ///
+    /// A completed or cancelled session is historical state, not an active
+    /// session. Dropping it here prevents a reducer restored from a stale
+    /// snapshot from becoming permanently unable to accept a new gesture.
     public init(activeSession: GestureSession? = nil) {
-        self.activeSession = activeSession
+        if activeSession?.status == .tracking {
+            self.activeSession = activeSession
+        } else {
+            self.activeSession = nil
+        }
     }
 
     @discardableResult

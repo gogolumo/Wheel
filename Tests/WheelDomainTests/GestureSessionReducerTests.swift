@@ -2,6 +2,42 @@ import XCTest
 @testable import WheelDomain
 
 final class GestureSessionReducerTests: XCTestCase {
+    func testInitializerKeepsTrackingSessionActive() {
+        let session = GestureSession(
+            id: UUID(),
+            triggerType: .rightOption,
+            status: .tracking
+        )
+
+        let reducer = GestureSessionReducer(activeSession: session)
+
+        XCTAssertEqual(reducer.activeSession, session)
+    }
+
+    func testInitializerDropsTerminalSessions() {
+        let terminalStatuses: [GestureStatus] = [
+            .completed(.left),
+            .completed(.right),
+            .completed(.none),
+            .cancelled
+        ]
+
+        for status in terminalStatuses {
+            let reducer = GestureSessionReducer(
+                activeSession: GestureSession(
+                    id: UUID(),
+                    triggerType: .capsLock,
+                    status: status
+                )
+            )
+
+            XCTAssertNil(
+                reducer.activeSession,
+                "terminal status \(status) must restore as idle"
+            )
+        }
+    }
+
     func testDuplicateStartKeepsOriginalSessionActive() {
         let firstID = UUID()
         let duplicateID = UUID()
