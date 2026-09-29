@@ -1,6 +1,6 @@
 # M0 — Repository and development environment acceptance
 
-Status: **Ready for clean-clone demonstration**
+Status: **Accepted — 2026-09-25**
 
 M0 exists to prove that Wheel can be cloned, built, tested, and understood without undocumented local setup.
 
@@ -33,20 +33,27 @@ Expected final line:
 M0 bootstrap check PASS
 ```
 
-The script deliberately runs the three canonical M0 checks in sequence:
+The current script runs four canonical repository checks in sequence:
 
-1. `swift build`
-2. `swift test`
-3. `swift run wheel-demo`
+1. `swift build -Xswiftc -warnings-as-errors`
+2. `swift build -c release -Xswiftc -warnings-as-errors`
+3. `swift test -Xswiftc -warnings-as-errors`
+4. `swift run -Xswiftc -warnings-as-errors wheel-demo`
 
 A failure in any command fails the demonstration.
 
 ## Acceptance evidence
 
-M0 may be marked complete when:
+M0 was accepted after:
 
-- the latest `main` CI is green;
-- a clean clone completes `scripts/bootstrap-check.sh` successfully;
-- the result is recorded on the M0 Trello card or linked PR.
+- the `main` CI baseline passed;
+- [PR #23](https://github.com/gogolumo/Wheel/pull/23) added the reproducible bootstrap command;
+- a genuinely fresh clone completed the script with the final line
+  `M0 bootstrap check PASS` on 2026-09-25;
+- the result was recorded against the M0 project milestone.
+
+Later hardening may add checks to the same script. Those changes strengthen the
+ongoing clean-clone contract; they do not retroactively claim that a later
+milestone or native macOS feasibility gate has passed.
 
 This milestone does not claim that native input, the menu-bar application, application capture, restoration, signing, or distribution are complete. Those belong to later milestones.

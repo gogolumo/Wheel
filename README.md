@@ -134,9 +134,11 @@ Only `success` and `partial` outcomes may move the history position. `failed`, `
 ```bash
 git clone https://github.com/gogolumo/Wheel.git
 cd Wheel
-swift test
-swift run wheel-demo
+bash scripts/bootstrap-check.sh
 ```
+
+The bootstrap check builds debug and release configurations with compiler
+warnings treated as errors, runs all tests, and executes `wheel-demo`.
 
 Expected demo flow:
 
@@ -152,8 +154,8 @@ new D:       A → B → [D]
 
 | Stage | Focus | Status |
 | --- | --- | :---: |
-| Foundation | Repository, modules, invariants, tests, CI | ✅ Active |
-| Feasibility | Global input, permissions, window identity, restoration | **Next** |
+| Foundation | Repository, modules, invariants, tests, CI | ✅ Complete |
+| Feasibility | Global input, permissions, window identity, restoration | **In progress** |
 | Native MVP | Menu bar, gesture input, stable context capture | Planned |
 | Integrations | Generic fallback plus selected deep adapters | Planned |
 | Productization | HUD, privacy controls, reliability, signing, beta | Planned |
