@@ -51,11 +51,11 @@ public final class WheelPinnedApplicationResolver {
             throw WheelPinnedApplicationResolutionError.notApplicationBundle
         }
 
-        if let packageType = bundle.object(
+        guard let packageType = bundle.object(
             forInfoDictionaryKey: "CFBundlePackageType"
         ) as? String,
-           packageType != "APPL"
-        {
+              packageType == "APPL"
+        else {
             throw WheelPinnedApplicationResolutionError.unsupportedBundleType
         }
 
@@ -181,11 +181,11 @@ public final class WheelPinnedApplicationResolver {
             return false
         }
 
-        if let packageType = bundle.object(
+        guard let packageType = bundle.object(
             forInfoDictionaryKey: "CFBundlePackageType"
         ) as? String,
-           packageType != "APPL"
-        {
+              packageType == "APPL"
+        else {
             return false
         }
 
