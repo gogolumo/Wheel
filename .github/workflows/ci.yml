@@ -21,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check module boundaries
+        run: bash scripts/check-module-boundaries.sh
+
       - name: Swift version
         run: swift --version
 
