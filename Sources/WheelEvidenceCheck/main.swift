@@ -3,7 +3,11 @@ import Foundation
 import WheelMacOS
 
 private func printUsage() {
-    print("Usage: wheel-evidence-check PATH [PATH ...]")
+    print(
+        "Usage: wheel-evidence-check "
+            + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
+            + "PATH [PATH ...]"
+    )
 }
 
 guard CommandLine.arguments.count >= 2 else {
@@ -13,8 +17,42 @@ guard CommandLine.arguments.count >= 2 else {
 
 var entries: [InputSpikeEvidenceBatchEntry] = []
 var unreadableFileCount = 0
+var requiredTriggers: Set<String> = []
+var evidencePaths: [String] = []
+let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
 
-for path in CommandLine.arguments.dropFirst() {
+var argumentIndex = 1
+while argumentIndex < CommandLine.arguments.count {
+    let argument = CommandLine.arguments[argumentIndex]
+    if argument == "--require-trigger" {
+        argumentIndex += 1
+        guard argumentIndex < CommandLine.arguments.count else {
+            printUsage()
+            exit(64)
+        }
+        let trigger = CommandLine.arguments[argumentIndex]
+        guard supportedTriggers.contains(trigger) else {
+            print("Unsupported required trigger: \(trigger)")
+            printUsage()
+            exit(64)
+        }
+        requiredTriggers.insert(trigger)
+    } else if argument.hasPrefix("-") {
+        print("Unknown option: \(argument)")
+        printUsage()
+        exit(64)
+    } else {
+        evidencePaths.append(argument)
+    }
+    argumentIndex += 1
+}
+
+guard !evidencePaths.isEmpty else {
+    printUsage()
+    exit(64)
+}
+
+for path in evidencePaths {
     print("\nEvidence file: \(path)")
     do {
         let url = URL(fileURLWithPath: path)
@@ -24,6 +62,7 @@ for path in CommandLine.arguments.dropFirst() {
         entries.append(
             InputSpikeEvidenceBatchEntry(
                 runLabel: summary.runLabel,
+                trigger: summary.trigger,
                 assessment: assessment
             )
         )
@@ -38,7 +77,10 @@ for path in CommandLine.arguments.dropFirst() {
     }
 }
 
-let batch = InputSpikeEvidenceBatchAssessment.evaluate(entries)
+let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+    entries,
+    requiredTriggers: requiredTriggers
+)
 print(
     "\nBatch result: \(batch.outcome.rawValue.uppercased()) "
         + "(\(batch.passedCount) passed, \(batch.incompleteCount) incomplete, "
@@ -47,6 +89,10 @@ print(
 if !batch.duplicateRunLabels.isEmpty {
     let labels = batch.duplicateRunLabels.joined(separator: ", ")
     print("- duplicate runLabel values: \(labels)")
+}
+if !batch.missingRequiredTriggers.isEmpty {
+    let triggers = batch.missingRequiredTriggers.joined(separator: ", ")
+    print("- missing required trigger evidence: \(triggers)")
 }
 print("Manual physical matrix review is still required; this is not a GO decision.")
 

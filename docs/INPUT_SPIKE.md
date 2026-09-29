@@ -132,6 +132,21 @@ Repeat the minimum matrix with:
 - one sleep/wake cycle while the harness remains open;
 - Caps Lock and `--trigger right-option`.
 
+After exporting the scored runs, make the automated batch check require both
+keyboard candidates. This prevents several files for one trigger from being
+mistaken for the complete comparison:
+
+```bash
+swift run wheel-evidence-check \
+  --require-trigger capsLock \
+  --require-trigger rightOption \
+  spike-001-*.json
+```
+
+This command checks trigger coverage and evidence integrity only. The physical
+attempt tally, device/application matrix, stuck-state result, and side effects
+still require manual review.
+
 If the harness has not reached its observed target after the planned physical
 attempts, press Control-C and retain the partial JSON as evidence of the miss.
 Also record any
