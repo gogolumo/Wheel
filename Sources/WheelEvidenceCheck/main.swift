@@ -8,6 +8,7 @@ private func printUsage() {
         "Usage: wheel-evidence-check "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
             + "[--expected-trigger caps-lock|right-option|mouse-side-button] "
+            + "[--expected-sequence-target COUNT] "
             + "[--minimum-observed COUNT] "
             + "[--maximum-median-latency-ms MILLISECONDS] "
             + "PATH [PATH ...]"
@@ -38,6 +39,7 @@ var requiredTriggers: Set<String> = []
 var evidencePaths: [String] = []
 let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
 var expectedTrigger: TriggerType?
+var expectedSequenceTarget: Int?
 var minimumObservedSequenceCount: Int?
 var maximumMedianCallbackLatencyMilliseconds: Double?
 
@@ -69,6 +71,19 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         expectedTrigger = parsed
+    } else if argument == "--expected-sequence-target" {
+        argumentIndex += 1
+        guard
+            expectedSequenceTarget == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let parsed = Int(CommandLine.arguments[argumentIndex]),
+            parsed > 0
+        else {
+            print("Invalid or repeated --expected-sequence-target value")
+            printUsage()
+            exit(64)
+        }
+        expectedSequenceTarget = parsed
     } else if argument == "--minimum-observed" {
         argumentIndex += 1
         guard
@@ -113,6 +128,7 @@ guard !evidencePaths.isEmpty else {
 
 let requirements = InputSpikeEvidenceRequirements(
     expectedTrigger: expectedTrigger,
+    expectedSequenceTarget: expectedSequenceTarget,
     minimumObservedSequenceCount: minimumObservedSequenceCount,
     maximumMedianCallbackLatencyMilliseconds: maximumMedianCallbackLatencyMilliseconds
 )

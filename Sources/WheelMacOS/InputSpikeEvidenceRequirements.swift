@@ -7,15 +7,18 @@ import WheelDomain
 /// or native side effects, so the manual gate remains mandatory.
 public struct InputSpikeEvidenceRequirements: Equatable, Sendable {
     public let expectedTrigger: TriggerType?
+    public let expectedSequenceTarget: Int?
     public let minimumObservedSequenceCount: Int?
     public let maximumMedianCallbackLatencyMilliseconds: Double?
 
     public init(
         expectedTrigger: TriggerType? = nil,
+        expectedSequenceTarget: Int? = nil,
         minimumObservedSequenceCount: Int? = nil,
         maximumMedianCallbackLatencyMilliseconds: Double? = nil
     ) {
         self.expectedTrigger = expectedTrigger
+        self.expectedSequenceTarget = expectedSequenceTarget
         self.minimumObservedSequenceCount = minimumObservedSequenceCount
         self.maximumMedianCallbackLatencyMilliseconds =
             maximumMedianCallbackLatencyMilliseconds

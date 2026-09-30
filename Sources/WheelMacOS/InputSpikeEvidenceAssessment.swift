@@ -124,6 +124,16 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
                     + expectedTrigger.rawValue
             )
         }
+        if let expectedSequenceTarget = requirements.expectedSequenceTarget {
+            if expectedSequenceTarget <= 0 {
+                invalid.append("expected sequence target must be positive")
+            } else if summary.sequenceTarget != expectedSequenceTarget {
+                invalid.append(
+                    "sequenceTarget \(summary.sequenceTarget) does not match expected "
+                        + "\(expectedSequenceTarget)"
+                )
+            }
+        }
         if let minimumObserved = requirements.minimumObservedSequenceCount {
             if minimumObserved <= 0 {
                 invalid.append("minimum observed sequence requirement must be positive")
@@ -184,6 +194,11 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
         }
 
         var passedFindings = ["export structure is internally consistent"]
+        if let expectedSequenceTarget = requirements.expectedSequenceTarget {
+            passedFindings.append(
+                "sequenceTarget matched the expected value of \(expectedSequenceTarget)"
+            )
+        }
         if let minimumObserved = requirements.minimumObservedSequenceCount {
             passedFindings.append(
                 "observed sequence count met the required minimum of \(minimumObserved)"

@@ -36,6 +36,7 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
             ),
             requirements: InputSpikeEvidenceRequirements(
                 expectedTrigger: .rightOption,
+                expectedSequenceTarget: 100,
                 minimumObservedSequenceCount: 99,
                 maximumMedianCallbackLatencyMilliseconds: 25
             )
@@ -44,10 +45,32 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertEqual(assessment.outcome, .passed)
         XCTAssertTrue(
             assessment.findings.contains(
+                "sequenceTarget matched the expected value of 100"
+            )
+        )
+        XCTAssertTrue(
+            assessment.findings.contains(
                 "observed sequence count met the required minimum of 99"
             )
         )
         XCTAssertTrue(assessment.requiresManualReview)
+    }
+
+    func testExpectedSequenceTargetMismatchFailsClosed() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(sequenceTarget: 99, completedSequenceCount: 99),
+            requirements: InputSpikeEvidenceRequirements(
+                expectedSequenceTarget: 100,
+                minimumObservedSequenceCount: 99
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "sequenceTarget 99 does not match expected 100"
+            )
+        )
     }
 
     func testMinimumObservedRequirementKeepsShortRunIncomplete() {
@@ -104,12 +127,16 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         let assessment = InputSpikeEvidenceAssessment.evaluate(
             makeSummary(sequenceTarget: 10, completionReason: .interrupted),
             requirements: InputSpikeEvidenceRequirements(
+                expectedSequenceTarget: 0,
                 minimumObservedSequenceCount: 11,
                 maximumMedianCallbackLatencyMilliseconds: .infinity
             )
         )
 
         XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains("expected sequence target must be positive")
+        )
         XCTAssertTrue(
             assessment.findings.contains(
                 "minimum observed sequence requirement exceeds sequenceTarget"

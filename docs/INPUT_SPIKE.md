@@ -154,14 +154,16 @@ by the gate:
 swift run wheel-evidence-check \
   /tmp/wheel-spike-001-final.json \
   --expected-trigger right-option \
+  --expected-sequence-target 100 \
   --minimum-observed 99 \
   --maximum-median-latency-ms 25
 ```
 
-`--minimum-observed` deliberately allows a valid interrupted 99/100 export to
-pass the aggregate check. It does not prove that exactly 100 physical attempts
-were made: the operator must still report the deliberate-attempt tally, misses,
-device/application coverage, stuck state, and native side effects.
+`--expected-sequence-target 100` rejects evidence produced by a shorter configured
+run. `--minimum-observed` deliberately allows a valid interrupted 99/100 export
+to pass the aggregate check. Neither option proves that exactly 100 physical
+attempts were made: the operator must still report the deliberate-attempt tally,
+misses, device/application coverage, stuck state, and native side effects.
 
 If the harness has not reached its observed target after the planned physical
 attempts, press Control-C and retain the partial JSON as evidence of the miss.
