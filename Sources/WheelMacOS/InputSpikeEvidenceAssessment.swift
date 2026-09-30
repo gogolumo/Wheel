@@ -1,7 +1,7 @@
 import Foundation
 import WheelDomain
 
-/// Validates one privacy-safe SPIKE-002 export without turning automated
+/// Validates one privacy-safe input-spike export without turning automated
 /// telemetry into a physical-device GO decision.
 public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
     public enum Outcome: String, Equatable, Sendable {
@@ -14,7 +14,10 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
     public let findings: [String]
     public let requiresManualReview: Bool
 
-    public static func evaluate(_ summary: InputSpikeRunSummary) -> Self {
+    public static func evaluate(
+        _ summary: InputSpikeRunSummary,
+        requirements: InputSpikeEvidenceRequirements = .init()
+    ) -> Self {
         var invalid: [String] = []
 
         if summary.schemaVersion != 3 {
@@ -110,7 +113,30 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
             invalid.append("latencyThresholdMet contradicts the measured median")
         }
         if !summary.requiresManualReview {
-            invalid.append("SPIKE-002 evidence must require manual review")
+            invalid.append("input-spike evidence must require manual review")
+        }
+
+        if let expectedTrigger = requirements.expectedTrigger,
+           summary.trigger != expectedTrigger.rawValue
+        {
+            invalid.append(
+                "trigger \(summary.trigger) does not match expected "
+                    + expectedTrigger.rawValue
+            )
+        }
+        if let minimumObserved = requirements.minimumObservedSequenceCount {
+            if minimumObserved <= 0 {
+                invalid.append("minimum observed sequence requirement must be positive")
+            } else if minimumObserved > summary.sequenceTarget {
+                invalid.append(
+                    "minimum observed sequence requirement exceeds sequenceTarget"
+                )
+            }
+        }
+        if let maximumLatency = requirements.maximumMedianCallbackLatencyMilliseconds,
+           !maximumLatency.isFinite || maximumLatency <= 0
+        {
+            invalid.append("maximum median callback latency must be finite and positive")
         }
 
         if !invalid.isEmpty {
@@ -118,7 +144,14 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
         }
 
         var incomplete: [String] = []
-        if summary.completionReason != .targetReached || !summary.observedTargetMet {
+        if let minimumObserved = requirements.minimumObservedSequenceCount {
+            if summary.completedSequenceCount < minimumObserved {
+                incomplete.append(
+                    "observed sequence count did not meet the required minimum "
+                        + "of \(minimumObserved)"
+                )
+            }
+        } else if summary.completionReason != .targetReached || !summary.observedTargetMet {
             incomplete.append("observed sequence target was not completed")
         }
         if summary.latencyThresholdMet == nil {
@@ -136,13 +169,38 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
             )
         }
 
+        if let maximumLatency = requirements.maximumMedianCallbackLatencyMilliseconds,
+           let measuredLatency = summary.medianCallbackLatencyMilliseconds,
+           measuredLatency >= maximumLatency
+        {
+            return Self(
+                outcome: .failed,
+                findings: [
+                    "median callback latency did not meet the required maximum "
+                        + "of \(maximumLatency) ms"
+                ],
+                requiresManualReview: true
+            )
+        }
+
+        var passedFindings = ["export structure is internally consistent"]
+        if let minimumObserved = requirements.minimumObservedSequenceCount {
+            passedFindings.append(
+                "observed sequence count met the required minimum of \(minimumObserved)"
+            )
+        } else {
+            passedFindings.append("observed sequence target was completed")
+        }
+        passedFindings.append("median callback latency met the configured threshold")
+        if let maximumLatency = requirements.maximumMedianCallbackLatencyMilliseconds {
+            passedFindings.append(
+                "median callback latency met the required maximum of \(maximumLatency) ms"
+            )
+        }
+
         return Self(
             outcome: .passed,
-            findings: [
-                "export structure is internally consistent",
-                "observed sequence target was completed",
-                "median callback latency met the configured threshold"
-            ],
+            findings: passedFindings,
             requiresManualReview: true
         )
     }

@@ -53,7 +53,7 @@ From a Mac with Input Monitoring permission, run:
 ```bash
 cd ~/Documents/Wheel/Wheel
 git fetch origin
-git switch spike/SPIKE-001-final-evidence
+git switch spike/GH-1-global-input-capture
 git pull --ff-only
 
 swift run wheel-input-spike \
@@ -68,6 +68,13 @@ swift run wheel-evidence-check \
   --minimum-observed 99 \
   --maximum-median-latency-ms 25
 ```
+
+The explicit checker requirements are intentionally separate from the values
+embedded in the export. A valid interrupted export with 99 observed sequences
+can satisfy the aggregate 99/100 criterion, but the operator must still report
+that 100 deliberate physical attempts were actually made. The checker cannot
+infer a completely missed trigger, device/application coverage, stuck state, or
+native side effects.
 
 During the 100 deliberate sequences, alternate LEFT and RIGHT movements and include several intentional below-threshold releases to exercise NONE. Run across Finder, Chrome, VS Code, a normal Space, and a full-screen Space. Record any focus theft, clicks, pointer warping, typed characters, unintended navigation, stuck trigger state, or missed deliberate attempt.
 

@@ -147,6 +147,22 @@ This command checks trigger coverage and evidence integrity only. The physical
 attempt tally, device/application matrix, stuck-state result, and side effects
 still require manual review.
 
+For one final SPIKE-001 run, apply the explicit acceptance thresholds recorded
+by the gate:
+
+```bash
+swift run wheel-evidence-check \
+  /tmp/wheel-spike-001-final.json \
+  --expected-trigger right-option \
+  --minimum-observed 99 \
+  --maximum-median-latency-ms 25
+```
+
+`--minimum-observed` deliberately allows a valid interrupted 99/100 export to
+pass the aggregate check. It does not prove that exactly 100 physical attempts
+were made: the operator must still report the deliberate-attempt tally, misses,
+device/application coverage, stuck state, and native side effects.
+
 If the harness has not reached its observed target after the planned physical
 attempts, press Control-C and retain the partial JSON as evidence of the miss.
 Also record any

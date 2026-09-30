@@ -48,7 +48,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "WheelEvidenceCheck",
-            dependencies: ["WheelMacOS"]
+            dependencies: ["WheelDomain", "WheelMacOS"]
         ),
         .executableTarget(
             name: "WheelInputDiagnostics",

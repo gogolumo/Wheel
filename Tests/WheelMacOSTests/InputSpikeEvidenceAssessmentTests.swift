@@ -27,6 +27,101 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertEqual(assessment.outcome, .failed)
     }
 
+    func testMinimumObservedRequirementAcceptsValidInterruptedEvidence() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(
+                sequenceTarget: 100,
+                completedSequenceCount: 99,
+                completionReason: .interrupted
+            ),
+            requirements: InputSpikeEvidenceRequirements(
+                expectedTrigger: .rightOption,
+                minimumObservedSequenceCount: 99,
+                maximumMedianCallbackLatencyMilliseconds: 25
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .passed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "observed sequence count met the required minimum of 99"
+            )
+        )
+        XCTAssertTrue(assessment.requiresManualReview)
+    }
+
+    func testMinimumObservedRequirementKeepsShortRunIncomplete() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(
+                sequenceTarget: 100,
+                completedSequenceCount: 98,
+                completionReason: .interrupted
+            ),
+            requirements: InputSpikeEvidenceRequirements(
+                minimumObservedSequenceCount: 99
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .incomplete)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "observed sequence count did not meet the required minimum of 99"
+            )
+        )
+    }
+
+    func testExpectedTriggerMismatchFailsClosed() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(),
+            requirements: InputSpikeEvidenceRequirements(expectedTrigger: .capsLock)
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "trigger rightOption does not match expected capsLock"
+            )
+        )
+    }
+
+    func testStricterMaximumMedianLatencyFailsClosed() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(latencyMilliseconds: 12),
+            requirements: InputSpikeEvidenceRequirements(
+                maximumMedianCallbackLatencyMilliseconds: 10
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "median callback latency did not meet the required maximum of 10.0 ms"
+            )
+        )
+    }
+
+    func testInvalidRequirementsFailClosed() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(sequenceTarget: 10, completionReason: .interrupted),
+            requirements: InputSpikeEvidenceRequirements(
+                minimumObservedSequenceCount: 11,
+                maximumMedianCallbackLatencyMilliseconds: .infinity
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "minimum observed sequence requirement exceeds sequenceTarget"
+            )
+        )
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "maximum median callback latency must be finite and positive"
+            )
+        )
+    }
+
     func testRejectsTamperedDerivedFieldsWhenDecoded() throws {
         let assessment = InputSpikeEvidenceAssessment.evaluate(
             try tamperedSummary { $0["observedTargetMet"] = false }
@@ -154,11 +249,14 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
 
     private func makeSummary(
         sequenceTarget: Int = 1,
+        completedSequenceCount: Int = 1,
         completionReason: InputSpikeRunSummary.CompletionReason = .targetReached,
         latencyMilliseconds: Double = 8
     ) -> InputSpikeRunSummary {
         var statistics = InputSpikeRunStatistics()
-        statistics.recordCompletedSequence(direction: .left)
+        for _ in 0 ..< completedSequenceCount {
+            statistics.recordCompletedSequence(direction: .left)
+        }
         statistics.recordCallbackLatency(milliseconds: latencyMilliseconds)
         return InputSpikeRunSummary(
             runLabel: "right-option-finder",

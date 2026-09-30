@@ -1,13 +1,30 @@
 import Darwin
 import Foundation
+import WheelDomain
 import WheelMacOS
 
 private func printUsage() {
     print(
         "Usage: wheel-evidence-check "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
+            + "[--expected-trigger caps-lock|right-option|mouse-side-button] "
+            + "[--minimum-observed COUNT] "
+            + "[--maximum-median-latency-ms MILLISECONDS] "
             + "PATH [PATH ...]"
     )
+}
+
+private func parseExpectedTrigger(_ value: String) -> TriggerType? {
+    switch value {
+    case "caps-lock", "capsLock":
+        return .capsLock
+    case "right-option", "rightOption":
+        return .rightOption
+    case "mouse-side-button", "mouseSideButton":
+        return .mouseSideButton
+    default:
+        return nil
+    }
 }
 
 guard CommandLine.arguments.count >= 2 else {
@@ -20,6 +37,9 @@ var unreadableFileCount = 0
 var requiredTriggers: Set<String> = []
 var evidencePaths: [String] = []
 let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
+var expectedTrigger: TriggerType?
+var minimumObservedSequenceCount: Int?
+var maximumMedianCallbackLatencyMilliseconds: Double?
 
 var argumentIndex = 1
 while argumentIndex < CommandLine.arguments.count {
@@ -37,6 +57,45 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         requiredTriggers.insert(trigger)
+    } else if argument == "--expected-trigger" {
+        argumentIndex += 1
+        guard
+            expectedTrigger == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let parsed = parseExpectedTrigger(CommandLine.arguments[argumentIndex])
+        else {
+            print("Invalid or repeated --expected-trigger value")
+            printUsage()
+            exit(64)
+        }
+        expectedTrigger = parsed
+    } else if argument == "--minimum-observed" {
+        argumentIndex += 1
+        guard
+            minimumObservedSequenceCount == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let parsed = Int(CommandLine.arguments[argumentIndex]),
+            parsed > 0
+        else {
+            print("Invalid or repeated --minimum-observed value")
+            printUsage()
+            exit(64)
+        }
+        minimumObservedSequenceCount = parsed
+    } else if argument == "--maximum-median-latency-ms" {
+        argumentIndex += 1
+        guard
+            maximumMedianCallbackLatencyMilliseconds == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let parsed = Double(CommandLine.arguments[argumentIndex]),
+            parsed.isFinite,
+            parsed > 0
+        else {
+            print("Invalid or repeated --maximum-median-latency-ms value")
+            printUsage()
+            exit(64)
+        }
+        maximumMedianCallbackLatencyMilliseconds = parsed
     } else if argument.hasPrefix("-") {
         print("Unknown option: \(argument)")
         printUsage()
@@ -52,13 +111,22 @@ guard !evidencePaths.isEmpty else {
     exit(64)
 }
 
+let requirements = InputSpikeEvidenceRequirements(
+    expectedTrigger: expectedTrigger,
+    minimumObservedSequenceCount: minimumObservedSequenceCount,
+    maximumMedianCallbackLatencyMilliseconds: maximumMedianCallbackLatencyMilliseconds
+)
+
 for path in evidencePaths {
     print("\nEvidence file: \(path)")
     do {
         let url = URL(fileURLWithPath: path)
         let data = try Data(contentsOf: url)
         let summary = try JSONDecoder().decode(InputSpikeRunSummary.self, from: data)
-        let assessment = InputSpikeEvidenceAssessment.evaluate(summary)
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            summary,
+            requirements: requirements
+        )
         entries.append(
             InputSpikeEvidenceBatchEntry(
                 runLabel: summary.runLabel,

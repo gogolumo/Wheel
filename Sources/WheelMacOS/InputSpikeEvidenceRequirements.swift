@@ -1,0 +1,23 @@
+import WheelDomain
+
+/// Optional acceptance requirements applied while checking an evidence export.
+///
+/// These requirements validate aggregate evidence only. They cannot establish
+/// the physical-attempt count, device/application coverage, stuck-state result,
+/// or native side effects, so the manual gate remains mandatory.
+public struct InputSpikeEvidenceRequirements: Equatable, Sendable {
+    public let expectedTrigger: TriggerType?
+    public let minimumObservedSequenceCount: Int?
+    public let maximumMedianCallbackLatencyMilliseconds: Double?
+
+    public init(
+        expectedTrigger: TriggerType? = nil,
+        minimumObservedSequenceCount: Int? = nil,
+        maximumMedianCallbackLatencyMilliseconds: Double? = nil
+    ) {
+        self.expectedTrigger = expectedTrigger
+        self.minimumObservedSequenceCount = minimumObservedSequenceCount
+        self.maximumMedianCallbackLatencyMilliseconds =
+            maximumMedianCallbackLatencyMilliseconds
+    }
+}
