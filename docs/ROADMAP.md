@@ -10,7 +10,10 @@ This repository follows a gate-driven macOS-first roadmap.
 - contribution/project rules
 - no secrets in git
 
-**Current status:** in progress. The first domain slice and CI-ready Swift package are present.
+**Status:** complete. M0 was accepted on 2026-09-25 after the `main` CI
+baseline passed and a fresh clone completed `scripts/bootstrap-check.sh`.
+The reproducibility contract remains documented in
+[`M0-REPOSITORY-ACCEPTANCE.md`](M0-REPOSITORY-ACCEPTANCE.md).
 
 ## M1 — Feasibility spikes
 
@@ -29,6 +32,10 @@ Each spike ends in **GO / ADJUST / STOP** rather than silently hard-coding an as
 
 **Current work:** [global input reliability](https://github.com/gogolumo/Wheel/issues/1)
 and [candidate trigger conflicts](https://github.com/gogolumo/Wheel/issues/3).
+
+**Current status:** in progress. SPIKE-001 and SPIKE-002 still require their
+full physical Mac matrices and an explicit GO / ADJUST / STOP decision. Passing
+CI and partial smoke evidence do not close this gate.
 
 ## M2 — Menu-bar shell and permission onboarding
 

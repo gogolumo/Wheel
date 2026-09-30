@@ -19,7 +19,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check module boundaries
+        run: bash scripts/check-module-boundaries.sh
 
       - name: Swift version
         run: swift --version
@@ -40,6 +45,10 @@ jobs:
         run: |
           set -o pipefail
           swift build -Xswiftc -warnings-as-errors 2>&1 | tee build.log
+      - name: Build release configuration
+        run: |
+          set -o pipefail
+          swift build -c release -Xswiftc -warnings-as-errors 2>&1 | tee release-build.log
 
       - name: Run tests
         run: |
@@ -49,7 +58,7 @@ jobs:
       - name: Run domain demo
         run: |
           set -o pipefail
-          swift run wheel-demo 2>&1 | tee demo.log
+          swift run -Xswiftc -warnings-as-errors wheel-demo 2>&1 | tee demo.log
 
       - name: Build and verify installable Wheel.app
         run: |
@@ -219,11 +228,12 @@ jobs:
 
       - name: Upload failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wheel-ci-diagnostics-${{ github.run_id }}
           path: |
             build.log
+            release-build.log
             test.log
             demo.log
           if-no-files-found: ignore
