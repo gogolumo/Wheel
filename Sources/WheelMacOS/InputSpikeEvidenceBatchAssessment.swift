@@ -1,9 +1,15 @@
 public struct InputSpikeEvidenceBatchEntry: Equatable, Sendable {
     public let runLabel: String
+    public let trigger: String
     public let assessment: InputSpikeEvidenceAssessment
 
-    public init(runLabel: String, assessment: InputSpikeEvidenceAssessment) {
+    public init(
+        runLabel: String,
+        trigger: String,
+        assessment: InputSpikeEvidenceAssessment
+    ) {
         self.runLabel = runLabel
+        self.trigger = trigger
         self.assessment = assessment
     }
 }
@@ -16,10 +22,12 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let incompleteCount: Int
     public let failedCount: Int
     public let duplicateRunLabels: [String]
+    public let missingRequiredTriggers: [String]
     public let requiresManualReview: Bool
 
     public static func evaluate(
-        _ entries: [InputSpikeEvidenceBatchEntry]
+        _ entries: [InputSpikeEvidenceBatchEntry],
+        requiredTriggers: Set<String> = []
     ) -> Self {
         let assessments = entries.map(\.assessment)
         let passedCount = assessments.filter { $0.outcome == .passed }.count
@@ -29,9 +37,16 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             .filter { $0.value.count > 1 }
             .map(\.key)
             .sorted()
+        let observedTriggers = Set(entries.map(\.trigger))
+        let missingRequiredTriggers = requiredTriggers
+            .subtracting(observedTriggers)
+            .sorted()
 
         let outcome: InputSpikeEvidenceAssessment.Outcome
-        if entries.isEmpty || failedCount > 0 || !duplicateRunLabels.isEmpty {
+        if entries.isEmpty
+            || failedCount > 0
+            || !duplicateRunLabels.isEmpty
+            || !missingRequiredTriggers.isEmpty {
             outcome = .failed
         } else if incompleteCount > 0 {
             outcome = .incomplete
@@ -45,6 +60,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             incompleteCount: incompleteCount,
             failedCount: failedCount,
             duplicateRunLabels: duplicateRunLabels,
+            missingRequiredTriggers: missingRequiredTriggers,
             requiresManualReview: true
         )
     }

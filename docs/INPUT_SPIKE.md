@@ -132,6 +132,52 @@ Repeat the minimum matrix with:
 - one sleep/wake cycle while the harness remains open;
 - Caps Lock and `--trigger right-option`.
 
+After exporting the scored runs, make the automated batch check require both
+keyboard candidates. This prevents several files for one trigger from being
+mistaken for the complete comparison:
+
+```bash
+swift run wheel-evidence-check \
+  --require-trigger capsLock \
+  --require-trigger rightOption \
+  spike-001-*.json
+```
+
+This command checks trigger coverage and evidence integrity only. The physical
+attempt tally, device/application matrix, stuck-state result, and side effects
+still require manual review.
+
+The checker identifies inputs only as `Evidence file #1`, `#2`, and so on. It
+does not echo file paths or raw filesystem/decoder errors into terminal or CI
+logs, because those diagnostics can contain account names or private folders.
+It also rejects unrecognized top-level JSON fields instead of silently ignoring
+them. This keeps app names, window titles, paths, URLs, or other unreviewed data
+from being attached to an otherwise valid aggregate export.
+
+For one final SPIKE-001 run, apply the explicit acceptance thresholds recorded
+by the gate:
+
+```bash
+swift run wheel-evidence-check \
+  /tmp/wheel-spike-001-final.json \
+  --expected-trigger right-option \
+  --expected-sequence-target 100 \
+  --minimum-observed 99 \
+  --minimum-left 1 \
+  --minimum-right 1 \
+  --minimum-none 1 \
+  --maximum-median-latency-ms 25
+```
+
+`--expected-sequence-target 100` rejects evidence produced by a shorter configured
+run. `--minimum-observed` deliberately allows a valid interrupted 99/100 export
+to pass the aggregate check. Neither option proves that exactly 100 physical
+attempts were made: the operator must still report the deliberate-attempt tally,
+misses, device/application coverage, stuck state, and native side effects.
+The direction minimums also reject a file containing only LEFT, only RIGHT, or
+only NONE results. They do not prove that the observed result matched the
+operator's intended direction; that comparison remains part of the manual table.
+
 If the harness has not reached its observed target after the planned physical
 attempts, press Control-C and retain the partial JSON as evidence of the miss.
 Also record any

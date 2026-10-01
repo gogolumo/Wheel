@@ -43,6 +43,33 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         XCTAssertEqual(batch.duplicateRunLabels, ["right-option-finder"])
     }
 
+    func testRequiredTriggerCoverageFailsClosed() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry("right-option-finder", .passed, trigger: "rightOption"),
+                entry("caps-lock-finder", .passed, trigger: "capsLock")
+            ],
+            requiredTriggers: ["rightOption", "capsLock", "mouseSideButton"]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(batch.missingRequiredTriggers, ["mouseSideButton"])
+    }
+
+    func testRequiredTriggerCoveragePassesWhenEveryCandidateIsPresent() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry("right-option-finder", .passed, trigger: "rightOption"),
+                entry("caps-lock-finder", .passed, trigger: "capsLock"),
+                entry("mouse-button-finder", .passed, trigger: "mouseSideButton")
+            ],
+            requiredTriggers: ["rightOption", "capsLock", "mouseSideButton"]
+        )
+
+        XCTAssertEqual(batch.outcome, .passed)
+        XCTAssertTrue(batch.missingRequiredTriggers.isEmpty)
+    }
+
     func testEmptyBatchFailsClosed() {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate([])
 
@@ -52,10 +79,12 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
 
     private func entry(
         _ runLabel: String,
-        _ outcome: InputSpikeEvidenceAssessment.Outcome
+        _ outcome: InputSpikeEvidenceAssessment.Outcome,
+        trigger: String = "rightOption"
     ) -> InputSpikeEvidenceBatchEntry {
         InputSpikeEvidenceBatchEntry(
             runLabel: runLabel,
+            trigger: trigger,
             assessment: InputSpikeEvidenceAssessment(
                 outcome: outcome,
                 findings: [],

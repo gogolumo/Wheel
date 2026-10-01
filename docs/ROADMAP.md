@@ -30,6 +30,9 @@ Validate the platform assumptions before building product UI:
 
 Each spike ends in **GO / ADJUST / STOP** rather than silently hard-coding an assumption.
 
+**Current work:** [global input reliability](https://github.com/gogolumo/Wheel/issues/1)
+and [candidate trigger conflicts](https://github.com/gogolumo/Wheel/issues/3).
+
 **Current status:** in progress. SPIKE-001 and SPIKE-002 still require their
 full physical Mac matrices and an explicit GO / ADJUST / STOP decision. Passing
 CI and partial smoke evidence do not close this gate.

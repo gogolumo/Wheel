@@ -243,8 +243,11 @@ Pinned and dynamic targets deliberately share one layout:
 The app picker accepts normal application bundles and rejects nested helper
 applications. Persistent identity prefers the bundle identifier over the stored
 path. When an application moves, Wheel asks Launch Services for its current URL.
-When the application cannot be resolved, the pinned sector remains visible as
-unavailable rather than silently deleting the user's configuration.
+Before using a stored path as a fallback, Wheel revalidates that it is still a
+normal `.app` bundle and that its bundle identifier still matches the pin. A
+missing, malformed, or replaced bundle is never exposed as a launch target. In
+that case, the pinned sector remains visible as unavailable rather than silently
+deleting the user's configuration.
 
 The overlay marks pinned applications with a small pin badge. Running targets
 are activated; installed but terminated targets are relaunched through the

@@ -74,4 +74,61 @@ final class InputSpikeRunSummaryTests: XCTestCase {
         XCTAssertNil(object["stuckState"])
         XCTAssertNil(object["nativeSideEffects"])
     }
+
+    func testValidatedDecoderRoundTripsCanonicalEvidence() throws {
+        let summary = makeSummary()
+
+        let decoded = try InputSpikeRunSummary.decodeValidatedJSON(
+            summary.encodedJSON()
+        )
+
+        XCTAssertEqual(decoded, summary)
+    }
+
+    func testValidatedDecoderRejectsUnexpectedTopLevelFields() throws {
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: makeSummary().encodedJSON())
+                as? [String: Any]
+        )
+        object["windowTitle"] = "must-not-travel-with-evidence"
+        let data = try JSONSerialization.data(withJSONObject: object)
+
+        XCTAssertThrowsError(
+            try InputSpikeRunSummary.decodeValidatedJSON(data)
+        ) { error in
+            XCTAssertEqual(
+                error as? InputSpikeRunSummary.DocumentValidationError,
+                .unsupportedFields
+            )
+        }
+    }
+
+    func testValidatedDecoderRejectsNonObjectDocuments() throws {
+        let data = try JSONSerialization.data(withJSONObject: ["not-an-export"])
+
+        XCTAssertThrowsError(
+            try InputSpikeRunSummary.decodeValidatedJSON(data)
+        ) { error in
+            XCTAssertEqual(
+                error as? InputSpikeRunSummary.DocumentValidationError,
+                .topLevelObjectRequired
+            )
+        }
+    }
+
+    private func makeSummary() -> InputSpikeRunSummary {
+        var statistics = InputSpikeRunStatistics()
+        statistics.recordCompletedSequence(direction: .left)
+        statistics.recordCallbackLatency(milliseconds: 8)
+
+        return InputSpikeRunSummary(
+            runLabel: "right-option-finder",
+            trigger: .rightOption,
+            minimumHorizontalDistance: 80,
+            minimumDominanceRatio: 1.5,
+            sequenceTarget: 1,
+            statistics: statistics,
+            completionReason: .targetReached
+        )
+    }
 }

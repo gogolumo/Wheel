@@ -84,6 +84,22 @@ If no auxiliary-button events appear, record that result. Do not infer that the
 mouse lacks buttons: its driver may translate them into navigation or keyboard
 events before the session event tap sees them.
 
+After exporting the candidate runs, require the checker to prove that the batch
+contains evidence for every candidate instead of accidentally accepting several
+runs for only one trigger:
+
+```bash
+swift run wheel-evidence-check \
+  --require-trigger capsLock \
+  --require-trigger rightOption \
+  --require-trigger mouseSideButton \
+  spike-002-*.json
+```
+
+If the physical mouse exposes no observable side-button event, keep its partial
+or interrupted evidence and manual note. Do not remove the requirement merely
+to obtain an automated PASS; a missing candidate is a review result.
+
 ## Thirty-action matrix
 
 Run 30 deliberate press/move/release actions for each available candidate.
