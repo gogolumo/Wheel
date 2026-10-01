@@ -147,6 +147,10 @@ This command checks trigger coverage and evidence integrity only. The physical
 attempt tally, device/application matrix, stuck-state result, and side effects
 still require manual review.
 
+The checker identifies inputs only as `Evidence file #1`, `#2`, and so on. It
+does not echo file paths or raw filesystem/decoder errors into terminal or CI
+logs, because those diagnostics can contain account names or private folders.
+
 For one final SPIKE-001 run, apply the explicit acceptance thresholds recorded
 by the gate:
 

@@ -133,12 +133,30 @@ let requirements = InputSpikeEvidenceRequirements(
     maximumMedianCallbackLatencyMilliseconds: maximumMedianCallbackLatencyMilliseconds
 )
 
-for path in evidencePaths {
-    print("\nEvidence file: \(path)")
+for (index, path) in evidencePaths.enumerated() {
+    let evidenceNumber = index + 1
+    print("\nEvidence file #\(evidenceNumber)")
     do {
         let url = URL(fileURLWithPath: path)
-        let data = try Data(contentsOf: url)
-        let summary = try JSONDecoder().decode(InputSpikeRunSummary.self, from: data)
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            unreadableFileCount += 1
+            print("Automated checks: FAILED")
+            print("- unable to read evidence file #\(evidenceNumber)")
+            continue
+        }
+
+        let summary: InputSpikeRunSummary
+        do {
+            summary = try JSONDecoder().decode(InputSpikeRunSummary.self, from: data)
+        } catch {
+            unreadableFileCount += 1
+            print("Automated checks: FAILED")
+            print("- unable to decode evidence file #\(evidenceNumber)")
+            continue
+        }
         let assessment = InputSpikeEvidenceAssessment.evaluate(
             summary,
             requirements: requirements
@@ -154,10 +172,6 @@ for path in evidencePaths {
         for finding in assessment.findings {
             print("- \(finding)")
         }
-    } catch {
-        unreadableFileCount += 1
-        print("Automated checks: FAILED")
-        print("- unable to read or decode evidence: \(error)")
     }
 }
 

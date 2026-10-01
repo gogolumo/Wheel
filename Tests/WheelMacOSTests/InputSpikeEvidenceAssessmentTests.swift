@@ -3,6 +3,19 @@ import XCTest
 @testable import WheelMacOS
 
 final class InputSpikeEvidenceAssessmentTests: XCTestCase {
+    func testEvidenceCheckerDoesNotPrintPathsOrSystemErrors() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources/WheelEvidenceCheck/main.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertFalse(source.contains(#"Evidence file: \(path)"#))
+        XCTAssertFalse(source.contains(#"\(error)"#))
+        XCTAssertTrue(source.contains(#"Evidence file #\(evidenceNumber)"#))
+    }
+
     func testPassesCompleteConsistentExportButKeepsManualGate() {
         let assessment = InputSpikeEvidenceAssessment.evaluate(makeSummary())
 
