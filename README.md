@@ -136,9 +136,10 @@ Only `success` and `partial` outcomes may move the history position. `failed`, `
 ```bash
 git clone https://github.com/gogolumo/Wheel.git
 cd Wheel
-swift test
-swift run wheel-demo
+bash scripts/bootstrap-check.sh
 ```
+
+The bootstrap check validates module boundaries, builds debug and release configurations with compiler warnings treated as errors, runs the full test suite, and executes `wheel-demo`.
 
 Pinned applications can be assigned to exact radial sectors from **Wheel → Pinned Apps**. Those sectors stay fixed while every unpinned sector continues to use recent application history. Pins persist across restarts and hidden pins are retained when the direction count is reduced.
 
@@ -230,8 +231,8 @@ new D:       A → B → [D]
 
 | Stage | Focus | Status |
 | --- | --- | :---: |
-| Foundation | Repository, modules, invariants, tests, CI | ✅ Active |
-| Feasibility | Global input, permissions, window identity, restoration | **Next** |
+| Foundation | Repository, modules, invariants, tests, CI | ✅ Complete |
+| Feasibility | Global input, permissions, window identity, restoration | **In progress** |
 | Native MVP | Menu bar, gesture input, stable context capture | Planned |
 | Integrations | Generic fallback plus selected deep adapters | Planned |
 | Productization | HUD, privacy controls, reliability, signing, beta | Planned |
