@@ -45,6 +45,7 @@ jobs:
         run: |
           set -o pipefail
           swift build -Xswiftc -warnings-as-errors 2>&1 | tee build.log
+
       - name: Build release configuration
         run: |
           set -o pipefail

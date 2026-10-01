@@ -139,6 +139,8 @@ cd Wheel
 bash scripts/bootstrap-check.sh
 ```
 
+The bootstrap check validates module boundaries, builds debug and release configurations with compiler warnings treated as errors, runs the full test suite, and executes `wheel-demo`.
+
 Pinned applications can be assigned to exact radial sectors from **Wheel → Pinned Apps**. Those sectors stay fixed while every unpinned sector continues to use recent application history. Pins persist across restarts and hidden pins are retained when the direction count is reduced.
 
 Run the native menu-bar shell from the active APP-001 branch:
@@ -214,9 +216,6 @@ mouse side-button testing is documented in
 [`docs/TRIGGER_CONFLICT_SPIKE.md`](docs/TRIGGER_CONFLICT_SPIKE.md). A temporary
 native menu-bar panel for observing those runs is documented in
 [`docs/INPUT_DIAGNOSTICS.md`](docs/INPUT_DIAGNOSTICS.md).
-
-The bootstrap check builds debug and release configurations with compiler
-warnings treated as errors, runs all tests, and executes `wheel-demo`.
 
 Expected demo flow:
 
