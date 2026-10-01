@@ -34,17 +34,18 @@ final class WheelPinnedApplicationResolverTests: XCTestCase {
                 "/Applications/Example.app/Contents/Helpers/Example Helper.app"
         )
 
-        await MainActor.run {
-            XCTAssertThrowsError(
+        do {
+            _ = try await MainActor.run {
                 try WheelPinnedApplicationResolver().pinnedApplication(
                     from: helperURL
                 )
-            ) { error in
-                XCTAssertEqual(
-                    error as? WheelPinnedApplicationResolutionError,
-                    .notApplicationBundle
-                )
             }
+            XCTFail("Expected nested helper application path to be rejected.")
+        } catch {
+            XCTAssertEqual(
+                error as? WheelPinnedApplicationResolutionError,
+                .notApplicationBundle
+            )
         }
     }
 
