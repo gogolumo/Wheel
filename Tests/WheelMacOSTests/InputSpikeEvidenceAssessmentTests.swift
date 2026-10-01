@@ -14,6 +14,10 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertFalse(source.contains(#"Evidence file: \(path)"#))
         XCTAssertFalse(source.contains(#"\(error)"#))
         XCTAssertTrue(source.contains(#"Evidence file #\(evidenceNumber)"#))
+        XCTAssertTrue(source.contains("InputSpikeRunSummary.decodeValidatedJSON(data)"))
+        XCTAssertFalse(
+            source.contains("JSONDecoder().decode(InputSpikeRunSummary.self")
+        )
     }
 
     func testPassesCompleteConsistentExportButKeepsManualGate() {

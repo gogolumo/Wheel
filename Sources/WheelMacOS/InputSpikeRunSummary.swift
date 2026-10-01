@@ -4,9 +4,37 @@ import WheelDomain
 /// Privacy-safe, machine-readable evidence emitted by the disposable input spike.
 /// Manual observations remain outside this type so partial telemetry cannot become an automatic GO.
 public struct InputSpikeRunSummary: Codable, Equatable, Sendable {
+    public enum DocumentValidationError: Error, Equatable, Sendable {
+        case topLevelObjectRequired
+        case unsupportedFields
+    }
+
     public enum CompletionReason: String, Codable, Equatable, Sendable {
         case targetReached
         case interrupted
+    }
+
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case schemaVersion
+        case runLabel
+        case trigger
+        case minimumHorizontalDistance
+        case minimumDominanceRatio
+        case mouseButtonNumber
+        case sequenceTarget
+        case completedSequenceCount
+        case leftCount
+        case rightCount
+        case noneCount
+        case pointerMovementCount
+        case callbackSampleCount
+        case medianCallbackLatencyMilliseconds
+        case eventTapRecoveryCount
+        case completionReason
+        case observedTargetMet
+        case latencyThresholdMilliseconds
+        case latencyThresholdMet
+        case requiresManualReview
     }
 
     public let schemaVersion: Int
@@ -75,5 +103,23 @@ public struct InputSpikeRunSummary: Codable, Equatable, Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return try encoder.encode(self)
+    }
+
+    /// Decodes an evidence export only when its top-level fields match the
+    /// privacy-reviewed schema. `JSONDecoder` normally ignores unknown fields,
+    /// which could otherwise allow unapproved data to travel with valid
+    /// aggregate evidence unnoticed.
+    public static func decodeValidatedJSON(_ data: Data) throws -> Self {
+        let object = try JSONSerialization.jsonObject(with: data)
+        guard let fields = object as? [String: Any] else {
+            throw DocumentValidationError.topLevelObjectRequired
+        }
+
+        let allowedFields = Set(CodingKeys.allCases.map(\.rawValue))
+        guard Set(fields.keys).isSubset(of: allowedFields) else {
+            throw DocumentValidationError.unsupportedFields
+        }
+
+        return try JSONDecoder().decode(Self.self, from: data)
     }
 }

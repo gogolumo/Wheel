@@ -198,7 +198,7 @@ for (index, path) in evidencePaths.enumerated() {
 
         let summary: InputSpikeRunSummary
         do {
-            summary = try JSONDecoder().decode(InputSpikeRunSummary.self, from: data)
+            summary = try InputSpikeRunSummary.decodeValidatedJSON(data)
         } catch {
             unreadableFileCount += 1
             print("Automated checks: FAILED")

@@ -28,6 +28,8 @@ SPIKE-001 does not create a second input stack. The final branch reuses the newe
 - `wheel-evidence-check`
 
 The monitor is listen-only. Evidence is aggregate and must not persist typed text, raw key history, window contents, screenshots, filenames, document contents, URLs, browser history, absolute pointer coordinates, or hardware serial numbers.
+The checker rejects unrecognized top-level JSON fields so an export cannot carry
+unreviewed metadata alongside the approved aggregate schema.
 
 ## Automated acceptance
 

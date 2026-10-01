@@ -150,6 +150,9 @@ still require manual review.
 The checker identifies inputs only as `Evidence file #1`, `#2`, and so on. It
 does not echo file paths or raw filesystem/decoder errors into terminal or CI
 logs, because those diagnostics can contain account names or private folders.
+It also rejects unrecognized top-level JSON fields instead of silently ignoring
+them. This keeps app names, window titles, paths, URLs, or other unreviewed data
+from being attached to an otherwise valid aggregate export.
 
 For one final SPIKE-001 run, apply the explicit acceptance thresholds recorded
 by the gate:
