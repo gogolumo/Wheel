@@ -10,7 +10,18 @@ let package = Package(
     products: [
         .library(name: "WheelDomain", targets: ["WheelDomain"]),
         .library(name: "WheelCore", targets: ["WheelCore"]),
-        .executable(name: "wheel-demo", targets: ["WheelDemo"])
+        .library(name: "WheelMacOS", targets: ["WheelMacOS"]),
+        .executable(name: "wheel-demo", targets: ["WheelDemo"]),
+        .executable(name: "wheel-input-spike", targets: ["WheelInputSpike"]),
+        .executable(name: "wheel-evidence-check", targets: ["WheelEvidenceCheck"]),
+        .executable(
+            name: "wheel-input-diagnostics",
+            targets: ["WheelInputDiagnostics"]
+        ),
+        .executable(
+            name: "wheel-app",
+            targets: ["WheelApp"]
+        )
     ],
     targets: [
         .target(
@@ -20,9 +31,32 @@ let package = Package(
             name: "WheelCore",
             dependencies: ["WheelDomain"]
         ),
+        .target(
+            name: "WheelMacOS",
+            dependencies: ["WheelDomain"],
+            linkerSettings: [
+                .linkedFramework("ApplicationServices")
+            ]
+        ),
         .executableTarget(
             name: "WheelDemo",
             dependencies: ["WheelDomain", "WheelCore"]
+        ),
+        .executableTarget(
+            name: "WheelInputSpike",
+            dependencies: ["WheelDomain", "WheelMacOS"]
+        ),
+        .executableTarget(
+            name: "WheelEvidenceCheck",
+            dependencies: ["WheelMacOS"]
+        ),
+        .executableTarget(
+            name: "WheelInputDiagnostics",
+            dependencies: ["WheelDomain", "WheelMacOS"]
+        ),
+        .executableTarget(
+            name: "WheelApp",
+            dependencies: ["WheelDomain", "WheelMacOS"]
         ),
         .testTarget(
             name: "WheelDomainTests",
@@ -31,6 +65,10 @@ let package = Package(
         .testTarget(
             name: "WheelCoreTests",
             dependencies: ["WheelCore", "WheelDomain"]
+        ),
+        .testTarget(
+            name: "WheelMacOSTests",
+            dependencies: ["WheelDomain", "WheelMacOS"]
         )
     ]
 )
