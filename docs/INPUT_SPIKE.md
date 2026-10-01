@@ -160,6 +160,9 @@ swift run wheel-evidence-check \
   --expected-trigger right-option \
   --expected-sequence-target 100 \
   --minimum-observed 99 \
+  --minimum-left 1 \
+  --minimum-right 1 \
+  --minimum-none 1 \
   --maximum-median-latency-ms 25
 ```
 
@@ -168,6 +171,9 @@ run. `--minimum-observed` deliberately allows a valid interrupted 99/100 export
 to pass the aggregate check. Neither option proves that exactly 100 physical
 attempts were made: the operator must still report the deliberate-attempt tally,
 misses, device/application coverage, stuck state, and native side effects.
+The direction minimums also reject a file containing only LEFT, only RIGHT, or
+only NONE results. They do not prove that the observed result matched the
+operator's intended direction; that comparison remains part of the manual table.
 
 If the harness has not reached its observed target after the planned physical
 attempts, press Control-C and retain the partial JSON as evidence of the miss.

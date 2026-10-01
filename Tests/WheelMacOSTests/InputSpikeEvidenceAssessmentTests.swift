@@ -120,6 +120,96 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         )
     }
 
+    func testMinimumDirectionRequirementsAcceptCompleteCoverage() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(
+                sequenceTarget: 3,
+                completedSequenceCount: 3,
+                directions: [.left, .right, .none]
+            ),
+            requirements: InputSpikeEvidenceRequirements(
+                minimumLeftSequenceCount: 1,
+                minimumRightSequenceCount: 1,
+                minimumNoneSequenceCount: 1
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .passed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "LEFT sequence count met the required minimum of 1"
+            )
+        )
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "RIGHT sequence count met the required minimum of 1"
+            )
+        )
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "NONE sequence count met the required minimum of 1"
+            )
+        )
+    }
+
+    func testMinimumDirectionRequirementsRejectMissingCoverage() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(sequenceTarget: 3, completedSequenceCount: 3),
+            requirements: InputSpikeEvidenceRequirements(
+                minimumLeftSequenceCount: 1,
+                minimumRightSequenceCount: 1,
+                minimumNoneSequenceCount: 1
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "RIGHT sequence count did not meet the required minimum of 1"
+            )
+        )
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "NONE sequence count did not meet the required minimum of 1"
+            )
+        )
+    }
+
+    func testImpossibleDirectionRequirementsFailClosed() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(sequenceTarget: 2, completedSequenceCount: 2),
+            requirements: InputSpikeEvidenceRequirements(
+                minimumLeftSequenceCount: 1,
+                minimumRightSequenceCount: 1,
+                minimumNoneSequenceCount: 1
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "minimum direction requirements exceed sequenceTarget"
+            )
+        )
+    }
+
+    func testOverflowingDirectionRequirementsFailClosed() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(),
+            requirements: InputSpikeEvidenceRequirements(
+                minimumLeftSequenceCount: Int.max,
+                minimumRightSequenceCount: Int.max
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "minimum direction requirements exceed sequenceTarget"
+            )
+        )
+    }
+
     func testStricterMaximumMedianLatencyFailsClosed() {
         let assessment = InputSpikeEvidenceAssessment.evaluate(
             makeSummary(latencyMilliseconds: 12),
@@ -142,6 +232,7 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
             requirements: InputSpikeEvidenceRequirements(
                 expectedSequenceTarget: 0,
                 minimumObservedSequenceCount: 11,
+                minimumLeftSequenceCount: 0,
                 maximumMedianCallbackLatencyMilliseconds: .infinity
             )
         )
@@ -153,6 +244,11 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertTrue(
             assessment.findings.contains(
                 "minimum observed sequence requirement exceeds sequenceTarget"
+            )
+        )
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "minimum LEFT sequence requirement must be positive"
             )
         )
         XCTAssertTrue(
@@ -263,6 +359,22 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         )
     }
 
+    func testRejectsCompletedSequenceCountAboveTarget() throws {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            try tamperedSummary {
+                $0["completedSequenceCount"] = 2
+                $0["leftCount"] = 2
+            }
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains(
+                "completedSequenceCount exceeds sequenceTarget"
+            )
+        )
+    }
+
     func testRejectsDirectionCountOverflowWithoutCrashing() throws {
         let assessment = InputSpikeEvidenceAssessment.evaluate(
             try tamperedSummary {
@@ -291,11 +403,15 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         sequenceTarget: Int = 1,
         completedSequenceCount: Int = 1,
         completionReason: InputSpikeRunSummary.CompletionReason = .targetReached,
-        latencyMilliseconds: Double = 8
+        latencyMilliseconds: Double = 8,
+        directions: [Direction]? = nil
     ) -> InputSpikeRunSummary {
         var statistics = InputSpikeRunStatistics()
-        for _ in 0 ..< completedSequenceCount {
-            statistics.recordCompletedSequence(direction: .left)
+        let recordedDirections = directions
+            ?? Array(repeating: Direction.left, count: completedSequenceCount)
+        precondition(recordedDirections.count == completedSequenceCount)
+        for direction in recordedDirections {
+            statistics.recordCompletedSequence(direction: direction)
         }
         statistics.recordCallbackLatency(milliseconds: latencyMilliseconds)
         return InputSpikeRunSummary(

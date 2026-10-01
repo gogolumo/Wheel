@@ -10,6 +10,9 @@ private func printUsage() {
             + "[--expected-trigger caps-lock|right-option|mouse-side-button] "
             + "[--expected-sequence-target COUNT] "
             + "[--minimum-observed COUNT] "
+            + "[--minimum-left COUNT] "
+            + "[--minimum-right COUNT] "
+            + "[--minimum-none COUNT] "
             + "[--maximum-median-latency-ms MILLISECONDS] "
             + "PATH [PATH ...]"
     )
@@ -41,6 +44,9 @@ let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
 var expectedTrigger: TriggerType?
 var expectedSequenceTarget: Int?
 var minimumObservedSequenceCount: Int?
+var minimumLeftSequenceCount: Int?
+var minimumRightSequenceCount: Int?
+var minimumNoneSequenceCount: Int?
 var maximumMedianCallbackLatencyMilliseconds: Double?
 
 var argumentIndex = 1
@@ -97,6 +103,45 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         minimumObservedSequenceCount = parsed
+    } else if argument == "--minimum-left" {
+        argumentIndex += 1
+        guard
+            minimumLeftSequenceCount == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let parsed = Int(CommandLine.arguments[argumentIndex]),
+            parsed > 0
+        else {
+            print("Invalid or repeated --minimum-left value")
+            printUsage()
+            exit(64)
+        }
+        minimumLeftSequenceCount = parsed
+    } else if argument == "--minimum-right" {
+        argumentIndex += 1
+        guard
+            minimumRightSequenceCount == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let parsed = Int(CommandLine.arguments[argumentIndex]),
+            parsed > 0
+        else {
+            print("Invalid or repeated --minimum-right value")
+            printUsage()
+            exit(64)
+        }
+        minimumRightSequenceCount = parsed
+    } else if argument == "--minimum-none" {
+        argumentIndex += 1
+        guard
+            minimumNoneSequenceCount == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let parsed = Int(CommandLine.arguments[argumentIndex]),
+            parsed > 0
+        else {
+            print("Invalid or repeated --minimum-none value")
+            printUsage()
+            exit(64)
+        }
+        minimumNoneSequenceCount = parsed
     } else if argument == "--maximum-median-latency-ms" {
         argumentIndex += 1
         guard
@@ -130,6 +175,9 @@ let requirements = InputSpikeEvidenceRequirements(
     expectedTrigger: expectedTrigger,
     expectedSequenceTarget: expectedSequenceTarget,
     minimumObservedSequenceCount: minimumObservedSequenceCount,
+    minimumLeftSequenceCount: minimumLeftSequenceCount,
+    minimumRightSequenceCount: minimumRightSequenceCount,
+    minimumNoneSequenceCount: minimumNoneSequenceCount,
     maximumMedianCallbackLatencyMilliseconds: maximumMedianCallbackLatencyMilliseconds
 )
 

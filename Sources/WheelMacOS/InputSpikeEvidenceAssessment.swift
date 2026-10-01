@@ -51,6 +51,8 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
         }
         if summary.sequenceTarget <= 0 || summary.completedSequenceCount < 0 {
             invalid.append("sequence counts must be non-negative and target must be positive")
+        } else if summary.completedSequenceCount > summary.sequenceTarget {
+            invalid.append("completedSequenceCount exceeds sequenceTarget")
         }
         if summary.leftCount < 0 || summary.rightCount < 0 || summary.noneCount < 0 {
             invalid.append("direction counts must be non-negative")
@@ -143,6 +145,49 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
                 )
             }
         }
+        let directionRequirements = [
+            (
+                name: "LEFT",
+                required: requirements.minimumLeftSequenceCount,
+                observed: summary.leftCount
+            ),
+            (
+                name: "RIGHT",
+                required: requirements.minimumRightSequenceCount,
+                observed: summary.rightCount
+            ),
+            (
+                name: "NONE",
+                required: requirements.minimumNoneSequenceCount,
+                observed: summary.noneCount
+            )
+        ]
+        var minimumDirectionTotal = 0
+        var minimumDirectionTotalOverflowed = false
+        var hasMinimumDirectionRequirement = false
+        for requirement in directionRequirements {
+            guard let required = requirement.required else { continue }
+            hasMinimumDirectionRequirement = true
+            if required <= 0 {
+                invalid.append(
+                    "minimum \(requirement.name) sequence requirement must be positive"
+                )
+                continue
+            }
+
+            let (nextTotal, overflowed) = minimumDirectionTotal.addingReportingOverflow(
+                required
+            )
+            minimumDirectionTotal = nextTotal
+            minimumDirectionTotalOverflowed =
+                minimumDirectionTotalOverflowed || overflowed
+        }
+        if hasMinimumDirectionRequirement
+            && (minimumDirectionTotalOverflowed
+                || minimumDirectionTotal > summary.sequenceTarget)
+        {
+            invalid.append("minimum direction requirements exceed sequenceTarget")
+        }
         if let maximumLatency = requirements.maximumMedianCallbackLatencyMilliseconds,
            !maximumLatency.isFinite || maximumLatency <= 0
         {
@@ -171,24 +216,35 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
             return Self(outcome: .incomplete, findings: incomplete, requiresManualReview: true)
         }
 
+        var acceptanceFailures: [String] = []
+        for requirement in directionRequirements {
+            if let required = requirement.required,
+               requirement.observed < required
+            {
+                acceptanceFailures.append(
+                    "\(requirement.name) sequence count did not meet the required minimum "
+                        + "of \(required)"
+                )
+            }
+        }
         if summary.latencyThresholdMet == false {
-            return Self(
-                outcome: .failed,
-                findings: ["median callback latency did not meet the configured threshold"],
-                requiresManualReview: true
+            acceptanceFailures.append(
+                "median callback latency did not meet the configured threshold"
             )
         }
-
         if let maximumLatency = requirements.maximumMedianCallbackLatencyMilliseconds,
            let measuredLatency = summary.medianCallbackLatencyMilliseconds,
            measuredLatency >= maximumLatency
         {
+            acceptanceFailures.append(
+                "median callback latency did not meet the required maximum "
+                    + "of \(maximumLatency) ms"
+            )
+        }
+        if !acceptanceFailures.isEmpty {
             return Self(
                 outcome: .failed,
-                findings: [
-                    "median callback latency did not meet the required maximum "
-                        + "of \(maximumLatency) ms"
-                ],
+                findings: acceptanceFailures,
                 requiresManualReview: true
             )
         }
@@ -205,6 +261,14 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
             )
         } else {
             passedFindings.append("observed sequence target was completed")
+        }
+        for requirement in directionRequirements {
+            if let required = requirement.required {
+                passedFindings.append(
+                    "\(requirement.name) sequence count met the required minimum "
+                        + "of \(required)"
+                )
+            }
         }
         passedFindings.append("median callback latency met the configured threshold")
         if let maximumLatency = requirements.maximumMedianCallbackLatencyMilliseconds {

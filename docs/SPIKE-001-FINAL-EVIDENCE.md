@@ -67,6 +67,9 @@ swift run wheel-evidence-check \
   --expected-trigger right-option \
   --expected-sequence-target 100 \
   --minimum-observed 99 \
+  --minimum-left 1 \
+  --minimum-right 1 \
+  --minimum-none 1 \
   --maximum-median-latency-ms 25
 ```
 
@@ -78,6 +81,11 @@ the aggregate 99/100 criterion, but the operator must still report that 100
 deliberate physical attempts were actually made. The checker cannot infer a
 completely missed trigger, device/application coverage, stuck state, or native
 side effects.
+
+The three direction requirements prevent a run containing only one classifier
+result from passing as the physical LEFT / RIGHT / NONE exercise. They prove
+only aggregate coverage; the operator still records intended versus observed
+directions and any wrong result in the manual matrix.
 
 During the 100 deliberate sequences, alternate LEFT and RIGHT movements and include several intentional below-threshold releases to exercise NONE. Run across Finder, Chrome, VS Code, a normal Space, and a full-screen Space. Record any focus theft, clicks, pointer warping, typed characters, unintended navigation, stuck trigger state, or missed deliberate attempt.
 
