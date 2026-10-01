@@ -2,6 +2,14 @@
 
 This directory is a **standalone visual prototype**. It does not modify or import Wheel production UI and it does not request macOS permissions.
 
+## Liquid Glass hero
+
+The approved Liquid Glass hero/reference is documented in `LIQUID_GLASS_HERO.md`.
+
+![Wheel Liquid Glass hero](https://d2ol7oe51mr4n9.cloudfront.net/user_3K6hC4CbR5JZ72OzltHJ5TIZGMp/972166f0-49d6-4f29-8db0-ca99efb04763.png)
+
+Use that image as the primary composition reference for future Liquid Glass work unless an explicit redesign is approved.
+
 ## Open it
 
 ```bash
