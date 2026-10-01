@@ -41,3 +41,11 @@ The app names, window titles, preview labels, permission states, and recent-cont
 ## Production gate
 
 Do not copy this directory into production views until the design direction is approved and the product-semantic conflict between current `main` (strict Back/Forward MVP) and the radial application branches is resolved explicitly.
+
+## Liquid Glass hero reference
+
+The current canonical hero composition is documented in [LIQUID_GLASS_HERO.md](./LIQUID_GLASS_HERO.md).
+
+For a distraction-free 16:9 viewer, open [liquid-glass-hero.html](./liquid-glass-hero.html).
+
+This reference is intentionally isolated from production SwiftUI until the visual direction is explicitly approved for implementation.
