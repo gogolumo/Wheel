@@ -33,6 +33,12 @@ enum WheelSettingsFixtureRenderer {
                 count += 1
             }
 
+            try exportStatusLabel(
+                dark: dark,
+                to: directory.appendingPathComponent("menu-status-label-\(appearance).png")
+            )
+            count += 1
+
             for fixture in WheelAppFixture.allCases {
                 let viewModel = WheelAppViewModel(fixture: fixture)
                 try exportMenu(
@@ -71,6 +77,19 @@ enum WheelSettingsFixtureRenderer {
         case .advanced: WheelAdvancedSettingsView(viewModel: viewModel)
         case .about: WheelAboutSettingsView()
         }
+    }
+
+    private static func exportStatusLabel(dark: Bool, to destination: URL) throws {
+        // The real status label, without simulated menu-bar or desktop chrome.
+        let size = NSSize(width: 36, height: 32)
+        let content = WheelMenuBarLabel(viewModel: WheelAppViewModel(fixture: .ready))
+            .frame(width: size.width, height: size.height)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .environment(\.colorScheme, dark ? .dark : .light)
+        let host = NSHostingView(rootView: content)
+        let window = fixtureWindow(host, dark: dark, size: size)
+        defer { window.close() }
+        try export(host, to: destination)
     }
 
     private static func exportMenu(

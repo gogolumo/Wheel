@@ -6,14 +6,15 @@ struct WheelMenuBarLabel: View {
     @ObservedObject var viewModel: WheelAppViewModel
 
     var body: some View {
-        Label(
-            "Wheel — \(displayedStatus)",
-            systemImage: viewModel.isGestureActive
-                ? "cursorarrow.motionlines"
-                : viewModel.status.menuBarSymbolName
-        )
+        Label {
+            Text("\(WheelBrand.name) — \(displayedStatus)")
+        } icon: {
+            Image(nsImage: WheelBrand.menuBarTemplateImage)
+                .renderingMode(.template)
+        }
         .labelStyle(.iconOnly)
         .accessibilityLabel("Wheel: \(displayedStatus)")
+        .help("Wheel — \(displayedStatus)")
     }
 
     private var displayedStatus: String {
@@ -196,41 +197,16 @@ struct WheelDashboardView: View {
 
     var body: some View {
         NavigationSplitView {
-            VStack(spacing: 0) {
-                HStack(spacing: WheelVisualTokens.Spacing.regular) {
-                    WheelMark(size: 34)
-                    VStack(alignment: .leading, spacing: WheelVisualTokens.Spacing.xs) {
-                        Text("Wheel")
-                            .font(.headline)
-                        Text("Settings")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding(WheelVisualTokens.Spacing.large)
-
-                List(Section.allCases, selection: $selection) { section in
-                    Label(section.rawValue, systemImage: section.symbolName)
-                        .tag(section)
-                }
-                .listStyle(.sidebar)
-
-                WheelStatusLabel(
-                    status: viewModel.status,
-                    isGestureActive: viewModel.isGestureActive
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(WheelVisualTokens.Spacing.large)
-
-                if viewModel.fixtureLabel != nil {
-                    Label("Fixture preview", systemImage: "camera.viewfinder")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, WheelVisualTokens.Spacing.large)
-                        .padding(.bottom, WheelVisualTokens.Spacing.large)
-                }
+            // The sidebar's branding must not turn the native List's preferred
+            // height into a larger minimum window size. Let the List scroll in
+            // the actual sidebar viewport, just as Forms do in the detail pane.
+            GeometryReader { geometry in
+                sidebar
+                    .frame(
+                        width: geometry.size.width,
+                        height: geometry.size.height,
+                        alignment: .topLeading
+                    )
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
         } detail: {
@@ -258,5 +234,49 @@ struct WheelDashboardView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 540)
+    }
+
+    private var sidebar: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: WheelVisualTokens.Spacing.regular) {
+                WheelMark(size: 34)
+                Text(WheelBrand.name)
+                    .font(.headline)
+                Spacer()
+            }
+            .padding(.horizontal, WheelVisualTokens.Spacing.large)
+            .padding(.top, WheelVisualTokens.Spacing.large)
+
+            Text(WheelBrand.tagline)
+                .font(.caption)
+                .foregroundStyle(WheelBrand.mutedForeground)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, WheelVisualTokens.Spacing.large)
+                .padding(.top, WheelVisualTokens.Spacing.medium)
+                .padding(.bottom, WheelVisualTokens.Spacing.large)
+
+            List(Section.allCases, selection: $selection) { section in
+                Label(section.rawValue, systemImage: section.symbolName)
+                    .tag(section)
+            }
+            .listStyle(.sidebar)
+
+            WheelStatusLabel(
+                status: viewModel.status,
+                isGestureActive: viewModel.isGestureActive
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(WheelVisualTokens.Spacing.large)
+
+            if viewModel.fixtureLabel != nil {
+                Label("Fixture preview", systemImage: "camera.viewfinder")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, WheelVisualTokens.Spacing.large)
+                    .padding(.bottom, WheelVisualTokens.Spacing.large)
+            }
+        }
     }
 }

@@ -24,14 +24,7 @@ struct WheelMark: View {
     let size: CGFloat
 
     var body: some View {
-        Image(systemName: "arrow.left.arrow.right")
-            .font(.system(size: size * 0.4, weight: .medium))
-            .foregroundStyle(.primary)
-            .frame(width: size, height: size)
-            .background {
-                WheelGlassSurface(shape: Circle(), role: .control)
-            }
-            .accessibilityHidden(true)
+        WheelBrandMark(size: size)
     }
 }
 
@@ -59,17 +52,6 @@ extension WheelAppStatus {
         case .ready: return "checkmark.circle"
         case .paused: return "pause.circle"
         case .error: return "exclamationmark.octagon"
-        }
-    }
-
-    var menuBarSymbolName: String {
-        switch self {
-        case .ready: return "arrow.left.arrow.right.circle.fill"
-        case .starting: return "arrow.left.arrow.right.circle"
-        case .disabled: return "circle.slash"
-        case .needsPermission: return "exclamationmark.triangle"
-        case .paused: return "pause.circle"
-        case .error: return "xmark.circle"
         }
     }
 

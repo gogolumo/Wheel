@@ -35,7 +35,7 @@ enum WheelVisualTokens {
         static let shadow = Color.black
         static let coolEdge = Color(red: 0.62, green: 0.73, blue: 0.88)
         static let violetEdge = Color(red: 0.75, green: 0.71, blue: 0.88)
-        static let selectedWash = coolEdge.opacity(0.16)
+        static let selectedWash = WheelBrand.electricBlue.opacity(0.12)
         static let restingWash = Color.primary.opacity(0.025)
         static let resultRecession = 0.76
 
