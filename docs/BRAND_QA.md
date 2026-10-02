@@ -50,9 +50,10 @@ Spotlight indexing of the temporary installation is pending/unavailable.
 | [Overlay](assets/readme/wheel-overlay.png) | Actual overlay view with synthetic identities/background and the opaque Reduce Transparency fallback |
 | [About Light](assets/readme/settings-about-light.png) / [Dark](assets/readme/settings-about.png) | Actual About detail component with metadata from the packaged app |
 
-The local CI harness used canonical temporary paths and ad-hoc signing for its
-copied `sleep` helper. The latter is included in CI for compatibility with newer
-macOS; production signing and process guards retain their existing behavior.
+The CI harness builds and ad-hoc signs its own unrelated `Wheel` process for
+ownership checks. Relocating a platform-signed system binary can cause macOS to
+kill it before the check starts. Production signing and process guards retain
+their existing behavior; local checks use canonical temporary paths.
 
 Use the documented build and installer, with fresh temporary destinations:
 

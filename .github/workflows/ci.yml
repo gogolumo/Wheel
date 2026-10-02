@@ -110,8 +110,12 @@ jobs:
 
           unrelated_root="$RUNNER_TEMP/unrelated-wheel-process"
           mkdir -p "$unrelated_root"
-          cp /bin/sleep "$unrelated_root/Wheel"
-          # A copied system executable needs a local signature on newer macOS.
+          # Build an unrelated process rather than relocating a platform-signed
+          # system executable, which some macOS runners refuse to launch.
+          clang -x c - -o "$unrelated_root/Wheel" <<'EOF'
+          #include <unistd.h>
+          int main(void) { sleep(300); return 0; }
+          EOF
           codesign --force --sign - "$unrelated_root/Wheel"
           "$unrelated_root/Wheel" 300 &
           unrelated_wheel_pid=$!
