@@ -9,7 +9,7 @@ struct WheelGeneralSettingsView: View {
     var body: some View {
         WheelSettingsPage(
             title: "General",
-            subtitle: "Your applications, right where you need them."
+            subtitle: WheelBrand.tagline
         ) {
             Section("Wheel") {
                 Toggle(
@@ -293,11 +293,19 @@ struct WheelAboutSettingsView: View {
     var body: some View {
         WheelSettingsPage(
             title: "About Wheel",
-            subtitle: "Back and Forward for your whole Mac."
+            subtitle: WheelBrand.tagline
         ) {
             Section {
                 HStack(spacing: WheelVisualTokens.Spacing.large) {
-                    WheelMark(size: 54)
+                    if let appIcon = WheelBrand.appIcon {
+                        Image(nsImage: appIcon)
+                            .resizable()
+                            .aspectRatio(1, contentMode: .fit)
+                            .frame(width: 64, height: 64)
+                            .accessibilityHidden(true)
+                    } else {
+                        WheelBrandMark(size: 54)
+                    }
                     VStack(alignment: .leading, spacing: WheelVisualTokens.Spacing.small) {
                         Text("Wheel")
                             .font(.title2.weight(.semibold))
@@ -307,6 +315,7 @@ struct WheelAboutSettingsView: View {
                 }
                 .padding(.vertical, WheelVisualTokens.Spacing.medium)
                 LabeledContent("Version", value: version)
+                LabeledContent("Build", value: build)
                 Text(
                     "This build captures applications locally and switches or reopens them. "
                         + "Listening means the input monitor is active; it does not mean the "
@@ -328,5 +337,10 @@ struct WheelAboutSettingsView: View {
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
             ?? "Development build"
+    }
+
+    private var build: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+            ?? "Swift Package · unpackaged"
     }
 }

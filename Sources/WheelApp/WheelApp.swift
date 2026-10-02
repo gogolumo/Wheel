@@ -15,7 +15,8 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
             from: CommandLine.arguments
         )
         let statusFixture: WheelAppFixture?
-        if WheelFixtureRenderer.isRequested(CommandLine.arguments) || overlayFixture != nil {
+        if WheelFixtureRenderer.isRequested(CommandLine.arguments)
+            || WheelBrandAudit.isRequested(CommandLine.arguments) || overlayFixture != nil {
             statusFixture = .ready
         } else {
             statusFixture = WheelAppFixture.requested(from: CommandLine.arguments)
@@ -32,6 +33,16 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.accessory)
+        if WheelBrandAudit.isRequested(CommandLine.arguments) {
+            do {
+                try WheelBrandAudit.verify()
+            } catch {
+                FileHandle.standardError.write(Data("Brand resource audit failed: \(error.localizedDescription)\n".utf8))
+                exit(EXIT_FAILURE)
+            }
+            NSApplication.shared.terminate(nil)
+            return
+        }
         if WheelFixtureRenderer.isRequested(CommandLine.arguments) {
             do {
                 try WheelFixtureRenderer.render(from: CommandLine.arguments)

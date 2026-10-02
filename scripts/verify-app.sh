@@ -76,6 +76,24 @@ source_revision="$(plist_value WheelSourceRevision)" \
 [[ "$source_revision" =~ ^[0-9a-fA-F]{40}$ ]] \
     || fail "invalid WheelSourceRevision '$source_revision'"
 
+# Older, correctly signed Wheel bundles remain valid replacement targets. New
+# bundles declare their brand resource contract and must contain its full payload.
+brand_version="$(plist_value WheelBrandResourceVersion || true)"
+if [[ -n "$brand_version" ]]; then
+    [[ "$brand_version" == 1 ]] || fail "unsupported WheelBrandResourceVersion '$brand_version'"
+    resource_bundle="$app/Contents/Resources/Wheel_WheelApp.bundle"
+    [[ -d "$resource_bundle" && ! -L "$resource_bundle" ]] \
+        || fail "missing or symbolic-link Wheel brand resource bundle"
+    brand_resources="$resource_bundle/Contents/Resources"
+    [[ -d "$brand_resources" ]] || brand_resources="$resource_bundle"
+    for resource in WheelSymbol.pdf WheelSymbolLight.pdf \
+        WheelSymbolMonochromeBlack.pdf WheelSymbolMonochromeWhite.pdf \
+        WheelMenuBarTemplate.pdf WheelAppIcon.png; do
+        [[ -f "$brand_resources/$resource" && ! -L "$brand_resources/$resource" ]] \
+            || fail "missing or symbolic-link brand resource: $resource"
+    done
+fi
+
 codesign --verify --deep --strict --verbose=2 "$app"
 signature_details="$(codesign -dv --verbose=4 "$app" 2>&1)"
 grep -Fq "Identifier=dev.gogolumo.Wheel" <<<"$signature_details" \

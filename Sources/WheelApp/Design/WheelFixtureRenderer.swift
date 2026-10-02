@@ -51,7 +51,8 @@ enum WheelFixtureRenderer {
         Every application identity and background is synthetic.
         Rendered from synthetic NSHostingView trees; Settings content/menu use never-shown non-key windows.
         Settings exports contain actual detail components; native sidebar/chrome require physical review.
-        Menu snapshots explicitly use the opaque fallback because native glass can corrupt offscreen.
+        Menu popover snapshots use the opaque fallback because native glass can corrupt offscreen.
+        Status label snapshots render the actual monochrome template in Light and Dark appearance.
         No screen/window capture, desktop inspection, or permission request.
         Bitmaps validate layout, typography, state, and explicit accessibility fallbacks.
         Offscreen Material / native Liquid Glass can flatten; live desktop vibrancy, focus,

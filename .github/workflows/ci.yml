@@ -80,6 +80,21 @@ jobs:
           bash scripts/verify-app.sh dist/Wheel.app
 
           dist_executable="$PWD/dist/Wheel.app/Contents/MacOS/Wheel"
+          "$dist_executable" --verify-brand-resources
+
+          missing_brand_bundle="$RUNNER_TEMP/missing-brand-Wheel.app"
+          ditto dist/Wheel.app "$missing_brand_bundle"
+          rm -rf "$missing_brand_bundle/Contents/Resources/Wheel_WheelApp.bundle"
+          codesign --force --sign - "$missing_brand_bundle"
+          if bash scripts/verify-app.sh "$missing_brand_bundle"; then
+            echo "Verifier accepted a declared brand bundle without its resources" >&2
+            exit 1
+          fi
+          if "$missing_brand_bundle/Contents/MacOS/Wheel" --verify-brand-resources; then
+            echo "Packaged Wheel silently used development resources" >&2
+            exit 1
+          fi
+
           "$dist_executable" --fixture ready &
           running_dist_pid=$!
           sleep 1
@@ -95,7 +110,13 @@ jobs:
 
           unrelated_root="$RUNNER_TEMP/unrelated-wheel-process"
           mkdir -p "$unrelated_root"
-          cp /bin/sleep "$unrelated_root/Wheel"
+          # Build an unrelated process rather than relocating a platform-signed
+          # system executable, which some macOS runners refuse to launch.
+          clang -x c - -o "$unrelated_root/Wheel" <<'EOF'
+          #include <unistd.h>
+          int main(void) { sleep(300); return 0; }
+          EOF
+          codesign --force --sign - "$unrelated_root/Wheel"
           "$unrelated_root/Wheel" 300 &
           unrelated_wheel_pid=$!
           sleep 1
@@ -166,6 +187,7 @@ jobs:
 
           bash scripts/install-app.sh dist/Wheel.app "$install_root/Wheel.app"
           bash scripts/verify-app.sh "$install_root/Wheel.app"
+          "$install_root/Wheel.app/Contents/MacOS/Wheel" --verify-brand-resources
           doctor_output="$(bash scripts/doctor-app.sh "$install_root/Wheel.app")"
           echo "$doctor_output"
           grep -Fq "Running installed process: NO" <<<"$doctor_output"

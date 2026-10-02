@@ -6,9 +6,12 @@ struct WheelCenterHub: View {
 
     var body: some View {
         VStack(spacing: WheelVisualTokens.Spacing.medium) {
-            Text("Wheel")
-                .font(.system(size: 27, weight: .medium))
-                .tracking(-0.5)
+            HStack(spacing: WheelVisualTokens.Spacing.medium) {
+                WheelBrandMark(size: 24)
+                Text(WheelBrand.name)
+                    .font(.system(size: 25, weight: .medium))
+                    .tracking(-0.5)
+            }
             Text(text)
                 .font(.caption)
                 .foregroundStyle(.secondary)

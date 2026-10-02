@@ -8,13 +8,31 @@ Presentation consumes real `wheelSlots`, selection indices, pin assignments, app
 
 The gesture panel stays nonactivating and click-through. Its detail panel provides state and a release-to-switch/reopen hint; it does not contain mouse buttons that cannot receive input. Choose, replace, and remove pins in Settings. The production surface never draws a synthetic wallpaper, Dock, application, browser tab, or screenshot. Synthetic review data appears only in explicitly requested, isolated fixture mode.
 
+## Brand identity
+
+The approved Radial Context identity lives in [Brand](Brand/README.md): four
+rounded radial segments and a central core, with equal gaps and controlled
+cyan/blue/violet gradients. `WheelBrand` owns the small palette, exact tagline
+“Move through your Mac context instantly.”, and bundled image loading.
+`WheelBrandMark` reuses the vector PDFs for size and Light/Dark variants;
+the monochrome status image is an 18 pt AppKit template. The real app icon is
+a separately rendered, optically corrected iconset compiled into `Wheel.icns`.
+
+Settings uses a compact identity header; About shows the actual app icon,
+version/build and repository link. A 24 pt mark accompanies the overlay hub
+title. Selection retains its outline, shape and check marker with a restrained
+brand blue wash. Existing motion timing, accessibility behavior and system
+control colors stay authoritative. Branding never creates a synthetic desktop
+or app preview. See [brand QA](docs/BRAND_QA.md) for the evidence and physical
+checks.
+
 ## Tokens and hierarchy
 
 Use `WheelVisualTokens` and `WheelGlassSurface` as the shared semantic layer. Use system San Francisco typography and native controls; no bundled fonts.
 
 | Token | Values / intent |
 | --- | --- |
-| Typography | Large title for page identity, title2 for sections, body/callout for controls, caption for state and hints; hub 27 pt medium; app labels 11–12 pt medium/semibold |
+| Typography | Large title for page identity, title2 for sections, body/callout for controls, caption for state and hints; hub 25 pt medium with a 24 pt brand mark; app labels 11–12 pt medium/semibold |
 | Spacing | 4, 6, 8, 12, 16, 20, 24, 32 pt |
 | Radii | 8 tiny controls; 12 compact controls; 16 contextual groups; 20 cards; 24 detail panel; 28 major rectangular surfaces; circular overlay/hub |
 | Surfaces | `overlay`, `hub`, `context`, `navigation`, `popover`, `control`, `selected`, `panel`; glass is for transient/navigation surfaces, solid semantic backgrounds for settings content |

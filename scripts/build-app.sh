@@ -22,7 +22,7 @@ if [[ "$(uname -s)" != Darwin ]]; then
     fail "packaging requires macOS 14 or newer"
 fi
 
-for command in swift git sips iconutil plutil codesign xattr pgrep ps; do
+for command in swift git iconutil plutil codesign xattr pgrep ps; do
     if ! command -v "$command" >/dev/null 2>&1; then
         fail "missing required macOS tool: $command"
     fi
@@ -119,15 +119,20 @@ cp packaging/Info.plist "$staged_app/Contents/Info.plist"
 plutil -replace WheelSourceRevision -string "$source_revision" "$staged_app/Contents/Info.plist"
 plutil -lint "$staged_app/Contents/Info.plist"
 
+resource_bundle="$bin_dir/Wheel_WheelApp.bundle"
+[[ -d "$resource_bundle" ]] || fail "SwiftPM did not produce the Wheel brand resource bundle"
+cp -R "$resource_bundle" "$staged_app/Contents/Resources/Wheel_WheelApp.bundle"
+
 iconset="$transaction_root/Wheel.iconset"
 mkdir -p "$iconset"
-source_icon="$repo_root/packaging/Wheel-icon.png"
+# Every size is rendered directly from the vector master, with optical
+# corrections for small sizes. Packaging never scales a flattened raster.
 for size in 16 32 128 256 512; do
-    sips -s format png -z "$size" "$size" "$source_icon" \
-        --out "$iconset/icon_${size}x${size}.png" >/dev/null
-    double_size=$((size * 2))
-    sips -s format png -z "$double_size" "$double_size" "$source_icon" \
-        --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
+    for scale_suffix in "" "@2x"; do
+        source_icon="$repo_root/packaging/Wheel.iconset/icon_${size}x${size}${scale_suffix}.png"
+        [[ -f "$source_icon" ]] || fail "missing vector-rendered icon size: $source_icon"
+        cp "$source_icon" "$iconset/"
+    done
 done
 iconutil -c icns "$iconset" -o "$staged_app/Contents/Resources/Wheel.icns"
 
