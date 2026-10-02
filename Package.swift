@@ -56,7 +56,8 @@ let package = Package(
         ),
         .executableTarget(
             name: "WheelApp",
-            dependencies: ["WheelDomain", "WheelMacOS"]
+            dependencies: ["WheelDomain", "WheelMacOS"],
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "WheelDomainTests",
