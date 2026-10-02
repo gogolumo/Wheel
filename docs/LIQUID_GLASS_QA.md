@@ -85,7 +85,7 @@ normal runtime continues using real local application icons.
 swift run wheel-app --render-fixtures /tmp/wheel-liquid-glass-fixtures
 ```
 
-The export matrix contains 66 images:
+The export matrix contains 68 images:
 
 | Surface/state | PNGs |
 | --- | ---: |
@@ -94,6 +94,7 @@ The export matrix contains 66 images:
 | Mixed-pins overlay over bright, dark, busy, and plain synthetic backgrounds in each appearance | 8 |
 | Actual content components for eight Settings sections in each appearance | 16 |
 | Six legacy menu/status fixtures plus a recent-application fixture in each appearance | 14 |
+| Production menu-bar status label with the template symbol in each appearance | 2 |
 
 Accessibility exports use the additive `WheelAccessibilityReview` environment to
 exercise Reduce Motion, Reduce Transparency, Increase Contrast, and Differentiate
@@ -102,6 +103,13 @@ preference. Record the host's actual preferences when comparing baseline images;
 an enabled host preference can also affect the baseline.
 
 Settings exports render the actual detail components in never-shown non-key fixture windows; filenames include `content`. Native sidebar and title-bar rendering remain physical checks because AppKit split-view layers can be absent in offscreen bitmaps. Menu filenames include `opaque-fallback`: they exercise the real Reduce Transparency fallback because native glass shaders can corrupt offscreen bitmaps. No fixture window is ordered on screen.
+
+`menu-status-label-light.png` and `menu-status-label-dark.png` render the actual
+`WheelMenuBarLabel` and its template image at 36 × 32 points, on a semantic window
+background. They use the isolated `ready` fixture in hidden non-key windows and
+contain no simulated macOS menu-bar chrome. These component exports verify the
+small brand mark in both appearances; live status-item placement remains a
+physical check.
 
 Renderer/build validation is recorded in the implementation report. Review the
 artifacts for geometry, state clarity, label density, and accessibility fallback

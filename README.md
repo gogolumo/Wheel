@@ -1,7 +1,14 @@
-<h1 align="center">Wheel</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="Brand/WheelWordmark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="Brand/WheelWordmarkLight.svg" />
+    <img src="Brand/WheelWordmarkLight.svg" alt="Wheel" width="360" />
+  </picture>
+</p>
 
 <p align="center">
-  <strong>Fast spatial navigation through the applications you were just using.</strong>
+  <strong>Move through your Mac context instantly.</strong><br />
+  A native, local-first utility for recent applications and pinned destinations.
 </p>
 
 <p align="center">
@@ -36,7 +43,7 @@ Wheel is a local-first macOS utility that turns recent application activity into
 
 ## See it in action
 
-The images below are rendered from Wheel's **production view tree** with isolated synthetic fixture data. They do not capture the developer's desktop, open documents, browser pages, or private app content. Native live glass/material appearance can vary by macOS version and accessibility settings.
+The images below are rendered by the **packaged Wheel.app** from its production view tree with isolated synthetic fixture data. They do not capture the developer's desktop, open documents, browser pages, or private app content. Native live glass/material appearance can vary by macOS version and accessibility settings.
 
 ### Radial overlay
 
@@ -68,6 +75,14 @@ The HUD stays nonactivating and click-through. A selected destination shows appl
 
 <p align="center">
   <img src="docs/assets/readme/menu-bar.png" alt="Wheel menu-bar controls" width="300" />
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/settings-about.png" />
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/readme/settings-about-light.png" />
+    <img src="docs/assets/readme/settings-about.png" alt="About Wheel with its app icon, version, and build" width="860" />
+  </picture>
 </p>
 
 ## How it works
@@ -210,7 +225,7 @@ The production Settings window has eight sections:
 | **Appearance** | System appearance/accessibility state. |
 | **Permissions** | Input Monitoring status and recovery. |
 | **Advanced** | Gesture calibration, signal counters, recovery diagnostics, and capability detail. |
-| **About** | Version and product scope. |
+| **About** | Wheel identity, version/build, and product scope. |
 
 ## Architecture
 
@@ -288,6 +303,8 @@ Track the milestone plan in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 - [`docs/APP_SHELL.md`](docs/APP_SHELL.md) — menu-bar shell, permissions, fixtures, and application history
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — modules, history semantics, restoration contract
 - [`docs/LIQUID_GLASS_QA.md`](docs/LIQUID_GLASS_QA.md) — fixture matrix and physical UI checks
+- [`Brand/README.md`](Brand/README.md) — vector logo masters, palette, and app icon generation
+- [`docs/BRAND_QA.md`](docs/BRAND_QA.md) — packaged brand checks and visual evidence
 - [`docs/PRIVACY.md`](docs/PRIVACY.md) — privacy boundary
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — gate-driven roadmap
 

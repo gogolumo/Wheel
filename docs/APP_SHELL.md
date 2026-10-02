@@ -38,8 +38,10 @@ open /Applications/Wheel.app
 ```
 
 The script builds the existing SwiftPM `wheel-app` product in release mode,
-packages it with `CFBundleIdentifier=dev.gogolumo.Wheel`, `LSUIElement=true`
-and a placeholder icon, and applies an ad-hoc local signature. The bundle runs
+packages it with `CFBundleIdentifier=dev.gogolumo.Wheel`, `LSUIElement=true`,
+the Radial Context `.icns` icon and an embedded brand resource bundle, and applies
+an ad-hoc local signature. Each icon size is rendered directly from the geometric
+master; see [Brand](../Brand/README.md). The bundle runs
 independently of Terminal. The builder stages and verifies the complete bundle
 before replacing an earlier verified artifact, serializes builds per output
 directory, and rolls back a failed replacement. It refuses symbolic-link and
@@ -67,6 +69,14 @@ stays alive, and then terminates it. Fixture mode does not request Input
 Monitoring or start the native event tap. This is an automated packaging check,
 not evidence that the menu-bar item is visible or that Finder, Dock, TCC, the
 overlay, or application relaunch behavior passed on a user's Mac.
+The opt-in `--verify-brand-resources` command checks image decoding and requires
+packaged resources to resolve inside `Contents/Resources/Wheel_WheelApp.bundle`,
+without falling back to a development `.build` directory. It runs in isolated
+fixture mode without input monitoring or application capture. Bundles declare
+`WheelBrandResourceVersion=1`; the verifier requires their full brand payload.
+Previously signed bundles without this marker remain valid upgrade targets.
+Wheel is an accessory app, so normal runtime intentionally has no Dock or Cmd+Tab
+entry; branding does not change that window/activation behavior.
 macOS associates Input Monitoring with this app bundle separately from
 Terminal/Xcode. The local signature is for development; distribution requires
 Developer ID signing and notarization. A future rebuild may require granting
