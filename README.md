@@ -1,129 +1,133 @@
-<p align="center">
-  <img src="docs/assets/wheel-hero.svg" alt="Wheel — Back and Forward for your whole Mac" width="100%" />
-</p>
+<div align="center">
 
-<p align="center">
-  <a href="https://github.com/gogolumo/Wheel/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/gogolumo/Wheel/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
-  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111827?logo=apple&logoColor=white" />
-  <img alt="Swift 5.10+" src="https://img.shields.io/badge/Swift-5.10%2B-F05138?logo=swift&logoColor=white" />
-  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-7C3AED" /></a>
-  <img alt="Early MVP" src="https://img.shields.io/badge/status-early_MVP-22C55E" />
-</p>
+# Wheel
 
-<p align="center">
-  <strong>Browser-style Back / Forward navigation for your whole Mac.</strong><br />
-  Wheel turns the trail of apps, windows, folders, files, and supported deep contexts<br />
-  into one predictable spatial history.
-</p>
+**A native macOS navigation layer for jumping back to the applications you were just using.**
+
+[![CI](https://github.com/gogolumo/Wheel/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gogolumo/Wheel/actions/workflows/ci.yml)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?logo=apple&logoColor=white)
+![Swift 5.10+](https://img.shields.io/badge/Swift-5.10%2B-F05138?logo=swift&logoColor=white)
+[![MIT License](https://img.shields.io/badge/license-MIT-7C3AED)](LICENSE)
+![Early MVP](https://img.shields.io/badge/status-early_MVP-22C55E)
+
+<img src="docs/assets/readme/wheel-overlay.png" alt="Wheel radial overlay with a selected application" width="900" />
+
+</div>
+
+Wheel is a local-first macOS utility that turns recent application activity into a fast, spatial navigation surface. Hold the configured trigger, move toward a destination in the Wheel, and release to switch to a running application or reopen a recently closed one.
 
 > [!IMPORTANT]
-> **Wheel is an early engineering prototype.** On the application-history branch it can be packaged as a locally built `Wheel.app`, capture and relaunch apps at `APPLICATION_ONLY` depth. It is not yet a signed or notarized public release; exact window/tab/file restoration is still gated.
+> Wheel is an **early native MVP**, not a public release. The current build works at **application level**. Exact window, browser tab, Finder folder, editor file, scroll position, and unsaved-state restoration are not implemented yet. The runtime status **Listening** only means the input monitor is active; SPIKE-001 and SPIKE-002 still require full physical-Mac validation before their feasibility gates can be closed.
 
-## The idea
+## What Wheel does today
 
-Your work is not a flat list of open apps. It is a trail:
+| Capability | Current behavior |
+| --- | --- |
+| **Radial app navigation** | Shows recent destinations in a circular overlay and selects by pointer direction while the trigger is held. |
+| **Running apps** | Activates a selected running macOS application. |
+| **Recently closed apps** | Can retain and relaunch terminated applications when history remembering is enabled. |
+| **Pinned sectors** | Lets you assign applications to fixed Wheel positions; unpinned sectors continue to use recent history. |
+| **Configurable layout** | Supports 2, 4, 6, 8, 10, or 12 directions and an independent visible-application limit. |
+| **Local history** | Stores bounded application identity, timestamps, and run state on this Mac. |
+| **Native UI** | Menu-bar app, SwiftUI/AppKit Settings, radial HUD, native materials, and macOS 26 Liquid Glass when available. |
+| **Accessibility-aware presentation** | Handles Reduce Motion, Reduce Transparency, Increase Contrast, and Differentiate Without Color. |
+
+## See it in action
+
+The images below are rendered from Wheel's **production view tree** with isolated synthetic fixture data. They do not capture the developer's desktop, open documents, browser pages, or private app content. Native live glass/material appearance can vary by macOS version and accessibility settings.
+
+### Radial overlay
+
+<img src="docs/assets/readme/wheel-overlay.png" alt="Wheel overlay showing a selected running application" width="860" />
+
+The HUD stays nonactivating and click-through. A selected destination shows application state and the release action without pretending to expose window or document previews.
+
+### Layout and pinned applications
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/readme/settings-layout.png" alt="Wheel Layout settings" /></td>
+    <td width="50%"><img src="docs/assets/readme/settings-applications.png" alt="Pinned application sector assignments" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Configure directions and preview the radial layout.</sub></td>
+    <td align="center"><sub>Pin applications to fixed sectors while recent history fills the rest.</sub></td>
+  </tr>
+</table>
+
+### General, history, and menu bar
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/readme/settings-general.png" alt="Wheel General settings" /></td>
+    <td width="50%"><img src="docs/assets/readme/settings-history.png" alt="Wheel History settings" /></td>
+  </tr>
+</table>
 
 <p align="center">
-  <code>Chrome · issue</code> &nbsp;→&nbsp; <code>VS Code · source file</code> &nbsp;→&nbsp; <code>Finder · assets</code>
+  <img src="docs/assets/readme/menu-bar.png" alt="Wheel menu-bar controls" width="300" />
 </p>
 
-Wheel gives that trail a tiny system-wide grammar:
-
-| Gesture | Meaning |
-| :---: | --- |
-| **LEFT** | Restore the previous global work context |
-| **RIGHT** | Restore the next global work context |
-
-No launcher grid. No radial menu. No pile of arbitrary macros. Just a consistent Back / Forward model across macOS.
-
-## Why this is different
-
-| Traditional app switching | Wheel |
-| --- | --- |
-| Shows a flat list of applications | Follows the order of your actual work |
-| Makes you visually search for the target | Uses directional muscle memory |
-| Usually stops at application level | Restores the deepest safe context available |
-| Hides whether restoration was approximate | Reports the restoration depth honestly |
-| Treats every switch as unrelated | Preserves a navigable Back / Forward trail |
-
-## History that behaves like history
-
-Starting with:
+## How it works
 
 ```text
-A → B → C
+Hold Right Option (default)
+          ↓
+Wheel appears after the presentation delay
+          ↓
+Move toward an application sector
+          ↓
+Release
+          ↓
+Activate the running app or reopen the retained closed app
 ```
 
-Navigating **LEFT** to `B` keeps `C` available, so **RIGHT** still returns to it. The forward branch is replaced only if the user independently enters a new stable context after going back:
+Right Option is the default trigger. Caps Lock remains an experimental candidate. Trigger candidates are not considered physically validated until the SPIKE-001/SPIKE-002 matrices are complete.
 
-```text
-A → [B] → C
+At the domain level Wheel also preserves a Back / Forward history contract: **LEFT = previous** and **RIGHT = next**. The current radial application selector is an active product experiment layered on top of that core; it does not redefine history branching semantics.
 
-independently enter D
+## Features
 
-A → B → [D]
-```
+- **Application capture** — observes normal user-facing macOS applications and keeps transient helper/system noise out of the product history path.
+- **Application activation and relaunch** — switches to running apps and uses the installed app bundle to reopen retained terminated apps.
+- **Pinned destinations** — choose, replace, move, or remove fixed sector assignments from **Settings → Applications**.
+- **Hidden-pin retention** — reducing the direction count hides out-of-range pins without deleting them; increasing it restores them.
+- **Bounded history** — configurable capacity with local persistence.
+- **Native menu-bar lifecycle** — enable, pause/resume, permission recovery, recent-app status, Settings, and Quit.
+- **Input Monitoring onboarding** — requests only the permission needed for the current global gesture implementation.
+- **Responsive radial HUD** — one nonactivating `NSPanel`, full-screen/Space compatible, generation-guarded, and bounded to the visible screen frame.
+- **Liquid Glass / Material presentation** — native macOS 26 glass when compiled with a compatible SDK, with a Material fallback on macOS 14–25.
+- **Deterministic visual fixtures** — production component rendering for UI review without reading the user's real application history.
 
-Wheel never advances its internal position when restoration fails, is cancelled, lacks permission, or targets something unavailable.
+## Current scope
 
-## What exists today
+Wheel currently supports **APPLICATION_ONLY** capture and restoration.
 
-- [x] Framework-independent `WheelDomain` module
-- [x] Immutable, privacy-minimal `ContextEntry`
-- [x] Deterministic Back / Forward target selection
-- [x] Forward-branch preservation and replacement rules
-- [x] Duplicate-current-context suppression
-- [x] Explicit restoration statuses and depths
-- [x] One-active-gesture-session enforcement
-- [x] Unit tests for the core invariants
-- [x] CLI demo for the canonical `A → B → C` flow
-- [x] macOS GitHub Actions CI
-- [x] Native menu-bar application shell
-- [x] Persistent pinned application slots mixed with dynamic history
-- [x] Input Monitoring onboarding and recovery UI
-- [ ] Accessibility onboarding
-- [ ] Global trigger and pointer feasibility gate
-- [ ] Stable application and window capture
-- [ ] Generic application/window restoration
-- [ ] Finder, Chrome, and VS Code adapters
-- [ ] HUD, settings, persistence, signing, and beta packaging
+**Implemented now:**
 
-## Architecture
+- application identity and local activity history
+- radial destination presentation
+- running-app activation
+- recently closed app relaunch
+- persistent pinned sectors
+- configurable directions / visible items / history capacity
+- menu-bar app and native Settings
+- Input Monitoring permission flow
+- sleep/wake and monitor recovery paths
+- local packaging as `Wheel.app`
 
-Wheel is a modular monolith. Product semantics stay pure and testable; platform APIs remain behind explicit boundaries.
+**Not claimed by this build:**
 
-```mermaid
-flowchart TB
-    App["Wheel App<br/>Menu bar · HUD · Settings"]
-    Core["WheelCore<br/>Navigation orchestration"]
-    Domain["WheelDomain<br/>History · Gestures · Invariants"]
-    Native["macOS Boundary<br/>Input · Workspace · Accessibility"]
-    Adapters["Context Adapters<br/>Generic · Finder · Chrome · VS Code"]
+- exact previous window restoration
+- browser-tab restoration
+- Finder-folder restoration
+- editor-file restoration
+- scroll/cursor position restoration
+- unsaved application-state restoration
+- public signed/notarized distribution
+- completed SPIKE-001/SPIKE-002 physical acceptance
 
-    App --> Core
-    Core --> Domain
-    Core --> Native
-    Native --> Adapters
-```
-
-Application adapters may improve **how deeply** Wheel restores a context. They may never redefine what LEFT and RIGHT mean.
-
-Read the full design in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
-## Honest restoration
-
-Wheel separates restoration **status** from restoration **depth**.
-
-| Depth | What Wheel actually restored |
-| --- | --- |
-| `none` | Nothing was restored |
-| `application` | The target application became active |
-| `window` | The intended application window became active |
-| `semantic` | A supported app-specific context was restored |
-
-Only `success` and `partial` outcomes may move the history position. `failed`, `cancelled`, `unavailable`, and `permissionDenied` outcomes leave it untouched.
-
-## Run the current prototype
+## Install a local Wheel.app
 
 ### Requirements
 
@@ -131,154 +135,164 @@ Only `success` and `partial` outcomes may move the history position. `failed`, `
 - Swift 5.10 or newer
 - Xcode 16 or a compatible Swift toolchain
 
-### Build and test
+Clone the repository and build the app bundle:
 
 ```bash
 git clone https://github.com/gogolumo/Wheel.git
 cd Wheel
-bash scripts/bootstrap-check.sh
-```
-
-The bootstrap check validates module boundaries, builds debug and release configurations with compiler warnings treated as errors, runs the full test suite, and executes `wheel-demo`.
-
-Pinned applications can be assigned to exact radial sectors from **Settings → Applications**. Those sectors stay fixed while every unpinned sector continues to use recent application history. Pins persist across restarts and hidden pins are retained when the direction count is reduced.
-
-Run the native menu-bar application:
-
-```bash
-swift run wheel-app
-```
-
-Wheel launches the redesigned Liquid Glass wheel with real local application icons, a circular hub, rounded radial sectors, and a read-only application detail panel. Settings use a native sidebar, with engineering diagnostics under **Advanced** and a compact menu-bar control surface. The visual specification is [DESIGN.md](DESIGN.md); deterministic visual fixtures and pending physical checks are documented in [Liquid Glass QA](docs/LIQUID_GLASS_QA.md).
-
-### Install a local Wheel.app
-
-On macOS 14+ with the full Xcode command line tools, run:
-
-```bash
 bash scripts/build-app.sh
+bash scripts/verify-app.sh dist/Wheel.app
+```
+
+Install it into `/Applications`:
+
+```bash
 bash scripts/install-app.sh
 open /Applications/Wheel.app
 ```
 
-The build writes `dist/Wheel.app`, including its bundle identifier, menu-bar
-agent metadata, placeholder icon, and local ad-hoc signature. Packaging happens
-in a private staging directory and replaces the previous verified build only
-after the new bundle passes validation. Concurrent builds are rejected, and a
-failed replacement restores the previous artifact. The builder will not replace
-a symbolic link or an unverified `Wheel.app` at the output path. The app runs
-without Terminal after installation and appears in Spotlight/Launchpad once
-macOS has indexed `/Applications`. The installer verifies the source bundle,
-stages it on the destination volume, safely replaces an existing installation,
-verifies the installed copy, and restores the previous copy if the update fails.
-Install, update, and removal share one lock so those operations cannot race. The
-installer also refuses to update while that exact installed Wheel executable is
-running. Lifecycle checks match the canonical executable path rather than only
-the process name, so an unrelated binary named `Wheel` is neither treated as
-the app nor terminated by the smoke test. Do not update with `cp -R`: when
-`/Applications/Wheel.app` already exists, that can create a broken nested
-`Wheel.app/Wheel.app` bundle.
+The package is locally ad-hoc signed. It is **not** a notarized public release yet. Do not replace an existing install with `cp -R`; use the repository installer so replacement, verification, rollback, and process checks stay intact.
 
-**Input Monitoring** is required for the global Right Option trigger. From the
-Wheel menu, request access, open Privacy Settings if needed, enable **Wheel**
-in Input Monitoring, then use **Check Again**. Permissions granted to Terminal
-for `swift run` do not automatically apply to `Wheel.app`. A locally rebuilt
-ad-hoc signed bundle can prompt for access again; keep the same installed copy
-for normal use. Screen Recording and Accessibility are not required by this
-application-only build. This package has no window snapshot or document
-recovery feature yet. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md).
-
-For a non-interactive packaging check that launches the installed bundle through
-Launch Services in permission-free fixture mode, quit Wheel and run:
-
-```bash
-bash scripts/smoke-app.sh /Applications/Wheel.app
-```
-
-This confirms that the packaged executable starts and remains alive briefly. It
-does not replace visually checking the menu-bar item, Dock behavior, overlay, or
-Input Monitoring attribution on a real Mac.
-
-To remove the local alpha bundle without touching Wheel's Application Support
-data, quit Wheel and run:
+To remove the local app while leaving Application Support data alone:
 
 ```bash
 bash scripts/uninstall-app.sh /Applications/Wheel.app
 ```
 
-Wheel appears in the macOS menu bar. Its interface reports permission and input
-readiness truthfully. The stacked radial application branch can capture and
-activate/relaunch apps, while deeper context restoration remains gated. See [`docs/APP_SHELL.md`](docs/APP_SHELL.md) for
-permission steps, deterministic preview fixtures, and current limitations.
+## Run from source
 
-To open the package directly in Xcode and run the first native feasibility
-spike, see [`docs/INPUT_SPIKE.md`](docs/INPUT_SPIKE.md). Candidate trigger and
-mouse side-button testing is documented in
-[`docs/TRIGGER_CONFLICT_SPIKE.md`](docs/TRIGGER_CONFLICT_SPIKE.md). A temporary
-native menu-bar panel for observing those runs is documented in
-[`docs/INPUT_DIAGNOSTICS.md`](docs/INPUT_DIAGNOSTICS.md).
-
-Expected demo flow:
-
-```text
-start:       A → B → [C]
-LEFT:        A → [B] → C
-RIGHT:       A → B → [C]
-LEFT again:  A → [B] → C
-new D:       A → B → [D]
+```bash
+git clone https://github.com/gogolumo/Wheel.git
+cd Wheel
+swift build
+swift test
+swift run wheel-app
 ```
 
-## Roadmap
+For the repository's broader bootstrap validation:
 
-| Stage | Focus | Status |
-| --- | --- | :---: |
-| Foundation | Repository, modules, invariants, tests, CI | ✅ Complete |
-| Feasibility | Global input, permissions, window identity, restoration | **In progress** |
-| Native MVP | Menu bar, gesture input, stable context capture | Planned |
-| Integrations | Generic fallback plus selected deep adapters | Planned |
-| Productization | HUD, privacy controls, reliability, signing, beta | Planned |
-| Public MVP | Signed release, checksums, limitations, support path | Planned |
+```bash
+bash scripts/bootstrap-check.sh
+```
 
-The gate-driven milestone plan lives in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+That path checks module boundaries, debug/release builds, tests, and the domain demo.
 
-## Privacy by design
+## Input Monitoring
 
-Wheel is being designed around minimal local metadata:
+The global trigger requires **Input Monitoring**.
+
+1. Open Wheel.
+2. Choose **Request Access** when prompted by Wheel.
+3. If needed, open **System Settings → Privacy & Security → Input Monitoring**.
+4. Enable the process that is actually hosting Wheel.
+5. Return to Wheel and use **Check Again** if the status did not refresh automatically.
+
+Permission attribution depends on how the app is launched:
+
+- installed bundle → **Wheel**
+- `swift run` → typically **Terminal**
+- Xcode run → typically **Xcode**
+
+Screen Recording and Accessibility are not required by the current application-only build.
+
+## Settings
+
+The production Settings window has eight sections:
+
+| Section | Purpose |
+| --- | --- |
+| **General** | Enable/pause state, trigger, and current runtime status. |
+| **Wheel Layout** | Direction count, visible application count, and radial preview. |
+| **Applications** | Fixed sector assignments and retained hidden pins. |
+| **History** | Closed-app retention and history capacity. |
+| **Appearance** | System appearance/accessibility state. |
+| **Permissions** | Input Monitoring status and recovery. |
+| **Advanced** | Gesture calibration, signal counters, recovery diagnostics, and capability detail. |
+| **About** | Version and product scope. |
+
+## Architecture
+
+Wheel is a modular monolith: navigation semantics remain framework-independent while macOS integration stays behind explicit boundaries.
+
+```mermaid
+flowchart LR
+    Input[Global Input Monitor] --> AppModel[WheelAppViewModel]
+    Workspace[Application Monitor] --> History[Application History]
+    History --> AppModel
+    Pins[Pinned Slot Store] --> AppModel
+    AppModel --> Overlay[Radial Overlay]
+    AppModel --> Settings[Native Settings]
+    AppModel --> Activator[Application Activator]
+    Core[WheelCore] --> Domain[WheelDomain]
+    AppModel --> Core
+```
+
+The domain model keeps restoration **status** separate from restoration **depth**, so application activation cannot be mislabeled as an exact window or semantic restore.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for module and history semantics.
+
+## Privacy
+
+Wheel is designed to stay local and collect the minimum metadata needed for navigation.
+
+The current application-history path stores application identity, display name, timestamps, and run state. It does **not** capture typed text, document contents, source code, browser page bodies, screenshots, cookies, or a visual recording of the desktop.
 
 - no account required
 - no cloud history
-- no page-body or source-code collection
-- no content indexing
+- no AI service required
 - bounded local retention
-- application exclusions
-- redacted diagnostics
-
-The domain stores only an application bundle identifier and an opaque context token. Native capture code is responsible for keeping that token safe and minimal.
+- no screen capture in the application-only build
+- fixture screenshots use synthetic application identities
 
 See [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
-## Product contract
+## Development and testing
 
-These are invariants, not optional implementation details:
+Useful commands:
 
-1. **LEFT is always previous. RIGHT is always next.**
-2. **Back never destroys the forward branch.**
-3. **Only independent new work replaces that branch.**
-4. **Wheel-restored contexts are never recorded again as new work.**
-5. **Failed restoration never corrupts history.**
-6. **Only one gesture session may be active.**
-7. **UP / DOWN, accounts, cloud sync, and arbitrary macros stay outside the MVP.**
+```bash
+swift build -Xswiftc -warnings-as-errors
+swift test -Xswiftc -warnings-as-errors
+swift build -c release -Xswiftc -warnings-as-errors
+bash scripts/check-module-boundaries.sh
+bash scripts/test-app-process.sh
+bash scripts/build-app.sh
+bash scripts/verify-app.sh dist/Wheel.app
+```
 
-## Contributing
+Render the isolated production UI fixture set on macOS:
 
-Wheel is currently a solo-developer MVP. Focused issues and pull requests are welcome, especially around macOS feasibility, deterministic behavior, accessibility, privacy, and test coverage.
+```bash
+swift run wheel-app --render-fixtures /tmp/wheel-liquid-glass-fixtures
+```
 
-Before changing navigation semantics, read [`CONTRIBUTING.md`](CONTRIBUTING.md).
+These exports verify layout/state presentation. They are **not** substitutes for physical testing of live glass, focus, full-screen Spaces, multi-display behavior, Input Monitoring attribution, or trigger hardware conflicts.
+
+## What's next
+
+Wheel uses gate-driven development rather than treating CI as proof of native feasibility.
+
+- finish the SPIKE-001 global-input physical matrix
+- finish the SPIKE-002 trigger-conflict physical matrix
+- validate stable window identity and generic restoration
+- add deeper Finder/browser/editor adapters only when supported by evidence
+- complete signing, notarization, beta packaging, and clean-machine testing
+
+Track the milestone plan in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+## Documentation
+
+- [`DESIGN.md`](DESIGN.md) — production visual system and Liquid Glass behavior
+- [`docs/APP_SHELL.md`](docs/APP_SHELL.md) — menu-bar shell, permissions, fixtures, and application history
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — modules, history semantics, restoration contract
+- [`docs/LIQUID_GLASS_QA.md`](docs/LIQUID_GLASS_QA.md) — fixture matrix and physical UI checks
+- [`docs/PRIVACY.md`](docs/PRIVACY.md) — privacy boundary
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — gate-driven roadmap
 
 ## License
 
 Wheel is available under the [MIT License](LICENSE).
 
-<p align="center">
+<div align="center">
   <sub>Maintained by <a href="https://github.com/gogolumo">gogolumo</a>.</sub>
-</p>
+</div>
