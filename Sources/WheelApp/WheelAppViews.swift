@@ -234,19 +234,28 @@ struct WheelDashboardView: View {
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
         } detail: {
-            Group {
-                switch selection ?? .general {
-                case .general: WheelGeneralSettingsView(viewModel: viewModel)
-                case .layout: WheelLayoutSettingsView(viewModel: viewModel)
-                case .applications: WheelApplicationsSettingsView(viewModel: viewModel)
-                case .history: WheelHistorySettingsView(viewModel: viewModel)
-                case .appearance: WheelAppearanceSettingsView()
-                case .permissions: WheelPermissionsSettingsView(viewModel: viewModel)
-                case .advanced: WheelAdvancedSettingsView(viewModel: viewModel)
-                case .about: WheelAboutSettingsView()
+            // A grouped Form's intrinsic height includes all of its rows. Keep
+            // that height out of the native split view's minimum-size calculation
+            // and give each page the actual detail viewport to scroll within.
+            GeometryReader { geometry in
+                Group {
+                    switch selection ?? .general {
+                    case .general: WheelGeneralSettingsView(viewModel: viewModel)
+                    case .layout: WheelLayoutSettingsView(viewModel: viewModel)
+                    case .applications: WheelApplicationsSettingsView(viewModel: viewModel)
+                    case .history: WheelHistorySettingsView(viewModel: viewModel)
+                    case .appearance: WheelAppearanceSettingsView()
+                    case .permissions: WheelPermissionsSettingsView(viewModel: viewModel)
+                    case .advanced: WheelAdvancedSettingsView(viewModel: viewModel)
+                    case .about: WheelAboutSettingsView()
+                    }
                 }
+                .frame(
+                    width: geometry.size.width,
+                    height: geometry.size.height,
+                    alignment: .topLeading
+                )
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(minWidth: 760, minHeight: 540)
     }

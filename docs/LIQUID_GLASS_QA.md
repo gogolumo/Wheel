@@ -245,3 +245,10 @@ data, exact 0/2/4/6/8/12 populations, selected run states, unavailable persisten
 pins, fixed/dynamic mixtures, deterministic identities, launch isolation, legacy
 fixture preservation, and absence of permission/input/capture/activation calls.
 Existing domain, history, pins, gesture, lifecycle, and panel suites remain required.
+
+`WheelSettingsLayoutTests` hosts the full production Settings split view in hidden,
+titled fixture windows. It checks every section at default and resized viewports,
+and verifies that twelve application assignments scroll to the bottom inside the
+window. This catches native split-view intrinsic-height overflow that isolated
+detail-component PNGs cannot detect. It does not establish live window chrome,
+keyboard/focus behavior, or physical desktop accessibility results.
