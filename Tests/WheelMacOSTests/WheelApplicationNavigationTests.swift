@@ -156,12 +156,12 @@ final class WheelApplicationNavigationTests: XCTestCase {
         await MainActor.run {
             harness.pinnedStore.pin(
                 WheelPinnedApplication(
-                    stableIdentifier: "bundle:net.whatsapp.WhatsApp",
+                    // Identity has no installed-app target. This test verifies
+                    // sector retention, independently of a real WhatsApp install.
+                    stableIdentifier: "test:pinned-messenger",
                     localizedName: "WhatsApp",
-                    bundleIdentifier: "net.whatsapp.WhatsApp",
-                    applicationURL: URL(
-                        fileURLWithPath: "/Applications/WhatsApp.app"
-                    )
+                    bundleIdentifier: nil,
+                    applicationURL: nil
                 ),
                 at: 2
             )
@@ -243,9 +243,7 @@ private final class NavigationHarness {
     let viewModel: WheelAppViewModel
 
     init() {
-        let suiteName = "WheelApplicationNavigationTests.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
+        let defaults = WheelFixtureUserDefaults()
         settings = WheelSettings(defaults: defaults)
         pinnedStore = WheelPinnedSlotStore(defaults: defaults)
 

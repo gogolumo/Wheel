@@ -1,7 +1,7 @@
 # Wheel menu-bar shell
 
 `wheel-app` is the first production-facing native interface for Wheel. It is a
-macOS 14 SwiftUI menu-bar app with a separate dashboard window.
+macOS 14 SwiftUI menu-bar app with a separate native Settings window.
 
 The shell is intentionally honest about the current product boundary:
 
@@ -43,8 +43,11 @@ and a placeholder icon, and applies an ad-hoc local signature. The bundle runs
 independently of Terminal. The builder stages and verifies the complete bundle
 before replacing an earlier verified artifact, serializes builds per output
 directory, and rolls back a failed replacement. It refuses symbolic-link and
-unverified `Wheel.app` output targets instead of deleting them. Quit any
-`swift run wheel-app` instance first.
+unverified `Wheel.app` output targets instead of deleting them. Before signing, the builder strips extended attributes only from its newly
+staged bundle to prevent Finder/resource-fork metadata from invalidating the
+signature ([Apple QA1940](https://developer.apple.com/library/archive/qa/qa1940/_index.html)).
+Existing outputs and installed bundles are not sanitized or bypassed by this step.
+Quit any `swift run wheel-app` instance first.
 `install-app.sh` refuses to replace a running Wheel, validates the bundle before
 and after installation, stages the copy beside the destination, and restores the
 previous installation if validation fails. Use it for updates as well as first
@@ -80,7 +83,7 @@ It removes only the app bundle; local application history remains in Application
 Support unless deliberately removed.
 
 Wheel launches as an accessory app and places its icon in the menu bar. Open the
-menu to see live status or press **Open Wheel** for the full dashboard. The
+menu to see live status or press **Open Settings…** for configuration. The
 listen-only monitor starts with the application; opening either surface does not
 start another runtime or register another wake observer.
 
@@ -109,14 +112,13 @@ Raw pointer displacement selects a sector while the trigger is held; releasing o
 a populated sector activates a running app or relaunches a terminated one. Exact
 window/tab/file restoration remains outside this slice.
 
-The gesture card also shows a matching-signal count and the latest `DOWN` or `UP`
-edge. This makes a successful trigger observation visible even when the pointer
-movement is too short to become a gesture. While the trigger is held, both the
-menu-bar item and the in-app status pill say **Trigger Held** and use a distinct
-symbol. Recovery, pause, disable, configuration changes, and sleep/wake clear the
-edge so the interface never leaves a stale `DOWN` indication.
+Engineering diagnostics live under **Settings → Advanced**: matching signals,
+DOWN/UP edges, recognized gestures, event-tap recoveries, calibration, and current
+capabilities. General shows runtime status and the trigger without metric cards.
+The menu-bar item and Settings status still identify **Trigger Held**, and recovery,
+pause, disable, configuration changes, and sleep/wake clear transient held state.
 
-After the trigger remains held for 180 ms, Wheel presents a compact HUD over the
+After the trigger remains held for 180 ms, Wheel presents the glass wheel over the
 current app. A shorter press stays entirely HUD-free. The HUD is a single
 borderless nonactivating `NSPanel`: it cannot become key or main, ignores mouse
 events, joins every Space, and is allowed alongside full-screen apps. Releasing the trigger after the HUD appears selects the populated radial sector,
@@ -139,8 +141,8 @@ prevents pre-sleep callbacks or a held trigger from leaking into the resumed
 session. Presentation and dismissal are generation-guarded so an old gesture
 cannot show or hide a newer one.
 
-The Input screen can change the trigger, minimum horizontal distance, and
-horizontal-dominance ratio. Changing calibration safely replaces the running
+General can change the trigger. Advanced contains minimum gesture distance and
+horizontal-dominance calibration. Changing calibration safely replaces the running
 monitor; queued callbacks from the previous monitor generation are ignored.
 
 ## Visible states
@@ -156,7 +158,7 @@ monitor; queued callbacks from the previous monitor generation are ignored.
 
 Color is supplementary. Every state includes text and a distinct SF Symbol.
 `Listening` deliberately describes runtime activity rather than product readiness.
-The Input and About screens state that SPIKE-001/SPIKE-002 still need physical
+The General and About screens state that SPIKE-001/SPIKE-002 still need physical
 evidence, so merging diagnostic code cannot be mistaken for a GO decision.
 
 ## Deterministic UI fixtures
@@ -193,7 +195,7 @@ from the menu-bar item or with Control-C when launched through `swift run`.
 
 ## Physical overlay check
 
-Run the real app, confirm **Ready**, and check Right Option DOWN / LEFT / RIGHT /
+Run the real app, confirm **Listening**, and check Right Option DOWN / LEFT / RIGHT /
 NONE from Finder, Chrome, and VS Code. Repeat once in a full-screen Space. The
 source application must remain frontmost and
 an active text field must continue accepting input after the gesture. Left Option
@@ -225,8 +227,8 @@ project's release history store can still migrate behind its storage boundary.
 
 ## Pinned applications
 
-Wheel settings now include a **Pinned Apps** section for every active radial
-sector. A slot can remain **Automatic** or point to a selected macOS `.app`
+Settings → Applications includes assignments for every active radial
+sector and a separate list of retained hidden pins. A slot can remain **Automatic** or point to a selected macOS `.app`
 bundle.
 
 Pinned and dynamic targets deliberately share one layout:
@@ -263,7 +265,7 @@ From the repository:
 ```bash
 cd ~/Documents/Wheel/Wheel
 git fetch origin
-git switch feat/CTX-app-history-wheel
+git switch feat/liquid-glass-ui
 git pull --ff-only
 swift build --product wheel-app
 swift test
@@ -272,7 +274,7 @@ swift run wheel-app
 
 Then activate Safari, Finder, Xcode, and another normal app. Hold Right Option
 longer than 180 ms: the radial Wheel should show prior applications without
-stealing focus. Change **Wheel → Directions** between 4, 6, and 8 and repeat.
+stealing focus. Change **Settings → Wheel Layout → Directions** between 4, 6, and 8 and repeat.
 Quit one captured application with Command-Q, invoke Wheel again, select its icon,
 and verify macOS relaunches that application.
 
@@ -286,3 +288,38 @@ The radial multi-direction selector is also a product-semantics experiment on th
 stacked branch. The repository's established LEFT/RIGHT Back/Forward contract is
 not silently superseded by this implementation; adopting radial selection as the
 product grammar requires an explicit product/ADR decision.
+
+
+## Liquid Glass presentation
+
+The approved visual direction is implemented in production views; see
+[DESIGN.md](../DESIGN.md). The ring uses real application destinations, a circular
+hub, rounded annular sectors, thin optical edges, and a restrained selected lift.
+A related right-hand panel shows only application name/icon, Running / Recently
+closed / Unavailable, pin state, and release guidance. Because the HUD remains
+click-through, pin changes stay in Settings. No window screenshot or app-specific
+action is fabricated.
+
+The bounded 820×520 pt panel reserves the actual ring and context-panel footprint;
+it scales proportionally inside smaller visible screen frames. Its non-key,
+nonactivating, status-bar-level, full-screen auxiliary, and single-panel lifecycle
+contracts are unchanged. The existing main-screen placement policy remains in
+place; this does not claim pointer-screen targeting.
+
+Settings sections are General, Wheel Layout, Applications, History, Appearance,
+Permissions, Advanced, and About. Appearance follows macOS rather than adding
+presentation preferences to history/domain settings. Menu-bar content is a 300 pt
+wide status/trigger/pause/permission/settings/quit surface with a real recent-app
+row when available.
+
+Native macOS 26 glass is compiler/runtime gated. macOS 14–25 uses native
+Material with a restrained border/highlight/shadow fallback. Reduce Transparency
+and Increase Contrast select opaque semantic surfaces; Reduce Motion removes
+spatial movement and Differentiate Without Color strengthens structural selection.
+No external dependency is required.
+
+Legacy fixture launches now isolate history/settings/pins in memory. New explicit
+`--visual-fixture` states and `--render-fixtures <directory>` exports exercise the
+production view tree without permissions or application capture. See the
+[fixture matrix and manual test checklist](LIQUID_GLASS_QA.md). Offscreen bitmaps
+can flatten native materials and are not proof of physical desktop rendering.

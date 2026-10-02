@@ -34,7 +34,7 @@ final class WheelAppViewModelTests: XCTestCase {
     func testMissingPermissionDoesNotCreateMonitor() async {
         await MainActor.run {
             var factoryCallCount = 0
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { false },
                 permissionRequester: { false },
                 monitorFactory: { _ in
@@ -56,7 +56,7 @@ final class WheelAppViewModelTests: XCTestCase {
         await MainActor.run {
             let monitor = AppTestInputMonitor()
             var capturedConfiguration: GlobalInputMonitor.Configuration?
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 configuration: .init(
                     triggerType: .rightOption,
                     minimumHorizontalDistance: 120,
@@ -92,7 +92,7 @@ final class WheelAppViewModelTests: XCTestCase {
             let firstMonitor = AppTestInputMonitor()
             let secondMonitor = AppTestInputMonitor()
             var monitors = [firstMonitor, secondMonitor]
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitors.removeFirst() }
@@ -118,7 +118,7 @@ final class WheelAppViewModelTests: XCTestCase {
 
         await MainActor.run {
             let monitor = AppTestInputMonitor()
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitor }
@@ -157,7 +157,7 @@ final class WheelAppViewModelTests: XCTestCase {
             let firstMonitor = AppTestInputMonitor()
             let secondMonitor = AppTestInputMonitor()
             var monitors = [firstMonitor, secondMonitor]
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitors.removeFirst() }
@@ -188,7 +188,7 @@ final class WheelAppViewModelTests: XCTestCase {
     func testMonitorStartFailureIsVisibleAndNeverClaimsReady() async {
         await MainActor.run {
             let monitor = AppTestInputMonitor(startError: AppTestMonitorError.startFailed)
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitor }
@@ -207,7 +207,7 @@ final class WheelAppViewModelTests: XCTestCase {
         await MainActor.run {
             let monitor = AppTestInputMonitor()
             var permissionGranted = true
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { permissionGranted },
                 permissionRequester: { permissionGranted },
                 monitorFactory: { _ in monitor }
@@ -230,7 +230,7 @@ final class WheelAppViewModelTests: XCTestCase {
             let firstMonitor = AppTestInputMonitor()
             let secondMonitor = AppTestInputMonitor()
             var monitors = [firstMonitor, secondMonitor]
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitors.removeFirst() }
@@ -256,7 +256,7 @@ final class WheelAppViewModelTests: XCTestCase {
 
         await MainActor.run {
             let monitor = AppTestInputMonitor()
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitor }
@@ -291,7 +291,7 @@ final class WheelAppViewModelTests: XCTestCase {
 
         await MainActor.run {
             let monitor = AppTestInputMonitor()
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitor }
@@ -327,7 +327,7 @@ final class WheelAppViewModelTests: XCTestCase {
 
         await MainActor.run {
             let monitor = AppTestInputMonitor()
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitor }

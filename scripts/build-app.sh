@@ -22,7 +22,7 @@ if [[ "$(uname -s)" != Darwin ]]; then
     fail "packaging requires macOS 14 or newer"
 fi
 
-for command in swift git sips iconutil plutil codesign pgrep ps; do
+for command in swift git sips iconutil plutil codesign xattr pgrep ps; do
     if ! command -v "$command" >/dev/null 2>&1; then
         fail "missing required macOS tool: $command"
     fi
@@ -131,6 +131,9 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$iconset" -o "$staged_app/Contents/Resources/Wheel.icns"
 
+# Sanitize only this newly staged artifact. Finder/resource-fork metadata can
+# invalidate signing even when executable/resources are correct (Apple QA1940).
+xattr -cr "$staged_app"
 codesign --force --sign "$signing_identity" "$staged_app"
 bash "$repo_root/scripts/verify-app.sh" "$staged_app"
 

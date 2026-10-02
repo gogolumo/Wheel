@@ -10,14 +10,20 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
     private var overlayController: WheelGestureOverlayPanelController?
 
     override init() {
+        let visualFixture = WheelVisualFixture.requested(from: CommandLine.arguments)
         let overlayFixture = WheelGestureOverlayFixture.requested(
             from: CommandLine.arguments
         )
+        let statusFixture: WheelAppFixture?
+        if WheelFixtureRenderer.isRequested(CommandLine.arguments) || overlayFixture != nil {
+            statusFixture = .ready
+        } else {
+            statusFixture = WheelAppFixture.requested(from: CommandLine.arguments)
+        }
         let viewModel = WheelAppViewModel(
-            fixture: overlayFixture == nil
-                ? WheelAppFixture.requested(from: CommandLine.arguments)
-                : .ready,
-            overlayFixture: overlayFixture
+            fixture: statusFixture,
+            overlayFixture: overlayFixture,
+            visualFixture: visualFixture
         )
         self.viewModel = viewModel
         lifecycleCoordinator = WheelAppLifecycleCoordinator(viewModel: viewModel)
@@ -26,6 +32,16 @@ private final class WheelAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.accessory)
+        if WheelFixtureRenderer.isRequested(CommandLine.arguments) {
+            do {
+                try WheelFixtureRenderer.render(from: CommandLine.arguments)
+            } catch {
+                FileHandle.standardError.write(Data("Fixture export failed: \(error.localizedDescription)\n".utf8))
+                exit(EXIT_FAILURE)
+            }
+            NSApplication.shared.terminate(nil)
+            return
+        }
         let overlayView = NSHostingView(
             rootView: WheelGestureOverlayView(viewModel: viewModel)
         )
@@ -94,10 +110,10 @@ struct WheelApplication: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("Wheel", id: "dashboard") {
+        Window("Wheel Settings", id: "dashboard") {
             WheelDashboardView(viewModel: appDelegate.viewModel)
         }
-        .defaultSize(width: 820, height: 580)
+        .defaultSize(width: 860, height: 640)
         .windowResizability(.contentMinSize)
     }
 }

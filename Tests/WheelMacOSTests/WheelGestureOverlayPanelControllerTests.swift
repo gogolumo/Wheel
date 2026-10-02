@@ -69,6 +69,32 @@ final class WheelGestureOverlayPanelControllerTests: XCTestCase {
         }
     }
 
+    func testCompositionFitsSmallDisplayWithoutChangingAspectRatio() async {
+        await MainActor.run {
+            let screen = NSRect(x: -600, y: 200, width: 640, height: 480)
+            let size = WheelGestureOverlayPanelController.panelSize
+            let frame = WheelGestureOverlayPanelController.frame(panelSize: size, in: screen)
+
+            XCTAssertTrue(screen.contains(frame))
+            XCTAssertEqual(frame.midX, screen.midX)
+            XCTAssertEqual(frame.midY, screen.midY)
+            XCTAssertEqual(frame.width / frame.height, size.width / size.height, accuracy: 0.001)
+            XCTAssertEqual(frame.width, screen.width - 32)
+        }
+    }
+
+    func testNormalDisplayUsesBoundedCompositionSize() async {
+        await MainActor.run {
+            let size = WheelGestureOverlayPanelController.panelSize
+            XCTAssertEqual(size, NSSize(width: 820, height: 520))
+            let frame = WheelGestureOverlayPanelController.frame(
+                panelSize: size,
+                in: NSRect(x: 0, y: 0, width: 1_440, height: 900)
+            )
+            XCTAssertEqual(frame.size, size)
+        }
+    }
+
     func testVisiblePanelRepositionsAfterScreenParametersChange() async {
         let notificationCenter = NotificationCenter()
         let initiallyPositioned = expectation(description: "panel initially positioned")
