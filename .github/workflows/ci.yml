@@ -61,6 +61,27 @@ jobs:
           set -o pipefail
           swift run -Xswiftc -warnings-as-errors wheel-demo 2>&1 | tee demo.log
 
+      - name: Render README visual fixtures
+        run: |
+          fixture_dir="$RUNNER_TEMP/wheel-readme-fixtures"
+          rm -rf "$fixture_dir"
+          swift run wheel-app --render-fixtures "$fixture_dir"
+          test -f "$fixture_dir/selected-running-light.png"
+          test -f "$fixture_dir/settings-general-content-light.png"
+          test -f "$fixture_dir/settings-wheel-layout-content-light.png"
+          test -f "$fixture_dir/settings-applications-content-light.png"
+          test -f "$fixture_dir/settings-history-content-light.png"
+          test -f "$fixture_dir/menu-recent-application-opaque-fallback-light.png"
+          find "$fixture_dir" -maxdepth 1 -type f -print | sort
+
+      - name: Upload README visual fixtures
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheel-readme-fixtures-${{ github.run_id }}
+          path: ${{ runner.temp }}/wheel-readme-fixtures
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Build and verify installable Wheel.app
         run: |
           running_dist_pid=""
