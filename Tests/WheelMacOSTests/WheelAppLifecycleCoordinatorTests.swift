@@ -5,7 +5,7 @@ final class WheelAppLifecycleCoordinatorTests: XCTestCase {
     func testLaunchesOnceAndTerminatesOnce() async {
         await MainActor.run {
             let monitor = LifecycleTestInputMonitor()
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitor }
@@ -33,7 +33,7 @@ final class WheelAppLifecycleCoordinatorTests: XCTestCase {
             let monitor = LifecycleTestInputMonitor()
             var permissionGranted = true
             var permissionCheckCount = 0
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: {
                     permissionCheckCount += 1
                     return permissionGranted
@@ -62,7 +62,7 @@ final class WheelAppLifecycleCoordinatorTests: XCTestCase {
             let firstMonitor = LifecycleTestInputMonitor()
             let secondMonitor = LifecycleTestInputMonitor()
             var monitors = [firstMonitor, secondMonitor]
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitors.removeFirst() }
@@ -88,7 +88,7 @@ final class WheelAppLifecycleCoordinatorTests: XCTestCase {
             let firstMonitor = LifecycleTestInputMonitor()
             let secondMonitor = LifecycleTestInputMonitor()
             var monitors = [firstMonitor, secondMonitor]
-            let viewModel = WheelAppViewModel(
+            let viewModel = makeIsolatedWheelAppViewModel(
                 permissionProvider: { true },
                 permissionRequester: { true },
                 monitorFactory: { _ in monitors.removeFirst() }
