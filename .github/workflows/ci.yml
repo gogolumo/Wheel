@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -21,7 +21,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          ref: ${{ github.head_ref }}
+          persist-credentials: true
 
       - name: Check module boundaries
         run: bash scripts/check-module-boundaries.sh
@@ -73,6 +74,25 @@ jobs:
           test -f "$fixture_dir/settings-history-content-light.png"
           test -f "$fixture_dir/menu-recent-application-opaque-fallback-light.png"
           find "$fixture_dir" -maxdepth 1 -type f -print | sort
+
+      - name: Stage README screenshots
+        run: |
+          mkdir -p docs/assets/readme
+          cp "$RUNNER_TEMP/wheel-readme-fixtures/selected-running-dark.png" docs/assets/readme/wheel-overlay.png
+          cp "$RUNNER_TEMP/wheel-readme-fixtures/settings-general-content-dark.png" docs/assets/readme/settings-general.png
+          cp "$RUNNER_TEMP/wheel-readme-fixtures/settings-wheel-layout-content-dark.png" docs/assets/readme/settings-layout.png
+          cp "$RUNNER_TEMP/wheel-readme-fixtures/settings-applications-content-dark.png" docs/assets/readme/settings-applications.png
+          cp "$RUNNER_TEMP/wheel-readme-fixtures/settings-history-content-dark.png" docs/assets/readme/settings-history.png
+          cp "$RUNNER_TEMP/wheel-readme-fixtures/menu-recent-application-opaque-fallback-dark.png" docs/assets/readme/menu-bar.png
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/assets/readme
+          if git diff --cached --quiet; then
+            echo "README screenshots already current."
+          else
+            git commit -m "docs(readme): add current UI screenshots"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
 
       - name: Upload README visual fixtures
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
