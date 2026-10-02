@@ -43,8 +43,11 @@ and a placeholder icon, and applies an ad-hoc local signature. The bundle runs
 independently of Terminal. The builder stages and verifies the complete bundle
 before replacing an earlier verified artifact, serializes builds per output
 directory, and rolls back a failed replacement. It refuses symbolic-link and
-unverified `Wheel.app` output targets instead of deleting them. Quit any
-`swift run wheel-app` instance first.
+unverified `Wheel.app` output targets instead of deleting them. Before signing, the builder strips extended attributes only from its newly
+staged bundle to prevent Finder/resource-fork metadata from invalidating the
+signature ([Apple QA1940](https://developer.apple.com/library/archive/qa/qa1940/_index.html)).
+Existing outputs and installed bundles are not sanitized or bypassed by this step.
+Quit any `swift run wheel-app` instance first.
 `install-app.sh` refuses to replace a running Wheel, validates the bundle before
 and after installation, stages the copy beside the destination, and restores the
 previous installation if validation fails. Use it for updates as well as first
