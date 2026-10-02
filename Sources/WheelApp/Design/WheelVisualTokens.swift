@@ -56,19 +56,19 @@ enum WheelVisualTokens {
 }
 
 enum WheelSurfaceRole {
-    case overlay, context, navigation, popover, control, selected, panel
+    case overlay, hub, context, navigation, popover, control, selected, panel
 
     var material: Material {
         switch self {
         case .overlay, .navigation, .control: return .thinMaterial
-        case .context, .popover, .selected, .panel: return .regularMaterial
+        case .hub, .context, .popover, .selected, .panel: return .regularMaterial
         }
     }
 
     var shadowRadius: CGFloat {
         switch self {
         case .overlay: return 18
-        case .context, .popover, .panel: return 12
+        case .hub, .context, .popover, .panel: return 12
         case .navigation, .control, .selected: return 4
         }
     }

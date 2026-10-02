@@ -9,9 +9,12 @@ struct WheelGlassSurface<S: InsettableShape>: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.wheelAccessibilityReview) private var accessibilityReview
 
     private var needsOpaqueSurface: Bool {
         reduceTransparency || contrast == .increased
+            || accessibilityReview?.reduceTransparency == true
+            || accessibilityReview?.increaseContrast == true
     }
 
     var body: some View {
@@ -65,16 +68,21 @@ struct WheelGlassSurface<S: InsettableShape>: View {
 
     @ViewBuilder
     private var compatibleGlass: some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *) {
-            shape.fill(.clear)
-                .glassEffect(.regular, in: shape)
-        } else {
+        // The hub sits inside the shell; standard material avoids nested native glass.
+        if role == .hub {
             materialFallback
+        } else {
+            #if compiler(>=6.2) && !WHEEL_FORCE_MATERIAL
+            if #available(macOS 26.0, *) {
+                shape.fill(.clear)
+                    .glassEffect(.regular, in: shape)
+            } else {
+                materialFallback
+            }
+            #else
+            materialFallback
+            #endif
         }
-        #else
-        materialFallback
-        #endif
     }
 
     private var materialFallback: some View {
@@ -87,28 +95,5 @@ struct WheelGlassSurface<S: InsettableShape>: View {
                     )
                 )
             }
-    }
-}
-
-/// Optional style for small floating controls; Settings keeps native button styles.
-struct WheelGlassButtonStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .padding(.horizontal, WheelVisualTokens.Spacing.regular)
-            .padding(.vertical, WheelVisualTokens.Spacing.medium)
-            .background {
-                WheelGlassSurface(
-                    shape: RoundedRectangle(cornerRadius: WheelVisualTokens.Radius.control),
-                    role: .control,
-                    emphasized: configuration.isPressed
-                )
-            }
-            .opacity(configuration.isPressed ? 0.78 : 1)
-            .animation(
-                reduceMotion ? nil : WheelVisualTokens.Motion.selection,
-                value: configuration.isPressed
-            )
     }
 }

@@ -17,7 +17,7 @@ Use `WheelVisualTokens` and `WheelGlassSurface` as the shared semantic layer. Us
 | Typography | Large title for page identity, title2 for sections, body/callout for controls, caption for state and hints; hub 27 pt medium; app labels 11–12 pt medium/semibold |
 | Spacing | 4, 6, 8, 12, 16, 20, 24, 32 pt |
 | Radii | 8 tiny controls; 12 compact controls; 16 contextual groups; 20 cards; 24 detail panel; 28 major rectangular surfaces; circular overlay/hub |
-| Surfaces | `overlay`, `context`, `navigation`, `popover`, `control`, `selected`, `panel`; glass is for transient/navigation surfaces, solid semantic backgrounds for settings content |
+| Surfaces | `overlay`, `hub`, `context`, `navigation`, `popover`, `control`, `selected`, `panel`; glass is for transient/navigation surfaces, solid semantic backgrounds for settings content |
 | Border | Optical hairline 0.75–1 pt; selected 1.5 pt; increased contrast / differentiation 2–2.5 pt; use semantic separators for settings |
 | Shadow | One shell shadow, approximately 18 pt / 8 pt vertical offset; detail 12 pt / 6 pt; smaller controls 4 pt / 2 pt; never stack broad blurred shadows per sector |
 | Accent | Restrained desaturated cool blue for selected optical rim, low-opacity tint; system accent for native control focus |
@@ -42,13 +42,15 @@ No external UI dependency. The Wheel-owned generic `WheelGlassSurface` chooses b
 - On macOS 14–25 (and older supported compilers), use SwiftUI native thin/regular material, a semantic contrast wash, an optical edge gradient, and one restrained shadow. No shaders, screenshots, networking, continuous animations, or third-party fallback package.
 - Reduce Transparency and Increase Contrast select an opaque semantic surface with stronger outlines, bypassing both glass paths. Light and dark appearance adjust the optical border/shadow response while retaining semantic text colors.
 
-Keep material decisions inside this abstraction. Sector segmentation uses lightweight static vector fills and strokes on the shared shell, not a separate blur per application. The hub and detail surface use stronger text-bearing material. Native macOS window/sidebar/popover chrome remains native.
+Keep material decisions inside this abstraction. Sector segmentation uses lightweight static vector fills and strokes on the shared shell, not a separate blur per application. The hub uses standard regular material even on macOS 26, avoiding nested native glass inside the shell. The detail surface uses stronger text-bearing glass/material. Native macOS window/sidebar/popover chrome remains native. The opt-in `WHEEL_FORCE_MATERIAL` compiler flag allows fallback compilation and fixture review on a newer host; it does not replace testing on macOS 14.
 
 ## Motion and accessibility
 
 Entrance: 160 ms opacity and 0.98-to-1 settling scale. Selection: 110 ms ease-out; no bounce, looping gradients, shimmer, expensive blur animation, or long spring. Dismissal retains the existing generation-guarded lifecycle.
 
 Reduce Motion removes spatial translation/scale and uses immediate contrast/outline changes. Differentiate Without Color strengthens the outline and adds a selected check marker; ordinary selection already uses shape, weight, and outline as well as tint. Increase Contrast prevents low-contrast glass text; Reduce Transparency removes translucency. Decorative segmentation is hidden from accessibility. Application labels expose name, run state, pinned state, and selected state. Read-only gesture guidance is not represented as an accessible button.
+
+The offscreen review renderer uses an additive `WheelAccessibilityReview` environment to enable these fallbacks without modifying get-only system environment values or global macOS preferences. Real system preferences always win. A check marker indicates a viable selected target; unavailable targets retain their slash marker, stronger outline, and explicit unavailable text.
 
 ## Settings and menu bar
 
