@@ -1,18 +1,20 @@
-<div align="center">
+<h1 align="center">Wheel</h1>
 
-# Wheel
+<p align="center">
+  <strong>Fast spatial navigation through the applications you were just using.</strong>
+</p>
 
-**A native macOS navigation layer for jumping back to the applications you were just using.**
+<p align="center">
+  <a href="https://github.com/gogolumo/Wheel/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/gogolumo/Wheel/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
+  <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111827?logo=apple&logoColor=white" />
+  <img alt="Swift 5.10+" src="https://img.shields.io/badge/Swift-5.10%2B-F05138?logo=swift&logoColor=white" />
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-7C3AED" /></a>
+  <img alt="Early MVP" src="https://img.shields.io/badge/status-early_MVP-22C55E" />
+</p>
 
-[![CI](https://github.com/gogolumo/Wheel/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/gogolumo/Wheel/actions/workflows/ci.yml)
-![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?logo=apple&logoColor=white)
-![Swift 5.10+](https://img.shields.io/badge/Swift-5.10%2B-F05138?logo=swift&logoColor=white)
-[![MIT License](https://img.shields.io/badge/license-MIT-7C3AED)](LICENSE)
-![Early MVP](https://img.shields.io/badge/status-early_MVP-22C55E)
-
-<img src="docs/assets/readme/wheel-overlay.png" alt="Wheel radial overlay with a selected application" width="900" />
-
-</div>
+<p align="center">
+  <img src="docs/assets/readme/wheel-overlay.png" alt="Wheel radial overlay with a selected application" width="900" />
+</p>
 
 Wheel is a local-first macOS utility that turns recent application activity into a fast, spatial navigation surface. Hold the configured trigger, move toward a destination in the Wheel, and release to switch to a running application or reopen a recently closed one.
 
@@ -95,7 +97,7 @@ At the domain level Wheel also preserves a Back / Forward history contract: **LE
 - **Bounded history** — configurable capacity with local persistence.
 - **Native menu-bar lifecycle** — enable, pause/resume, permission recovery, recent-app status, Settings, and Quit.
 - **Input Monitoring onboarding** — requests only the permission needed for the current global gesture implementation.
-- **Responsive radial HUD** — one nonactivating `NSPanel`, full-screen/Space compatible, generation-guarded, and bounded to the visible screen frame.
+- **Responsive radial HUD** — one nonactivating `NSPanel`, configured for Space/full-screen auxiliary presentation, generation-guarded, and bounded to the visible screen frame.
 - **Liquid Glass / Material presentation** — native macOS 26 glass when compiled with a compatible SDK, with a Material fallback on macOS 14–25.
 - **Deterministic visual fixtures** — production component rendering for UI review without reading the user's real application history.
 
@@ -293,6 +295,6 @@ Track the milestone plan in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 Wheel is available under the [MIT License](LICENSE).
 
-<div align="center">
+<p align="center">
   <sub>Maintained by <a href="https://github.com/gogolumo">gogolumo</a>.</sub>
-</div>
+</p>
