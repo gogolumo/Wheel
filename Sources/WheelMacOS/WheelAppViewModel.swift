@@ -6,7 +6,7 @@ public enum WheelAppStatus: String, Equatable, Sendable {
     case starting = "Starting"
     case disabled = "Disabled"
     case needsPermission = "Needs Permission"
-    case ready = "Ready"
+    case ready = "Listening"
     case paused = "Paused"
     case error = "Error"
 }

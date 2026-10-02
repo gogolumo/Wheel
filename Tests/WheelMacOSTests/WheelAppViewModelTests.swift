@@ -3,6 +3,11 @@ import WheelDomain
 @testable import WheelMacOS
 
 final class WheelAppViewModelTests: XCTestCase {
+    func testRunningMonitorStatusDoesNotClaimThePhysicalGatePassed() {
+        XCTAssertEqual(WheelAppStatus.ready.rawValue, "Listening")
+        XCTAssertNotEqual(WheelAppStatus.ready.rawValue, "Ready")
+    }
+
     func testFixtureArgumentsSupportNamedAndEqualsForms() {
         XCTAssertEqual(
             WheelAppFixture.requested(

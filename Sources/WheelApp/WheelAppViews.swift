@@ -921,6 +921,14 @@ private struct InputSettingsView: View {
                         }
                         .pickerStyle(.radioGroup)
 
+                        Label(
+                            "Trigger candidates remain experimental until the "
+                                + "SPIKE-001 and SPIKE-002 physical matrices pass.",
+                            systemImage: "testtube.2"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                         if viewModel.configuration.triggerType == .capsLock {
                             Label(
                                 "Caps Lock changes the system alpha-shift state and remains experimental.",
@@ -1035,8 +1043,9 @@ private struct AboutWheelView: View {
                 .foregroundStyle(.tertiary)
             Text(
                 "This build validates the menu-bar lifecycle, permission recovery, and "
-                    + "gesture feedback. Context capture and restoration are intentionally "
-                    + "reported as unavailable until their feasibility gates pass."
+                    + "gesture feedback. Listening does not mean the physical input gate "
+                    + "has passed. Context capture and restoration are intentionally reported "
+                    + "as unavailable until their feasibility gates pass."
             )
             .font(.callout)
             .foregroundStyle(.secondary)

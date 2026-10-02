@@ -99,7 +99,7 @@ revoked, it stops the event tap before updating the UI.
 
 The default trigger is **Right Option**:
 
-1. Confirm the status is **Ready**.
+1. Confirm the status is **Listening**.
 2. Hold the right Option key.
 3. Move the pointer left or right.
 4. Release the key.
@@ -150,11 +150,14 @@ monitor; queued callbacks from the previous monitor generation are ignored.
 | `Starting` | The app has not finished reconciling runtime state, or monitoring is suspended until wake. |
 | `Disabled` | Wheel is off and observes no global input. |
 | `Needs Permission` | Input Monitoring is unavailable; the monitor is stopped. |
-| `Ready` | The listen-only event tap started successfully. |
+| `Listening` | The listen-only event tap started successfully; physical input acceptance is still pending. |
 | `Paused` | Wheel remains enabled but observes no global input. |
 | `Error` | The event tap or configuration failed; the message is shown in the UI. |
 
 Color is supplementary. Every state includes text and a distinct SF Symbol.
+`Listening` deliberately describes runtime activity rather than product readiness.
+The Input and About screens state that SPIKE-001/SPIKE-002 still need physical
+evidence, so merging diagnostic code cannot be mistaken for a GO decision.
 
 ## Deterministic UI fixtures
 
