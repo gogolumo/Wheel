@@ -45,6 +45,14 @@ struct WheelGeneralSettingsView: View {
                 }
                 .disabled(viewModel.fixture != nil)
 
+                Label(
+                    "Trigger candidates remain experimental until the "
+                        + "SPIKE-001 and SPIKE-002 physical matrices pass.",
+                    systemImage: "testtube.2"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
                 Text(
                     "Hold \(viewModel.configuration.triggerType.productName), "
                         + "move toward an application, then release to switch or reopen it."
@@ -96,7 +104,7 @@ struct WheelGeneralSettingsView: View {
         case .starting: return "Wheel is preparing global input."
         case .disabled: return "Wheel is off. Global input and application capture are stopped."
         case .needsPermission: return "Application history can update while global gestures await permission."
-        case .ready: return "Ready for the next gesture. Input is observed without blocking other apps."
+        case .ready: return "Listening for the next gesture. Input is observed without blocking other apps."
         case .paused: return "Global input is paused. Application history continues to update."
         case .error: return "Input monitoring needs attention. Review the message below."
         }
@@ -301,6 +309,8 @@ struct WheelAboutSettingsView: View {
                 LabeledContent("Version", value: version)
                 Text(
                     "This build captures applications locally and switches or reopens them. "
+                        + "Listening means the input monitor is active; it does not mean the "
+                        + "SPIKE-001/SPIKE-002 physical gate has passed. "
                         + "Exact window, tab, folder, and editor restoration remain future capabilities."
                 )
                 .font(.callout)
