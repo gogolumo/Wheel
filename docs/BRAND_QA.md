@@ -47,7 +47,7 @@ Spotlight indexing of the temporary installation is pending/unavailable.
 | [Resolved application icon](../Brand/Previews/WheelResolvedAppIcon.png) | Native `NSWorkspace` icon lookup for the installed `.app`; no Finder window capture |
 | [Status label Light](assets/readme/menu-status-label-light.png) / [Dark](assets/readme/menu-status-label-dark.png) | Actual `WheelMenuBarLabel`, without desktop/menu-bar chrome |
 | [Menu popover](assets/readme/menu-bar.png) | Actual menu view with synthetic state and the opaque accessibility fallback |
-| [Overlay](assets/readme/wheel-overlay.png) | Actual overlay view with synthetic identities/background |
+| [Overlay](assets/readme/wheel-overlay.png) | Actual overlay view with synthetic identities/background and the opaque Reduce Transparency fallback |
 | [About Light](assets/readme/settings-about-light.png) / [Dark](assets/readme/settings-about.png) | Actual About detail component with metadata from the packaged app |
 
 The local CI harness used canonical temporary paths and ad-hoc signing for its

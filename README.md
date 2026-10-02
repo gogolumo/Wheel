@@ -49,7 +49,7 @@ The images below are rendered by the **packaged Wheel.app** from its production 
 
 <img src="docs/assets/readme/wheel-overlay.png" alt="Wheel overlay showing a selected running application" width="860" />
 
-The HUD stays nonactivating and click-through. A selected destination shows application state and the release action without pretending to expose window or document previews.
+The HUD stays nonactivating and click-through. A selected destination shows application state and the release action without pretending to expose window or document previews. This export uses the real Reduce Transparency fallback for readable surfaces; live native glass requires desktop review.
 
 ### Layout and pinned applications
 
