@@ -109,6 +109,7 @@ public final class WheelAppViewModel: ObservableObject {
 
     public let fixture: WheelAppFixture?
     public let overlayFixture: WheelGestureOverlayFixture?
+    public let visualFixture: WheelVisualFixture?
     public let settings: WheelSettings
     public let pinnedSlots: WheelPinnedSlotStore
 
@@ -150,6 +151,7 @@ public final class WheelAppViewModel: ObservableObject {
         },
         fixture: WheelAppFixture? = nil,
         overlayFixture: WheelGestureOverlayFixture? = nil,
+        visualFixture: WheelVisualFixture? = nil,
         overlayPresentationDelay: TimeInterval = 0.18,
         overlayResultDuration: TimeInterval = 0.5,
         overlayDismissScheduler: WheelOverlayDismissScheduler = .mainQueue,
@@ -163,10 +165,27 @@ public final class WheelAppViewModel: ObservableObject {
         precondition(overlayPresentationDelay >= 0)
         precondition(overlayResultDuration >= 0)
 
-        let effectiveFixture = fixture ?? (overlayFixture == nil ? nil : .ready)
-        let settings = settings ?? WheelSettings()
-        let historyStore = applicationHistoryStore ?? WheelApplicationHistoryStore()
-        let pinnedSlotStore = pinnedSlotStore ?? WheelPinnedSlotStore()
+        // Visual data takes precedence over legacy status/overlay options. Every
+        // fixture default is isolated before a persistence store is constructed.
+        let effectiveFixture = visualFixture == nil
+            ? (fixture ?? (overlayFixture == nil ? nil : .ready))
+            : .ready
+        let defaults: UserDefaults = effectiveFixture == nil
+            ? .standard : WheelFixtureUserDefaults()
+        let settings = settings ?? WheelSettings(defaults: defaults)
+        let historyStore: WheelApplicationHistoryStore
+        if let applicationHistoryStore {
+            historyStore = applicationHistoryStore
+        } else if effectiveFixture != nil {
+            historyStore = WheelApplicationHistoryStore(
+                persistence: WheelFixtureHistoryPersistence(
+                    snapshot: visualFixture?.historySnapshot
+                )
+            )
+        } else {
+            historyStore = WheelApplicationHistoryStore()
+        }
+        let pinnedSlotStore = pinnedSlotStore ?? WheelPinnedSlotStore(defaults: defaults)
         let pinnedApplicationResolver =
             pinnedApplicationResolver ?? WheelPinnedApplicationResolver()
 
@@ -177,6 +196,7 @@ public final class WheelAppViewModel: ObservableObject {
         self.monitorFactory = monitorFactory
         self.fixture = effectiveFixture
         self.overlayFixture = overlayFixture
+        self.visualFixture = visualFixture
         self.overlayPresentationDelay = overlayPresentationDelay
         self.overlayResultDuration = overlayResultDuration
         self.overlayDismissScheduler = overlayDismissScheduler
@@ -218,6 +238,13 @@ public final class WheelAppViewModel: ObservableObject {
         monitor?.isRunning == true
     }
 
+    public var fixtureLabel: String? {
+        if let visualFixture {
+            return "Synthetic visual fixture · \(visualFixture.rawValue)"
+        }
+        return fixture == nil ? nil : "Preview fixture"
+    }
+
     public var canPause: Bool {
         fixture == nil && isEnabled && !isPaused && status == .ready
     }
@@ -251,7 +278,23 @@ public final class WheelAppViewModel: ObservableObject {
             directionCount: directionCount,
             dynamicLimit: dynamicBudget
         ) { [self] pinned in
-            self.pinnedApplicationResolver.resolve(
+            // A missing synthetic pin must never resolve against installed or
+            // running applications. Normal runtime keeps the native resolver.
+            if self.fixture != nil {
+                if let context = self.visualFixture?.context(for: pinned) {
+                    return context
+                }
+                return WheelApplicationContext(
+                    stableIdentifier: pinned.stableIdentifier,
+                    localizedName: pinned.localizedName,
+                    bundleIdentifier: pinned.bundleIdentifier,
+                    applicationURL: pinned.applicationURL,
+                    firstSeenAt: .distantPast,
+                    lastActivatedAt: .distantPast,
+                    runState: .unavailable
+                )
+            }
+            return self.pinnedApplicationResolver.resolve(
                 pinned,
                 liveContexts: self.applicationHistory
             )
@@ -456,6 +499,8 @@ public final class WheelAppViewModel: ObservableObject {
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
+
+        guard fixture == nil else { return }
 
         applicationMonitor.onActivated = { [weak self] observation in
             self?.handleApplicationActivated(observation)
@@ -841,6 +886,33 @@ public final class WheelAppViewModel: ObservableObject {
         }
 
         applyOverlayFixtureIfNeeded()
+        applyVisualFixtureIfNeeded()
+    }
+
+    private func applyVisualFixtureIfNeeded() {
+        guard let visualFixture else { return }
+
+        settings.setDirectionCount(visualFixture.directionCount)
+        settings.setVisibleItemCount(visualFixture.directionCount)
+        for pin in visualFixture.pins {
+            pinnedSlots.pin(pin.application, at: pin.position)
+        }
+
+        status = .ready
+        errorMessage = nil
+        isGestureActive = visualFixture.overlayState == .triggerHeld
+        overlayState = visualFixture.overlayState
+        overlayContentState = visualFixture.overlayState
+        hoveredApplicationIndex = visualFixture.hoveredIndex
+        selectedApplicationIndex = visualFixture.selectedIndex
+        lastDirection = nil
+        recognizedGestureCount = 0
+        matchingTriggerSignalCount = 0
+        lastTriggerSignalIsDown = nil
+        lastApplicationAction = selectedApplicationIndex.flatMap { index in
+            wheelSlots[index]?.localizedName
+        }
+        notice = fixtureLabel
     }
 
     private func applyOverlayFixtureIfNeeded() {

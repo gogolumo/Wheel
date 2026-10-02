@@ -458,7 +458,7 @@ private struct OverlayHarness: @unchecked Sendable {
         let scheduler = ManualOverlayDismissScheduler()
         self.monitor = monitor
         self.scheduler = scheduler
-        viewModel = WheelAppViewModel(
+        viewModel = makeIsolatedWheelAppViewModel(
             permissionProvider: { permission.granted },
             permissionRequester: { permission.granted },
             monitorFactory: { _ in monitor },

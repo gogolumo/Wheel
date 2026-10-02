@@ -16,7 +16,8 @@ private final class WheelNonactivatingOverlayPanel: NSPanel {
 public final class WheelGestureOverlayPanelController {
     public typealias VisibleFrameProvider = () -> NSRect?
 
-    public static let panelSize = NSSize(width: 520, height: 520)
+    /// 492 pt ring, 24 pt gap, 276 pt detail surface, and 14 pt edge padding.
+    public static let panelSize = NSSize(width: 820, height: 520)
 
     public private(set) var panel: NSPanel
     public private(set) var isObserving = false
@@ -120,11 +121,18 @@ public final class WheelGestureOverlayPanelController {
         panelSize: NSSize,
         in visibleFrame: NSRect
     ) -> NSRect {
-        NSRect(
-            x: visibleFrame.midX - panelSize.width / 2,
-            y: visibleFrame.midY - panelSize.height / 2,
-            width: panelSize.width,
-            height: panelSize.height
+        // Fit the composition on small displays without reading pointer coordinates.
+        let scale = min(
+            1,
+            max(1, visibleFrame.width - 32) / panelSize.width,
+            max(1, visibleFrame.height - 32) / panelSize.height
+        )
+        let size = NSSize(width: panelSize.width * scale, height: panelSize.height * scale)
+        return NSRect(
+            x: visibleFrame.midX - size.width / 2,
+            y: visibleFrame.midY - size.height / 2,
+            width: size.width,
+            height: size.height
         )
     }
 
@@ -153,7 +161,7 @@ public final class WheelGestureOverlayPanelController {
             panel.alphaValue = 0
             panel.orderFrontRegardless()
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.12
+                context.duration = 0.16
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 panel.animator().alphaValue = 1
             }

@@ -69,6 +69,10 @@ let package = Package(
         .testTarget(
             name: "WheelMacOSTests",
             dependencies: ["WheelDomain", "WheelMacOS"]
+        ),
+        .testTarget(
+            name: "WheelAppTests",
+            dependencies: ["WheelApp", "WheelMacOS"]
         )
     ]
 )

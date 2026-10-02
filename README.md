@@ -141,18 +141,19 @@ bash scripts/bootstrap-check.sh
 
 The bootstrap check validates module boundaries, builds debug and release configurations with compiler warnings treated as errors, runs the full test suite, and executes `wheel-demo`.
 
-Pinned applications can be assigned to exact radial sectors from **Wheel → Pinned Apps**. Those sectors stay fixed while every unpinned sector continues to use recent application history. Pins persist across restarts and hidden pins are retained when the direction count is reduced.
+Pinned applications can be assigned to exact radial sectors from **Settings → Applications**. Those sectors stay fixed while every unpinned sector continues to use recent application history. Pins persist across restarts and hidden pins are retained when the direction count is reduced.
 
-Run the native menu-bar shell from the active APP-001 branch:
+Run the native menu-bar application:
 
 ```bash
 swift run wheel-app
 ```
 
+Wheel launches the redesigned Liquid Glass wheel with real local application icons, a circular hub, rounded radial sectors, and a read-only application detail panel. Settings use a native sidebar, with engineering diagnostics under **Advanced** and a compact menu-bar control surface. The visual specification is [DESIGN.md](DESIGN.md); deterministic visual fixtures and pending physical checks are documented in [Liquid Glass QA](docs/LIQUID_GLASS_QA.md).
+
 ### Install a local Wheel.app
 
-On macOS 14+ with the full Xcode command line tools, check out the active
-`feat/APP-002-installable-bundle` branch and run:
+On macOS 14+ with the full Xcode command line tools, run:
 
 ```bash
 bash scripts/build-app.sh

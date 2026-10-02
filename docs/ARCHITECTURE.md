@@ -103,3 +103,33 @@ This prevents a generic application activation from being presented as an exact 
 The pure domain layer stores a minimal `applicationBundleID` plus an opaque context token.
 
 The native capture layer is responsible for ensuring that token is privacy-safe and does not contain document content, source code, page bodies, cookies, or other unnecessary data.
+
+
+## Native presentation
+
+The canonical production visual contract is [DESIGN.md](../DESIGN.md). `WheelApp`
+owns semantic visual tokens, one role-aware `WheelGlassSurface`, rounded annular
+sector geometry, the center hub, a read-only application detail panel, compact
+menu controls, and native sidebar/Form Settings. `WheelApplicationPresentation`
+maps run state and pin state to truthful labels and release hints without
+performing restoration or changing destination eligibility.
+
+The glass boundary conditionally compiles macOS 26 native glass with Swift 6.2+
+and retains native Material on macOS 14+. Reduce Transparency and Increase
+Contrast choose opaque semantic surfaces. The circular hub uses standard
+material to avoid layering native glass inside native glass. No package, shader,
+remote service, or screenshot capture is used.
+
+The single nonactivating, click-through `WheelGestureOverlayPanelController`
+keeps its window level, Space/full-screen behavior, generation guards, and
+main-screen placement policy. Its bounded 820×520 pt composition includes a
+492 pt ring and 276 pt context surface, with proportional fitting for small
+visible frames. It still never reads pointer coordinates for panel placement.
+No new input handlers or clickable actions are attached to that panel.
+
+Explicit visual fixtures isolate default settings, pins, and history in memory
+before stores are constructed. They never start permission checks, event taps,
+application capture, or native pin resolution. The offscreen export path renders
+only a synthetic view subtree. [QA](LIQUID_GLASS_QA.md) distinguishes deterministic
+checks from pending physical macOS evidence. The inherited radial experiment
+does not supersede the repository's LEFT/RIGHT or history contract.
