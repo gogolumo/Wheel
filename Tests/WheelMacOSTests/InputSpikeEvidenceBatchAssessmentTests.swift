@@ -70,6 +70,48 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         XCTAssertTrue(batch.missingRequiredTriggers.isEmpty)
     }
 
+    func testMinimumRunsPerTriggerFailsClosed() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry("right-option-built-in", .passed, trigger: "rightOption"),
+                entry("caps-lock-built-in", .passed, trigger: "capsLock"),
+                entry("caps-lock-external", .passed, trigger: "capsLock")
+            ],
+            minimumRunCountByTrigger: ["rightOption": 2, "capsLock": 2]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(batch.insufficientTriggerRunCounts, ["rightOption (1/2)"])
+    }
+
+    func testMinimumRunsPerTriggerPassesWithIndependentLabels() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry("right-option-built-in", .passed, trigger: "rightOption"),
+                entry("right-option-external", .passed, trigger: "rightOption"),
+                entry("caps-lock-built-in", .passed, trigger: "capsLock"),
+                entry("caps-lock-external", .passed, trigger: "capsLock")
+            ],
+            minimumRunCountByTrigger: ["rightOption": 2, "capsLock": 2]
+        )
+
+        XCTAssertEqual(batch.outcome, .passed)
+        XCTAssertTrue(batch.insufficientTriggerRunCounts.isEmpty)
+    }
+
+    func testInvalidMinimumRunsPerTriggerFailsClosed() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("caps-lock-built-in", .passed, trigger: "capsLock")],
+            minimumRunCountByTrigger: ["capsLock": 0]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.insufficientTriggerRunCounts,
+            ["capsLock (invalid minimum 0)"]
+        )
+    }
+
     func testEmptyBatchFailsClosed() {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate([])
 

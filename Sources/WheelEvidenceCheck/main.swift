@@ -7,6 +7,7 @@ private func printUsage() {
     print(
         "Usage: wheel-evidence-check "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
+            + "[--minimum-runs-per-trigger TRIGGER COUNT]... "
             + "[--expected-trigger caps-lock|right-option|mouse-side-button] "
             + "[--expected-sequence-target COUNT] "
             + "[--minimum-observed COUNT] "
@@ -39,6 +40,7 @@ guard CommandLine.arguments.count >= 2 else {
 var entries: [InputSpikeEvidenceBatchEntry] = []
 var unreadableFileCount = 0
 var requiredTriggers: Set<String> = []
+var minimumRunCountByTrigger: [String: Int] = [:]
 var evidencePaths: [String] = []
 let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
 var expectedTrigger: TriggerType?
@@ -65,6 +67,26 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         requiredTriggers.insert(trigger)
+    } else if argument == "--minimum-runs-per-trigger" {
+        argumentIndex += 1
+        guard argumentIndex < CommandLine.arguments.count else {
+            printUsage()
+            exit(64)
+        }
+        let trigger = CommandLine.arguments[argumentIndex]
+        argumentIndex += 1
+        guard
+            supportedTriggers.contains(trigger),
+            minimumRunCountByTrigger[trigger] == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let count = Int(CommandLine.arguments[argumentIndex]),
+            count > 0
+        else {
+            print("Invalid or repeated --minimum-runs-per-trigger value")
+            printUsage()
+            exit(64)
+        }
+        minimumRunCountByTrigger[trigger] = count
     } else if argument == "--expected-trigger" {
         argumentIndex += 1
         guard
@@ -225,7 +247,8 @@ for (index, path) in evidencePaths.enumerated() {
 
 let batch = InputSpikeEvidenceBatchAssessment.evaluate(
     entries,
-    requiredTriggers: requiredTriggers
+    requiredTriggers: requiredTriggers,
+    minimumRunCountByTrigger: minimumRunCountByTrigger
 )
 print(
     "\nBatch result: \(batch.outcome.rawValue.uppercased()) "
@@ -239,6 +262,10 @@ if !batch.duplicateRunLabels.isEmpty {
 if !batch.missingRequiredTriggers.isEmpty {
     let triggers = batch.missingRequiredTriggers.joined(separator: ", ")
     print("- missing required trigger evidence: \(triggers)")
+}
+if !batch.insufficientTriggerRunCounts.isEmpty {
+    let counts = batch.insufficientTriggerRunCounts.joined(separator: ", ")
+    print("- insufficient independent trigger runs: \(counts)")
 }
 print("Manual physical matrix review is still required; this is not a GO decision.")
 
