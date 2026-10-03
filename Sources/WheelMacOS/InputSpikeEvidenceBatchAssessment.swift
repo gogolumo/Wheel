@@ -23,11 +23,13 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let failedCount: Int
     public let duplicateRunLabels: [String]
     public let missingRequiredTriggers: [String]
+    public let insufficientTriggerRunCounts: [String]
     public let requiresManualReview: Bool
 
     public static func evaluate(
         _ entries: [InputSpikeEvidenceBatchEntry],
-        requiredTriggers: Set<String> = []
+        requiredTriggers: Set<String> = [],
+        minimumRunCountByTrigger: [String: Int] = [:]
     ) -> Self {
         let assessments = entries.map(\.assessment)
         let passedCount = assessments.filter { $0.outcome == .passed }.count
@@ -41,12 +43,25 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
         let missingRequiredTriggers = requiredTriggers
             .subtracting(observedTriggers)
             .sorted()
+        let observedRunCountByTrigger = Dictionary(grouping: entries, by: \.trigger)
+            .mapValues(\.count)
+        let insufficientTriggerRunCounts = minimumRunCountByTrigger
+            .compactMap { trigger, requiredCount -> String? in
+                guard requiredCount > 0 else {
+                    return "\(trigger) (invalid minimum \(requiredCount))"
+                }
+                let observedCount = observedRunCountByTrigger[trigger, default: 0]
+                guard observedCount < requiredCount else { return nil }
+                return "\(trigger) (\(observedCount)/\(requiredCount))"
+            }
+            .sorted()
 
         let outcome: InputSpikeEvidenceAssessment.Outcome
         if entries.isEmpty
             || failedCount > 0
             || !duplicateRunLabels.isEmpty
-            || !missingRequiredTriggers.isEmpty {
+            || !missingRequiredTriggers.isEmpty
+            || !insufficientTriggerRunCounts.isEmpty {
             outcome = .failed
         } else if incompleteCount > 0 {
             outcome = .incomplete
@@ -61,6 +76,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             failedCount: failedCount,
             duplicateRunLabels: duplicateRunLabels,
             missingRequiredTriggers: missingRequiredTriggers,
+            insufficientTriggerRunCounts: insufficientTriggerRunCounts,
             requiresManualReview: true
         )
     }
