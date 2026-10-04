@@ -112,6 +112,62 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         )
     }
 
+    func testRequiredRunsFailWhenMissingOrBoundToWrongTrigger() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry("right-option-built-in", .passed, trigger: "capsLock")
+            ],
+            requiredRuns: [
+                "right-option-built-in": "rightOption",
+                "caps-lock-external": "capsLock"
+            ]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.requiredRunFindings,
+            [
+                "caps-lock-external (missing; expected capsLock)",
+                "right-option-built-in (observed capsLock; expected rightOption)"
+            ]
+        )
+    }
+
+    func testRequiredRunsPassWhenEveryLabelMatchesItsTrigger() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry("right-option-built-in", .passed, trigger: "rightOption"),
+                entry("caps-lock-external", .passed, trigger: "capsLock")
+            ],
+            requiredRuns: [
+                "right-option-built-in": "rightOption",
+                "caps-lock-external": "capsLock"
+            ]
+        )
+
+        XCTAssertEqual(batch.outcome, .passed)
+        XCTAssertTrue(batch.requiredRunFindings.isEmpty)
+    }
+
+    func testInvalidRequiredRunContractFailsClosed() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("caps-lock-built-in", .passed, trigger: "capsLock")],
+            requiredRuns: [
+                "private/path": "capsLock",
+                "caps-lock-built-in": "keyboardShortcut"
+            ]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.requiredRunFindings,
+            [
+                "caps-lock-built-in (unsupported expected trigger)",
+                "required run contract contains an invalid privacy-safe label"
+            ]
+        )
+    }
+
     func testEmptyBatchFailsClosed() {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate([])
 

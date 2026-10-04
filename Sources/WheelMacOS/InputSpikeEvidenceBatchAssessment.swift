@@ -24,12 +24,14 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let duplicateRunLabels: [String]
     public let missingRequiredTriggers: [String]
     public let insufficientTriggerRunCounts: [String]
+    public let requiredRunFindings: [String]
     public let requiresManualReview: Bool
 
     public static func evaluate(
         _ entries: [InputSpikeEvidenceBatchEntry],
         requiredTriggers: Set<String> = [],
-        minimumRunCountByTrigger: [String: Int] = [:]
+        minimumRunCountByTrigger: [String: Int] = [:],
+        requiredRuns: [String: String] = [:]
     ) -> Self {
         let assessments = entries.map(\.assessment)
         let passedCount = assessments.filter { $0.outcome == .passed }.count
@@ -55,13 +57,36 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
                 return "\(trigger) (\(observedCount)/\(requiredCount))"
             }
             .sorted()
+        let entriesByRunLabel = Dictionary(grouping: entries, by: \.runLabel)
+        let supportedTriggers = Set([
+            "capsLock",
+            "rightOption",
+            "mouseSideButton"
+        ])
+        let requiredRunFindings = requiredRuns
+            .compactMap { runLabel, expectedTrigger -> String? in
+                guard InputEvidenceRunLabel.validationError(for: runLabel) == nil else {
+                    return "required run contract contains an invalid privacy-safe label"
+                }
+                guard supportedTriggers.contains(expectedTrigger) else {
+                    return "\(runLabel) (unsupported expected trigger)"
+                }
+                guard let entry = entriesByRunLabel[runLabel]?.first else {
+                    return "\(runLabel) (missing; expected \(expectedTrigger))"
+                }
+                guard entry.trigger != expectedTrigger else { return nil }
+                return "\(runLabel) (observed \(entry.trigger); "
+                    + "expected \(expectedTrigger))"
+            }
+            .sorted()
 
         let outcome: InputSpikeEvidenceAssessment.Outcome
         if entries.isEmpty
             || failedCount > 0
             || !duplicateRunLabels.isEmpty
             || !missingRequiredTriggers.isEmpty
-            || !insufficientTriggerRunCounts.isEmpty {
+            || !insufficientTriggerRunCounts.isEmpty
+            || !requiredRunFindings.isEmpty {
             outcome = .failed
         } else if incompleteCount > 0 {
             outcome = .incomplete
@@ -77,6 +102,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             duplicateRunLabels: duplicateRunLabels,
             missingRequiredTriggers: missingRequiredTriggers,
             insufficientTriggerRunCounts: insufficientTriggerRunCounts,
+            requiredRunFindings: requiredRunFindings,
             requiresManualReview: true
         )
     }

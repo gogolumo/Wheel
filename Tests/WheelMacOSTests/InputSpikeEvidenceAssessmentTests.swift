@@ -19,9 +19,11 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
             source.contains("JSONDecoder().decode(InputSpikeRunSummary.self")
         )
         XCTAssertTrue(source.contains("--minimum-runs-per-trigger"))
+        XCTAssertTrue(source.contains("--require-run"))
         XCTAssertTrue(
             source.contains("minimumRunCountByTrigger: minimumRunCountByTrigger")
         )
+        XCTAssertTrue(source.contains("requiredRuns: requiredRuns"))
     }
 
     func testPassesCompleteConsistentExportButKeepsManualGate() {

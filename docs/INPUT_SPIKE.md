@@ -142,15 +142,21 @@ swift run wheel-evidence-check \
   --require-trigger rightOption \
   --minimum-runs-per-trigger capsLock 2 \
   --minimum-runs-per-trigger rightOption 2 \
+  --require-run caps-lock-built-in capsLock \
+  --require-run caps-lock-external capsLock \
+  --require-run right-option-built-in rightOption \
+  --require-run right-option-external rightOption \
   spike-001-*.json
 ```
 
 The two-run minimum prevents a single export per trigger from being presented as
 the built-in plus external-device comparison. Use unique privacy-safe run labels
 for those independent runs. This command still checks only aggregate coverage
-and evidence integrity: it cannot identify hardware or prove which device was
-used. The physical attempt tally, device/application matrix, stuck-state result,
-and side effects still require manual review.
+and evidence integrity. The named run requirements ensure that each expected
+privacy-safe matrix slot exists and is bound to the intended trigger, but they
+cannot identify hardware or prove which device was used. The physical attempt
+tally, device/application matrix, stuck-state result, and side effects still
+require manual review.
 
 The checker identifies inputs only as `Evidence file #1`, `#2`, and so on. It
 does not echo file paths or raw filesystem/decoder errors into terminal or CI
