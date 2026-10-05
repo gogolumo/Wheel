@@ -9,6 +9,8 @@ private func printUsage() {
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
             + "[--minimum-runs-per-trigger TRIGGER COUNT]... "
             + "[--require-run LABEL TRIGGER]... "
+            + "[--attempt-count LABEL COUNT]... "
+            + "[--required-attempt-count COUNT] "
             + "[--expected-trigger caps-lock|right-option|mouse-side-button] "
             + "[--expected-sequence-target COUNT] "
             + "[--minimum-observed COUNT] "
@@ -43,6 +45,8 @@ var unreadableFileCount = 0
 var requiredTriggers: Set<String> = []
 var minimumRunCountByTrigger: [String: Int] = [:]
 var requiredRuns: [String: String] = [:]
+var attestedAttemptCountByRunLabel: [String: Int] = [:]
+var requiredAttemptCount: Int?
 var evidencePaths: [String] = []
 let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
 var expectedTrigger: TriggerType?
@@ -108,6 +112,39 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         requiredRuns[runLabel] = CommandLine.arguments[argumentIndex]
+    } else if argument == "--attempt-count" {
+        argumentIndex += 1
+        guard argumentIndex < CommandLine.arguments.count else {
+            printUsage()
+            exit(64)
+        }
+        let runLabel = CommandLine.arguments[argumentIndex]
+        argumentIndex += 1
+        guard
+            InputEvidenceRunLabel.validationError(for: runLabel) == nil,
+            attestedAttemptCountByRunLabel[runLabel] == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let count = Int(CommandLine.arguments[argumentIndex]),
+            count > 0
+        else {
+            print("Invalid or repeated --attempt-count value")
+            printUsage()
+            exit(64)
+        }
+        attestedAttemptCountByRunLabel[runLabel] = count
+    } else if argument == "--required-attempt-count" {
+        argumentIndex += 1
+        guard
+            requiredAttemptCount == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let count = Int(CommandLine.arguments[argumentIndex]),
+            count > 0
+        else {
+            print("Invalid or repeated --required-attempt-count value")
+            printUsage()
+            exit(64)
+        }
+        requiredAttemptCount = count
     } else if argument == "--expected-trigger" {
         argumentIndex += 1
         guard
@@ -256,6 +293,7 @@ for (index, path) in evidencePaths.enumerated() {
             InputSpikeEvidenceBatchEntry(
                 runLabel: summary.runLabel,
                 trigger: summary.trigger,
+                completedSequenceCount: summary.completedSequenceCount,
                 assessment: assessment
             )
         )
@@ -270,7 +308,9 @@ let batch = InputSpikeEvidenceBatchAssessment.evaluate(
     entries,
     requiredTriggers: requiredTriggers,
     minimumRunCountByTrigger: minimumRunCountByTrigger,
-    requiredRuns: requiredRuns
+    requiredRuns: requiredRuns,
+    attestedAttemptCountByRunLabel: attestedAttemptCountByRunLabel,
+    requiredAttemptCount: requiredAttemptCount
 )
 print(
     "\nBatch result: \(batch.outcome.rawValue.uppercased()) "
@@ -292,6 +332,10 @@ if !batch.insufficientTriggerRunCounts.isEmpty {
 if !batch.requiredRunFindings.isEmpty {
     let findings = batch.requiredRunFindings.joined(separator: ", ")
     print("- required evidence runs: \(findings)")
+}
+if !batch.attemptCountFindings.isEmpty {
+    let findings = batch.attemptCountFindings.joined(separator: ", ")
+    print("- physical attempt attestations: \(findings)")
 }
 print("Manual physical matrix review is still required; this is not a GO decision.")
 

@@ -168,6 +168,63 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         )
     }
 
+    func testRequiredAttemptCountsCoverEveryRequiredRun() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry("caps-lock-built-in", .passed, trigger: "capsLock", completedSequenceCount: 99),
+                entry("caps-lock-external", .passed, trigger: "capsLock", completedSequenceCount: 100)
+            ],
+            requiredRuns: [
+                "caps-lock-built-in": "capsLock",
+                "caps-lock-external": "capsLock"
+            ],
+            attestedAttemptCountByRunLabel: [
+                "caps-lock-built-in": 100
+            ],
+            requiredAttemptCount: 100
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.attemptCountFindings,
+            ["caps-lock-external (missing attempt attestation)"]
+        )
+    }
+
+    func testAttemptCountCannotBeLowerThanObservedSequences() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed, completedSequenceCount: 100)],
+            attestedAttemptCountByRunLabel: ["right-option-built-in": 99]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.attemptCountFindings,
+            ["right-option-built-in (100 observed exceeds 99 attested attempts)"]
+        )
+    }
+
+    func testRequiredAttemptCountsPassWithCompleteAttestations() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry("caps-lock-built-in", .passed, trigger: "capsLock", completedSequenceCount: 99),
+                entry("caps-lock-external", .passed, trigger: "capsLock", completedSequenceCount: 100)
+            ],
+            requiredRuns: [
+                "caps-lock-built-in": "capsLock",
+                "caps-lock-external": "capsLock"
+            ],
+            attestedAttemptCountByRunLabel: [
+                "caps-lock-built-in": 100,
+                "caps-lock-external": 100
+            ],
+            requiredAttemptCount: 100
+        )
+
+        XCTAssertEqual(batch.outcome, .passed)
+        XCTAssertTrue(batch.attemptCountFindings.isEmpty)
+    }
+
     func testEmptyBatchFailsClosed() {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate([])
 
@@ -178,11 +235,13 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
     private func entry(
         _ runLabel: String,
         _ outcome: InputSpikeEvidenceAssessment.Outcome,
-        trigger: String = "rightOption"
+        trigger: String = "rightOption",
+        completedSequenceCount: Int = 0
     ) -> InputSpikeEvidenceBatchEntry {
         InputSpikeEvidenceBatchEntry(
             runLabel: runLabel,
             trigger: trigger,
+            completedSequenceCount: completedSequenceCount,
             assessment: InputSpikeEvidenceAssessment(
                 outcome: outcome,
                 findings: [],

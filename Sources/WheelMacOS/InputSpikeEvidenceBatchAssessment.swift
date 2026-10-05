@@ -1,15 +1,18 @@
 public struct InputSpikeEvidenceBatchEntry: Equatable, Sendable {
     public let runLabel: String
     public let trigger: String
+    public let completedSequenceCount: Int
     public let assessment: InputSpikeEvidenceAssessment
 
     public init(
         runLabel: String,
         trigger: String,
+        completedSequenceCount: Int = 0,
         assessment: InputSpikeEvidenceAssessment
     ) {
         self.runLabel = runLabel
         self.trigger = trigger
+        self.completedSequenceCount = completedSequenceCount
         self.assessment = assessment
     }
 }
@@ -25,13 +28,16 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let missingRequiredTriggers: [String]
     public let insufficientTriggerRunCounts: [String]
     public let requiredRunFindings: [String]
+    public let attemptCountFindings: [String]
     public let requiresManualReview: Bool
 
     public static func evaluate(
         _ entries: [InputSpikeEvidenceBatchEntry],
         requiredTriggers: Set<String> = [],
         minimumRunCountByTrigger: [String: Int] = [:],
-        requiredRuns: [String: String] = [:]
+        requiredRuns: [String: String] = [:],
+        attestedAttemptCountByRunLabel: [String: Int] = [:],
+        requiredAttemptCount: Int? = nil
     ) -> Self {
         let assessments = entries.map(\.assessment)
         let passedCount = assessments.filter { $0.outcome == .passed }.count
@@ -79,6 +85,42 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
                     + "expected \(expectedTrigger))"
             }
             .sorted()
+        let requiredAttemptLabels = requiredRuns.isEmpty
+            ? Set(entries.map(\.runLabel))
+            : Set(requiredRuns.keys)
+        var attemptCountFindings = attestedAttemptCountByRunLabel
+            .compactMap { runLabel, attemptCount -> String? in
+                guard InputEvidenceRunLabel.validationError(for: runLabel) == nil else {
+                    return "attempt contract contains an invalid privacy-safe label"
+                }
+                guard attemptCount > 0 else {
+                    return "\(runLabel) (invalid attempt count)"
+                }
+                guard let entry = entriesByRunLabel[runLabel]?.first else {
+                    return "\(runLabel) (attempt count has no evidence run)"
+                }
+                guard entry.completedSequenceCount <= attemptCount else {
+                    return "\(runLabel) (\(entry.completedSequenceCount) observed exceeds "
+                        + "\(attemptCount) attested attempts)"
+                }
+                return nil
+            }
+        if let requiredAttemptCount {
+            if requiredAttemptCount <= 0 {
+                attemptCountFindings.append("invalid required attempt count")
+            } else {
+                attemptCountFindings.append(contentsOf: requiredAttemptLabels.compactMap { runLabel in
+                    guard let attested = attestedAttemptCountByRunLabel[runLabel] else {
+                        return "\(runLabel) (missing attempt attestation)"
+                    }
+                    guard attested == requiredAttemptCount else {
+                        return "\(runLabel) (attested \(attested); required \(requiredAttemptCount))"
+                    }
+                    return nil
+                })
+            }
+        }
+        attemptCountFindings.sort()
 
         let outcome: InputSpikeEvidenceAssessment.Outcome
         if entries.isEmpty
@@ -86,7 +128,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             || !duplicateRunLabels.isEmpty
             || !missingRequiredTriggers.isEmpty
             || !insufficientTriggerRunCounts.isEmpty
-            || !requiredRunFindings.isEmpty {
+            || !requiredRunFindings.isEmpty
+            || !attemptCountFindings.isEmpty {
             outcome = .failed
         } else if incompleteCount > 0 {
             outcome = .incomplete
@@ -103,6 +146,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             missingRequiredTriggers: missingRequiredTriggers,
             insufficientTriggerRunCounts: insufficientTriggerRunCounts,
             requiredRunFindings: requiredRunFindings,
+            attemptCountFindings: attemptCountFindings,
             requiresManualReview: true
         )
     }

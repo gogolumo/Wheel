@@ -146,6 +146,11 @@ swift run wheel-evidence-check \
   --require-run caps-lock-external capsLock \
   --require-run right-option-built-in rightOption \
   --require-run right-option-external rightOption \
+  --attempt-count caps-lock-built-in 100 \
+  --attempt-count caps-lock-external 100 \
+  --attempt-count right-option-built-in 100 \
+  --attempt-count right-option-external 100 \
+  --required-attempt-count 100 \
   spike-001-*.json
 ```
 
@@ -154,9 +159,12 @@ the built-in plus external-device comparison. Use unique privacy-safe run labels
 for those independent runs. This command still checks only aggregate coverage
 and evidence integrity. The named run requirements ensure that each expected
 privacy-safe matrix slot exists and is bound to the intended trigger, but they
-cannot identify hardware or prove which device was used. The physical attempt
-tally, device/application matrix, stuck-state result, and side effects still
-require manual review.
+cannot identify hardware or prove which device was used. Each `--attempt-count`
+is an operator attestation, not telemetry: the checker requires it for every
+named slot, verifies the declared 100-attempt target, and rejects an impossible
+tally lower than the observed sequence count. Device/application coverage,
+intended versus observed directions, stuck state, and side effects still require
+manual review.
 
 The checker identifies inputs only as `Evidence file #1`, `#2`, and so on. It
 does not echo file paths or raw filesystem/decoder errors into terminal or CI
