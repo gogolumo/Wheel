@@ -1,17 +1,20 @@
 public struct InputSpikeEvidenceBatchEntry: Equatable, Sendable {
     public let runLabel: String
     public let trigger: String
+    public let sequenceTarget: Int
     public let completedSequenceCount: Int
     public let assessment: InputSpikeEvidenceAssessment
 
     public init(
         runLabel: String,
         trigger: String,
+        sequenceTarget: Int = 1,
         completedSequenceCount: Int = 0,
         assessment: InputSpikeEvidenceAssessment
     ) {
         self.runLabel = runLabel
         self.trigger = trigger
+        self.sequenceTarget = sequenceTarget
         self.completedSequenceCount = completedSequenceCount
         self.assessment = assessment
     }
@@ -102,6 +105,11 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
                 guard entry.completedSequenceCount <= attemptCount else {
                     return "\(runLabel) (\(entry.completedSequenceCount) observed exceeds "
                         + "\(attemptCount) attested attempts)"
+                }
+                if let requiredAttemptCount,
+                   entry.sequenceTarget != requiredAttemptCount {
+                    return "\(runLabel) (evidence target \(entry.sequenceTarget); "
+                        + "required \(requiredAttemptCount))"
                 }
                 return nil
             }

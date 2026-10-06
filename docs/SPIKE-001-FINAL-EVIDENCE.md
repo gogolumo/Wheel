@@ -84,7 +84,8 @@ was configured for 100 sequences and contains 99 observed sequences can satisfy
 the aggregate 99/100 criterion, but the operator must still report that 100
 deliberate physical attempts were actually made. `--attempt-count` records that
 operator attestation and fails if it is missing, differs from the required 100,
-or is lower than the observed sequence count. It is not telemetry and cannot
+is lower than the observed sequence count, or accompanies an export whose
+configured `sequenceTarget` is not 100. It is not telemetry and cannot
 independently prove the actions occurred. The checker cannot infer a
 completely missed trigger, device/application coverage, stuck state, or native
 side effects.

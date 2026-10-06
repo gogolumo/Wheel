@@ -204,6 +204,27 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         )
     }
 
+    func testRequiredAttemptCountRejectsShorterEvidenceTarget() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry(
+                    "right-option-built-in",
+                    .passed,
+                    sequenceTarget: 50,
+                    completedSequenceCount: 50
+                )
+            ],
+            attestedAttemptCountByRunLabel: ["right-option-built-in": 100],
+            requiredAttemptCount: 100
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.attemptCountFindings,
+            ["right-option-built-in (evidence target 50; required 100)"]
+        )
+    }
+
     func testRequiredAttemptCountsPassWithCompleteAttestations() {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate(
             [
@@ -236,11 +257,13 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         _ runLabel: String,
         _ outcome: InputSpikeEvidenceAssessment.Outcome,
         trigger: String = "rightOption",
+        sequenceTarget: Int = 100,
         completedSequenceCount: Int = 0
     ) -> InputSpikeEvidenceBatchEntry {
         InputSpikeEvidenceBatchEntry(
             runLabel: runLabel,
             trigger: trigger,
+            sequenceTarget: sequenceTarget,
             completedSequenceCount: completedSequenceCount,
             assessment: InputSpikeEvidenceAssessment(
                 outcome: outcome,

@@ -293,6 +293,7 @@ for (index, path) in evidencePaths.enumerated() {
             InputSpikeEvidenceBatchEntry(
                 runLabel: summary.runLabel,
                 trigger: summary.trigger,
+                sequenceTarget: summary.sequenceTarget,
                 completedSequenceCount: summary.completedSequenceCount,
                 assessment: assessment
             )

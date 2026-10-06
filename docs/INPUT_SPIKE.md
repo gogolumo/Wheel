@@ -162,7 +162,9 @@ privacy-safe matrix slot exists and is bound to the intended trigger, but they
 cannot identify hardware or prove which device was used. Each `--attempt-count`
 is an operator attestation, not telemetry: the checker requires it for every
 named slot, verifies the declared 100-attempt target, and rejects an impossible
-tally lower than the observed sequence count. Device/application coverage,
+tally lower than the observed sequence count. It also requires every attested
+export's configured `sequenceTarget` to equal 100, so a shorter run cannot be
+paired with a larger manual attestation. Device/application coverage,
 intended versus observed directions, stuck state, and side effects still require
 manual review.
 
