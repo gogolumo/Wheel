@@ -225,6 +225,60 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         )
     }
 
+    func testMaximumMissedAttemptsFailsPerRun() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry(
+                    "right-option-built-in",
+                    .passed,
+                    sequenceTarget: 100,
+                    completedSequenceCount: 98
+                )
+            ],
+            attestedAttemptCountByRunLabel: ["right-option-built-in": 100],
+            requiredAttemptCount: 100,
+            maximumMissedAttemptCount: 1
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.attemptCountFindings,
+            ["right-option-built-in (2 missed; maximum 1)"]
+        )
+    }
+
+    func testMaximumMissedAttemptsAllowsNinetyNineOfOneHundred() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry(
+                    "right-option-built-in",
+                    .passed,
+                    sequenceTarget: 100,
+                    completedSequenceCount: 99
+                )
+            ],
+            attestedAttemptCountByRunLabel: ["right-option-built-in": 100],
+            requiredAttemptCount: 100,
+            maximumMissedAttemptCount: 1
+        )
+
+        XCTAssertEqual(batch.outcome, .passed)
+        XCTAssertTrue(batch.attemptCountFindings.isEmpty)
+    }
+
+    func testInvalidMaximumMissedAttemptsFailsClosed() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            maximumMissedAttemptCount: -1
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.attemptCountFindings,
+            ["invalid maximum missed-attempt count"]
+        )
+    }
+
     func testRequiredAttemptCountsPassWithCompleteAttestations() {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate(
             [

@@ -40,7 +40,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
         minimumRunCountByTrigger: [String: Int] = [:],
         requiredRuns: [String: String] = [:],
         attestedAttemptCountByRunLabel: [String: Int] = [:],
-        requiredAttemptCount: Int? = nil
+        requiredAttemptCount: Int? = nil,
+        maximumMissedAttemptCount: Int? = nil
     ) -> Self {
         let assessments = entries.map(\.assessment)
         let passedCount = assessments.filter { $0.outcome == .passed }.count
@@ -111,8 +112,20 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
                     return "\(runLabel) (evidence target \(entry.sequenceTarget); "
                         + "required \(requiredAttemptCount))"
                 }
+                if let maximumMissedAttemptCount,
+                   maximumMissedAttemptCount >= 0 {
+                    let missedAttemptCount = attemptCount - entry.completedSequenceCount
+                    guard missedAttemptCount <= maximumMissedAttemptCount else {
+                        return "\(runLabel) (\(missedAttemptCount) missed; maximum "
+                            + "\(maximumMissedAttemptCount))"
+                    }
+                }
                 return nil
             }
+        if let maximumMissedAttemptCount,
+           maximumMissedAttemptCount < 0 {
+            attemptCountFindings.append("invalid maximum missed-attempt count")
+        }
         if let requiredAttemptCount {
             if requiredAttemptCount <= 0 {
                 attemptCountFindings.append("invalid required attempt count")

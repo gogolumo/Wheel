@@ -151,6 +151,7 @@ swift run wheel-evidence-check \
   --attempt-count right-option-built-in 100 \
   --attempt-count right-option-external 100 \
   --required-attempt-count 100 \
+  --maximum-missed-attempts 1 \
   spike-001-*.json
 ```
 
@@ -164,7 +165,10 @@ is an operator attestation, not telemetry: the checker requires it for every
 named slot, verifies the declared 100-attempt target, and rejects an impossible
 tally lower than the observed sequence count. It also requires every attested
 export's configured `sequenceTarget` to equal 100, so a shorter run cannot be
-paired with a larger manual attestation. Device/application coverage,
+paired with a larger manual attestation. The per-run missed-attempt limit
+independently enforces the 99/100 reliability
+criterion from the attested attempt count and observed sequence count.
+Device/application coverage,
 intended versus observed directions, stuck state, and side effects still require
 manual review.
 

@@ -68,6 +68,7 @@ swift run wheel-evidence-check \
   /tmp/wheel-spike-001-final.json \
   --attempt-count SPIKE-001-final 100 \
   --required-attempt-count 100 \
+  --maximum-missed-attempts 1 \
   --expected-trigger right-option \
   --expected-sequence-target 100 \
   --minimum-observed 99 \

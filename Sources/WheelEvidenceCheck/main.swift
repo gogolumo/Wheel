@@ -11,6 +11,7 @@ private func printUsage() {
             + "[--require-run LABEL TRIGGER]... "
             + "[--attempt-count LABEL COUNT]... "
             + "[--required-attempt-count COUNT] "
+            + "[--maximum-missed-attempts COUNT] "
             + "[--expected-trigger caps-lock|right-option|mouse-side-button] "
             + "[--expected-sequence-target COUNT] "
             + "[--minimum-observed COUNT] "
@@ -47,6 +48,7 @@ var minimumRunCountByTrigger: [String: Int] = [:]
 var requiredRuns: [String: String] = [:]
 var attestedAttemptCountByRunLabel: [String: Int] = [:]
 var requiredAttemptCount: Int?
+var maximumMissedAttemptCount: Int?
 var evidencePaths: [String] = []
 let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
 var expectedTrigger: TriggerType?
@@ -145,6 +147,19 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         requiredAttemptCount = count
+    } else if argument == "--maximum-missed-attempts" {
+        argumentIndex += 1
+        guard
+            maximumMissedAttemptCount == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let count = Int(CommandLine.arguments[argumentIndex]),
+            count >= 0
+        else {
+            print("Invalid or repeated --maximum-missed-attempts value")
+            printUsage()
+            exit(64)
+        }
+        maximumMissedAttemptCount = count
     } else if argument == "--expected-trigger" {
         argumentIndex += 1
         guard
@@ -311,7 +326,8 @@ let batch = InputSpikeEvidenceBatchAssessment.evaluate(
     minimumRunCountByTrigger: minimumRunCountByTrigger,
     requiredRuns: requiredRuns,
     attestedAttemptCountByRunLabel: attestedAttemptCountByRunLabel,
-    requiredAttemptCount: requiredAttemptCount
+    requiredAttemptCount: requiredAttemptCount,
+    maximumMissedAttemptCount: maximumMissedAttemptCount
 )
 print(
     "\nBatch result: \(batch.outcome.rawValue.uppercased()) "
