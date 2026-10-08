@@ -19,6 +19,8 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
             source.contains("JSONDecoder().decode(InputSpikeRunSummary.self")
         )
         XCTAssertTrue(source.contains("--minimum-runs-per-trigger"))
+        XCTAssertTrue(source.contains("--profile"))
+        XCTAssertTrue(source.contains(".spike001Final"))
         XCTAssertTrue(source.contains("--require-run"))
         XCTAssertTrue(source.contains("--attempt-count"))
         XCTAssertTrue(source.contains("--required-attempt-count"))

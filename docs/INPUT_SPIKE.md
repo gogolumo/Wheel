@@ -138,22 +138,20 @@ mistaken for the complete comparison:
 
 ```bash
 swift run wheel-evidence-check \
-  --require-trigger capsLock \
-  --require-trigger rightOption \
-  --minimum-runs-per-trigger capsLock 2 \
-  --minimum-runs-per-trigger rightOption 2 \
-  --require-run caps-lock-built-in capsLock \
-  --require-run caps-lock-external capsLock \
-  --require-run right-option-built-in rightOption \
-  --require-run right-option-external rightOption \
+  --profile spike-001-final \
   --attempt-count caps-lock-built-in 100 \
   --attempt-count caps-lock-external 100 \
   --attempt-count right-option-built-in 100 \
   --attempt-count right-option-external 100 \
-  --required-attempt-count 100 \
-  --maximum-missed-attempts 1 \
   spike-001-*.json
 ```
+
+`--profile spike-001-final` expands to the recorded trigger, independent-run,
+named-slot, 100-sequence, 99/100 reliability, direction-coverage, and 25 ms
+median-latency requirements. It intentionally does not supply any
+`--attempt-count`: the operator must attest each physical run explicitly.
+The profile cannot be mixed with individual requirement options, preventing a
+partially overridden gate from looking canonical.
 
 The two-run minimum prevents a single export per trigger from being presented as
 the built-in plus external-device comparison. Use unique privacy-safe run labels

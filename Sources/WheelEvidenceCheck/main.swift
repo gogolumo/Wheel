@@ -6,6 +6,7 @@ import WheelMacOS
 private func printUsage() {
     print(
         "Usage: wheel-evidence-check "
+            + "[--profile spike-001-final] "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
             + "[--minimum-runs-per-trigger TRIGGER COUNT]... "
             + "[--require-run LABEL TRIGGER]... "
@@ -43,6 +44,7 @@ guard CommandLine.arguments.count >= 2 else {
 
 var entries: [InputSpikeEvidenceBatchEntry] = []
 var unreadableFileCount = 0
+var evidenceProfile: InputSpikeEvidenceProfile?
 var requiredTriggers: Set<String> = []
 var minimumRunCountByTrigger: [String: Int] = [:]
 var requiredRuns: [String: String] = [:]
@@ -62,7 +64,19 @@ var maximumMedianCallbackLatencyMilliseconds: Double?
 var argumentIndex = 1
 while argumentIndex < CommandLine.arguments.count {
     let argument = CommandLine.arguments[argumentIndex]
-    if argument == "--require-trigger" {
+    if argument == "--profile" {
+        argumentIndex += 1
+        guard
+            evidenceProfile == nil,
+            argumentIndex < CommandLine.arguments.count,
+            CommandLine.arguments[argumentIndex] == "spike-001-final"
+        else {
+            print("Invalid or repeated --profile value")
+            printUsage()
+            exit(64)
+        }
+        evidenceProfile = .spike001Final
+    } else if argument == "--require-trigger" {
         argumentIndex += 1
         guard argumentIndex < CommandLine.arguments.count else {
             printUsage()
@@ -264,6 +278,39 @@ while argumentIndex < CommandLine.arguments.count {
 guard !evidencePaths.isEmpty else {
     printUsage()
     exit(64)
+}
+
+if let profile = evidenceProfile {
+    guard
+        requiredTriggers.isEmpty,
+        minimumRunCountByTrigger.isEmpty,
+        requiredRuns.isEmpty,
+        requiredAttemptCount == nil,
+        maximumMissedAttemptCount == nil,
+        expectedTrigger == nil,
+        expectedSequenceTarget == nil,
+        minimumObservedSequenceCount == nil,
+        minimumLeftSequenceCount == nil,
+        minimumRightSequenceCount == nil,
+        minimumNoneSequenceCount == nil,
+        maximumMedianCallbackLatencyMilliseconds == nil
+    else {
+        print("--profile cannot be combined with individual requirement options")
+        printUsage()
+        exit(64)
+    }
+    requiredTriggers = profile.requiredTriggers
+    minimumRunCountByTrigger = profile.minimumRunCountByTrigger
+    requiredRuns = profile.requiredRuns
+    requiredAttemptCount = profile.requiredAttemptCount
+    maximumMissedAttemptCount = profile.maximumMissedAttemptCount
+    expectedSequenceTarget = profile.expectedSequenceTarget
+    minimumObservedSequenceCount = profile.minimumObservedSequenceCount
+    minimumLeftSequenceCount = profile.minimumLeftSequenceCount
+    minimumRightSequenceCount = profile.minimumRightSequenceCount
+    minimumNoneSequenceCount = profile.minimumNoneSequenceCount
+    maximumMedianCallbackLatencyMilliseconds =
+        profile.maximumMedianCallbackLatencyMilliseconds
 }
 
 let requirements = InputSpikeEvidenceRequirements(
