@@ -168,6 +168,30 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         )
     }
 
+    func testRequiredPhysicalScenariosFailWhenAnAttestationIsMissing() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiredScenarios: ["finder", "chrome", "sleep-wake"],
+            attestedScenarios: ["finder", "chrome"]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(batch.missingRequiredScenarios, ["sleep-wake"])
+    }
+
+    func testRequiredPhysicalScenariosPassWithCompleteAttestations() {
+        let scenarios = Set(["finder", "chrome", "vscode", "full-screen", "sleep-wake"])
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiredScenarios: scenarios,
+            attestedScenarios: scenarios
+        )
+
+        XCTAssertEqual(batch.outcome, .passed)
+        XCTAssertTrue(batch.missingRequiredScenarios.isEmpty)
+        XCTAssertTrue(batch.requiresManualReview)
+    }
+
     func testRequiredAttemptCountsCoverEveryRequiredRun() {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate(
             [

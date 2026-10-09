@@ -32,6 +32,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let insufficientTriggerRunCounts: [String]
     public let requiredRunFindings: [String]
     public let attemptCountFindings: [String]
+    public let missingRequiredScenarios: [String]
     public let requiresManualReview: Bool
 
     public static func evaluate(
@@ -39,6 +40,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
         requiredTriggers: Set<String> = [],
         minimumRunCountByTrigger: [String: Int] = [:],
         requiredRuns: [String: String] = [:],
+        requiredScenarios: Set<String> = [],
+        attestedScenarios: Set<String> = [],
         attestedAttemptCountByRunLabel: [String: Int] = [:],
         requiredAttemptCount: Int? = nil,
         maximumMissedAttemptCount: Int? = nil
@@ -142,6 +145,9 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             }
         }
         attemptCountFindings.sort()
+        let missingRequiredScenarios = requiredScenarios
+            .subtracting(attestedScenarios)
+            .sorted()
 
         let outcome: InputSpikeEvidenceAssessment.Outcome
         if entries.isEmpty
@@ -150,7 +156,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             || !missingRequiredTriggers.isEmpty
             || !insufficientTriggerRunCounts.isEmpty
             || !requiredRunFindings.isEmpty
-            || !attemptCountFindings.isEmpty {
+            || !attemptCountFindings.isEmpty
+            || !missingRequiredScenarios.isEmpty {
             outcome = .failed
         } else if incompleteCount > 0 {
             outcome = .incomplete
@@ -168,6 +175,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             insufficientTriggerRunCounts: insufficientTriggerRunCounts,
             requiredRunFindings: requiredRunFindings,
             attemptCountFindings: attemptCountFindings,
+            missingRequiredScenarios: missingRequiredScenarios,
             requiresManualReview: true
         )
     }

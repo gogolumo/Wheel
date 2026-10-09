@@ -2,6 +2,7 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
     public let requiredTriggers: Set<String>
     public let minimumRunCountByTrigger: [String: Int]
     public let requiredRuns: [String: String]
+    public let requiredScenarios: Set<String>
     public let requiredAttemptCount: Int
     public let maximumMissedAttemptCount: Int
     public let expectedSequenceTarget: Int
@@ -19,6 +20,13 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
             "caps-lock-external": "capsLock",
             "right-option-built-in": "rightOption",
             "right-option-external": "rightOption"
+        ],
+        requiredScenarios: [
+            "finder",
+            "chrome",
+            "vscode",
+            "full-screen",
+            "sleep-wake"
         ],
         requiredAttemptCount: 100,
         maximumMissedAttemptCount: 1,
