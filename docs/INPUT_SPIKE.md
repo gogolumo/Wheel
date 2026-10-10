@@ -137,17 +137,22 @@ keyboard candidates. This prevents several files for one trigger from being
 mistaken for the complete comparison:
 
 ```bash
+run_labels=(caps-lock-built-in caps-lock-external right-option-built-in right-option-external)
+scenarios=(finder chrome vscode full-screen sleep-wake)
+scenario_args=()
+for run_label in "${run_labels[@]}"; do
+  for scenario in "${scenarios[@]}"; do
+    scenario_args+=(--attest-run-scenario "$run_label" "$scenario")
+  done
+done
+
 swift run wheel-evidence-check \
   --profile spike-001-final \
   --attempt-count caps-lock-built-in 100 \
   --attempt-count caps-lock-external 100 \
   --attempt-count right-option-built-in 100 \
   --attempt-count right-option-external 100 \
-  --attest-scenario finder \
-  --attest-scenario chrome \
-  --attest-scenario vscode \
-  --attest-scenario full-screen \
-  --attest-scenario sleep-wake \
+  "${scenario_args[@]}" \
   spike-001-*.json
 ```
 
@@ -158,13 +163,13 @@ median-latency requirements. It intentionally does not supply any
 The profile cannot be mixed with individual requirement options, preventing a
 partially overridden gate from looking canonical.
 
-Each `--attest-scenario` is also an operator attestation, not collected
+Each `--attest-run-scenario` is also an operator attestation, not collected
 telemetry. The fixed allowlist records only whether the required test setting
 was exercised; it does not store window titles, URLs, document contents, typed
 text, or application activity. The canonical profile fails closed if any of
-Finder, Chrome, VS Code, full-screen, or sleep/wake is omitted. These flags do
-not prove the scenario occurred, so the recording and manual review remain
-mandatory.
+Finder, Chrome, VS Code, full-screen, or sleep/wake is omitted for any of the
+four required run labels. These flags do not prove the scenario occurred, so
+the recording and manual review remain mandatory.
 
 The two-run minimum prevents a single export per trigger from being presented as
 the built-in plus external-device comparison. Use unique privacy-safe run labels

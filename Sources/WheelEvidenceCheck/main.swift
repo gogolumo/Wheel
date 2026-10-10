@@ -7,7 +7,7 @@ private func printUsage() {
     print(
         "Usage: wheel-evidence-check "
             + "[--profile spike-001-final] "
-            + "[--attest-scenario finder|chrome|vscode|full-screen|sleep-wake]... "
+            + "[--attest-run-scenario LABEL finder|chrome|vscode|full-screen|sleep-wake]... "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
             + "[--minimum-runs-per-trigger TRIGGER COUNT]... "
             + "[--require-run LABEL TRIGGER]... "
@@ -46,7 +46,7 @@ guard CommandLine.arguments.count >= 2 else {
 var entries: [InputSpikeEvidenceBatchEntry] = []
 var unreadableFileCount = 0
 var evidenceProfile: InputSpikeEvidenceProfile?
-var attestedScenarios: Set<String> = []
+var attestedScenariosByRunLabel: [String: Set<String>] = [:]
 var requiredTriggers: Set<String> = []
 var minimumRunCountByTrigger: [String: Int] = [:]
 var requiredRuns: [String: String] = [:]
@@ -79,18 +79,28 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         evidenceProfile = .spike001Final
-    } else if argument == "--attest-scenario" {
+    } else if argument == "--attest-run-scenario" {
         argumentIndex += 1
-        guard
-            argumentIndex < CommandLine.arguments.count,
-            supportedScenarios.contains(CommandLine.arguments[argumentIndex]),
-            !attestedScenarios.contains(CommandLine.arguments[argumentIndex])
-        else {
-            print("Invalid or repeated --attest-scenario value")
+        guard argumentIndex < CommandLine.arguments.count else {
             printUsage()
             exit(64)
         }
-        attestedScenarios.insert(CommandLine.arguments[argumentIndex])
+        let runLabel = CommandLine.arguments[argumentIndex]
+        argumentIndex += 1
+        guard
+            InputEvidenceRunLabel.validationError(for: runLabel) == nil,
+            argumentIndex < CommandLine.arguments.count,
+            supportedScenarios.contains(CommandLine.arguments[argumentIndex]),
+            !(attestedScenariosByRunLabel[runLabel]?.contains(
+                CommandLine.arguments[argumentIndex]
+            ) ?? false)
+        else {
+            print("Invalid or repeated --attest-run-scenario value")
+            printUsage()
+            exit(64)
+        }
+        attestedScenariosByRunLabel[runLabel, default: []]
+            .insert(CommandLine.arguments[argumentIndex])
     } else if argument == "--require-trigger" {
         argumentIndex += 1
         guard argumentIndex < CommandLine.arguments.count else {
@@ -295,8 +305,8 @@ guard !evidencePaths.isEmpty else {
     exit(64)
 }
 
-guard evidenceProfile != nil || attestedScenarios.isEmpty else {
-    print("--attest-scenario requires --profile")
+guard evidenceProfile != nil || attestedScenariosByRunLabel.isEmpty else {
+    print("--attest-run-scenario requires --profile")
     printUsage()
     exit(64)
 }
@@ -394,7 +404,7 @@ let batch = InputSpikeEvidenceBatchAssessment.evaluate(
     minimumRunCountByTrigger: minimumRunCountByTrigger,
     requiredRuns: requiredRuns,
     requiredScenarios: evidenceProfile?.requiredScenarios ?? [],
-    attestedScenarios: attestedScenarios,
+    attestedScenariosByRunLabel: attestedScenariosByRunLabel,
     attestedAttemptCountByRunLabel: attestedAttemptCountByRunLabel,
     requiredAttemptCount: requiredAttemptCount,
     maximumMissedAttemptCount: maximumMissedAttemptCount

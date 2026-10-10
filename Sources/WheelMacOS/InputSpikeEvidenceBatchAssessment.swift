@@ -41,7 +41,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
         minimumRunCountByTrigger: [String: Int] = [:],
         requiredRuns: [String: String] = [:],
         requiredScenarios: Set<String> = [],
-        attestedScenarios: Set<String> = [],
+        attestedScenariosByRunLabel: [String: Set<String>] = [:],
         attestedAttemptCountByRunLabel: [String: Int] = [:],
         requiredAttemptCount: Int? = nil,
         maximumMissedAttemptCount: Int? = nil
@@ -145,8 +145,15 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             }
         }
         attemptCountFindings.sort()
-        let missingRequiredScenarios = requiredScenarios
-            .subtracting(attestedScenarios)
+        let requiredScenarioRunLabels = requiredRuns.isEmpty
+            ? Set(entries.map(\.runLabel))
+            : Set(requiredRuns.keys)
+        let missingRequiredScenarios = requiredScenarioRunLabels
+            .flatMap { runLabel in
+                requiredScenarios
+                    .subtracting(attestedScenariosByRunLabel[runLabel, default: []])
+                    .map { "\(runLabel): \($0)" }
+            }
             .sorted()
 
         let outcome: InputSpikeEvidenceAssessment.Outcome

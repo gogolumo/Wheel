@@ -172,11 +172,16 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate(
             [entry("right-option-built-in", .passed)],
             requiredScenarios: ["finder", "chrome", "sleep-wake"],
-            attestedScenarios: ["finder", "chrome"]
+            attestedScenariosByRunLabel: [
+                "right-option-built-in": ["finder", "chrome"]
+            ]
         )
 
         XCTAssertEqual(batch.outcome, .failed)
-        XCTAssertEqual(batch.missingRequiredScenarios, ["sleep-wake"])
+        XCTAssertEqual(
+            batch.missingRequiredScenarios,
+            ["right-option-built-in: sleep-wake"]
+        )
     }
 
     func testRequiredPhysicalScenariosPassWithCompleteAttestations() {
@@ -184,12 +189,36 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate(
             [entry("right-option-built-in", .passed)],
             requiredScenarios: scenarios,
-            attestedScenarios: scenarios
+            attestedScenariosByRunLabel: ["right-option-built-in": scenarios]
         )
 
         XCTAssertEqual(batch.outcome, .passed)
         XCTAssertTrue(batch.missingRequiredScenarios.isEmpty)
         XCTAssertTrue(batch.requiresManualReview)
+    }
+
+    func testRequiredPhysicalScenariosApplyToEveryRequiredRun() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [
+                entry("caps-lock-built-in", .passed, trigger: "capsLock"),
+                entry("caps-lock-external", .passed, trigger: "capsLock")
+            ],
+            requiredRuns: [
+                "caps-lock-built-in": "capsLock",
+                "caps-lock-external": "capsLock"
+            ],
+            requiredScenarios: ["finder", "sleep-wake"],
+            attestedScenariosByRunLabel: [
+                "caps-lock-built-in": ["finder", "sleep-wake"],
+                "caps-lock-external": ["finder"]
+            ]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.missingRequiredScenarios,
+            ["caps-lock-external: sleep-wake"]
+        )
     }
 
     func testRequiredAttemptCountsCoverEveryRequiredRun() {
