@@ -6,8 +6,14 @@ import WheelMacOS
 private func printUsage() {
     print(
         "Usage: wheel-evidence-check "
+            + "[--profile spike-001-final] "
+            + "[--attest-run-scenario LABEL finder|chrome|vscode|full-screen|sleep-wake]... "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
             + "[--minimum-runs-per-trigger TRIGGER COUNT]... "
+            + "[--require-run LABEL TRIGGER]... "
+            + "[--attempt-count LABEL COUNT]... "
+            + "[--required-attempt-count COUNT] "
+            + "[--maximum-missed-attempts COUNT] "
             + "[--expected-trigger caps-lock|right-option|mouse-side-button] "
             + "[--expected-sequence-target COUNT] "
             + "[--minimum-observed COUNT] "
@@ -39,10 +45,17 @@ guard CommandLine.arguments.count >= 2 else {
 
 var entries: [InputSpikeEvidenceBatchEntry] = []
 var unreadableFileCount = 0
+var evidenceProfile: InputSpikeEvidenceProfile?
+var attestedScenariosByRunLabel: [String: Set<String>] = [:]
 var requiredTriggers: Set<String> = []
 var minimumRunCountByTrigger: [String: Int] = [:]
+var requiredRuns: [String: String] = [:]
+var attestedAttemptCountByRunLabel: [String: Int] = [:]
+var requiredAttemptCount: Int?
+var maximumMissedAttemptCount: Int?
 var evidencePaths: [String] = []
 let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
+let supportedScenarios = Set(["finder", "chrome", "vscode", "full-screen", "sleep-wake"])
 var expectedTrigger: TriggerType?
 var expectedSequenceTarget: Int?
 var minimumObservedSequenceCount: Int?
@@ -54,7 +67,41 @@ var maximumMedianCallbackLatencyMilliseconds: Double?
 var argumentIndex = 1
 while argumentIndex < CommandLine.arguments.count {
     let argument = CommandLine.arguments[argumentIndex]
-    if argument == "--require-trigger" {
+    if argument == "--profile" {
+        argumentIndex += 1
+        guard
+            evidenceProfile == nil,
+            argumentIndex < CommandLine.arguments.count,
+            CommandLine.arguments[argumentIndex] == "spike-001-final"
+        else {
+            print("Invalid or repeated --profile value")
+            printUsage()
+            exit(64)
+        }
+        evidenceProfile = .spike001Final
+    } else if argument == "--attest-run-scenario" {
+        argumentIndex += 1
+        guard argumentIndex < CommandLine.arguments.count else {
+            printUsage()
+            exit(64)
+        }
+        let runLabel = CommandLine.arguments[argumentIndex]
+        argumentIndex += 1
+        guard
+            InputEvidenceRunLabel.validationError(for: runLabel) == nil,
+            argumentIndex < CommandLine.arguments.count,
+            supportedScenarios.contains(CommandLine.arguments[argumentIndex]),
+            !(attestedScenariosByRunLabel[runLabel]?.contains(
+                CommandLine.arguments[argumentIndex]
+            ) ?? false)
+        else {
+            print("Invalid or repeated --attest-run-scenario value")
+            printUsage()
+            exit(64)
+        }
+        attestedScenariosByRunLabel[runLabel, default: []]
+            .insert(CommandLine.arguments[argumentIndex])
+    } else if argument == "--require-trigger" {
         argumentIndex += 1
         guard argumentIndex < CommandLine.arguments.count else {
             printUsage()
@@ -87,6 +134,71 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         minimumRunCountByTrigger[trigger] = count
+    } else if argument == "--require-run" {
+        argumentIndex += 1
+        guard argumentIndex < CommandLine.arguments.count else {
+            printUsage()
+            exit(64)
+        }
+        let runLabel = CommandLine.arguments[argumentIndex]
+        argumentIndex += 1
+        guard
+            InputEvidenceRunLabel.validationError(for: runLabel) == nil,
+            requiredRuns[runLabel] == nil,
+            argumentIndex < CommandLine.arguments.count,
+            supportedTriggers.contains(CommandLine.arguments[argumentIndex])
+        else {
+            print("Invalid or repeated --require-run value")
+            printUsage()
+            exit(64)
+        }
+        requiredRuns[runLabel] = CommandLine.arguments[argumentIndex]
+    } else if argument == "--attempt-count" {
+        argumentIndex += 1
+        guard argumentIndex < CommandLine.arguments.count else {
+            printUsage()
+            exit(64)
+        }
+        let runLabel = CommandLine.arguments[argumentIndex]
+        argumentIndex += 1
+        guard
+            InputEvidenceRunLabel.validationError(for: runLabel) == nil,
+            attestedAttemptCountByRunLabel[runLabel] == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let count = Int(CommandLine.arguments[argumentIndex]),
+            count > 0
+        else {
+            print("Invalid or repeated --attempt-count value")
+            printUsage()
+            exit(64)
+        }
+        attestedAttemptCountByRunLabel[runLabel] = count
+    } else if argument == "--required-attempt-count" {
+        argumentIndex += 1
+        guard
+            requiredAttemptCount == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let count = Int(CommandLine.arguments[argumentIndex]),
+            count > 0
+        else {
+            print("Invalid or repeated --required-attempt-count value")
+            printUsage()
+            exit(64)
+        }
+        requiredAttemptCount = count
+    } else if argument == "--maximum-missed-attempts" {
+        argumentIndex += 1
+        guard
+            maximumMissedAttemptCount == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let count = Int(CommandLine.arguments[argumentIndex]),
+            count >= 0
+        else {
+            print("Invalid or repeated --maximum-missed-attempts value")
+            printUsage()
+            exit(64)
+        }
+        maximumMissedAttemptCount = count
     } else if argument == "--expected-trigger" {
         argumentIndex += 1
         guard
@@ -193,6 +305,45 @@ guard !evidencePaths.isEmpty else {
     exit(64)
 }
 
+guard evidenceProfile != nil || attestedScenariosByRunLabel.isEmpty else {
+    print("--attest-run-scenario requires --profile")
+    printUsage()
+    exit(64)
+}
+
+if let profile = evidenceProfile {
+    guard
+        requiredTriggers.isEmpty,
+        minimumRunCountByTrigger.isEmpty,
+        requiredRuns.isEmpty,
+        requiredAttemptCount == nil,
+        maximumMissedAttemptCount == nil,
+        expectedTrigger == nil,
+        expectedSequenceTarget == nil,
+        minimumObservedSequenceCount == nil,
+        minimumLeftSequenceCount == nil,
+        minimumRightSequenceCount == nil,
+        minimumNoneSequenceCount == nil,
+        maximumMedianCallbackLatencyMilliseconds == nil
+    else {
+        print("--profile cannot be combined with individual requirement options")
+        printUsage()
+        exit(64)
+    }
+    requiredTriggers = profile.requiredTriggers
+    minimumRunCountByTrigger = profile.minimumRunCountByTrigger
+    requiredRuns = profile.requiredRuns
+    requiredAttemptCount = profile.requiredAttemptCount
+    maximumMissedAttemptCount = profile.maximumMissedAttemptCount
+    expectedSequenceTarget = profile.expectedSequenceTarget
+    minimumObservedSequenceCount = profile.minimumObservedSequenceCount
+    minimumLeftSequenceCount = profile.minimumLeftSequenceCount
+    minimumRightSequenceCount = profile.minimumRightSequenceCount
+    minimumNoneSequenceCount = profile.minimumNoneSequenceCount
+    maximumMedianCallbackLatencyMilliseconds =
+        profile.maximumMedianCallbackLatencyMilliseconds
+}
+
 let requirements = InputSpikeEvidenceRequirements(
     expectedTrigger: expectedTrigger,
     expectedSequenceTarget: expectedSequenceTarget,
@@ -235,6 +386,8 @@ for (index, path) in evidencePaths.enumerated() {
             InputSpikeEvidenceBatchEntry(
                 runLabel: summary.runLabel,
                 trigger: summary.trigger,
+                sequenceTarget: summary.sequenceTarget,
+                completedSequenceCount: summary.completedSequenceCount,
                 assessment: assessment
             )
         )
@@ -248,7 +401,13 @@ for (index, path) in evidencePaths.enumerated() {
 let batch = InputSpikeEvidenceBatchAssessment.evaluate(
     entries,
     requiredTriggers: requiredTriggers,
-    minimumRunCountByTrigger: minimumRunCountByTrigger
+    minimumRunCountByTrigger: minimumRunCountByTrigger,
+    requiredRuns: requiredRuns,
+    requiredScenarios: evidenceProfile?.requiredScenarios ?? [],
+    attestedScenariosByRunLabel: attestedScenariosByRunLabel,
+    attestedAttemptCountByRunLabel: attestedAttemptCountByRunLabel,
+    requiredAttemptCount: requiredAttemptCount,
+    maximumMissedAttemptCount: maximumMissedAttemptCount
 )
 print(
     "\nBatch result: \(batch.outcome.rawValue.uppercased()) "
@@ -266,6 +425,18 @@ if !batch.missingRequiredTriggers.isEmpty {
 if !batch.insufficientTriggerRunCounts.isEmpty {
     let counts = batch.insufficientTriggerRunCounts.joined(separator: ", ")
     print("- insufficient independent trigger runs: \(counts)")
+}
+if !batch.requiredRunFindings.isEmpty {
+    let findings = batch.requiredRunFindings.joined(separator: ", ")
+    print("- required evidence runs: \(findings)")
+}
+if !batch.attemptCountFindings.isEmpty {
+    let findings = batch.attemptCountFindings.joined(separator: ", ")
+    print("- physical attempt attestations: \(findings)")
+}
+if !batch.missingRequiredScenarios.isEmpty {
+    let scenarios = batch.missingRequiredScenarios.joined(separator: ", ")
+    print("- missing physical scenario attestations: \(scenarios)")
 }
 print("Manual physical matrix review is still required; this is not a GO decision.")
 

@@ -66,6 +66,9 @@ swift run wheel-input-spike \
 
 swift run wheel-evidence-check \
   /tmp/wheel-spike-001-final.json \
+  --attempt-count SPIKE-001-final 100 \
+  --required-attempt-count 100 \
+  --maximum-missed-attempts 1 \
   --expected-trigger right-option \
   --expected-sequence-target 100 \
   --minimum-observed 99 \
@@ -80,7 +83,11 @@ embedded in the export. The expected target check prevents a shorter run from
 being presented as the final 100-sequence run. A valid interrupted export that
 was configured for 100 sequences and contains 99 observed sequences can satisfy
 the aggregate 99/100 criterion, but the operator must still report that 100
-deliberate physical attempts were actually made. The checker cannot infer a
+deliberate physical attempts were actually made. `--attempt-count` records that
+operator attestation and fails if it is missing, differs from the required 100,
+is lower than the observed sequence count, or accompanies an export whose
+configured `sequenceTarget` is not 100. It is not telemetry and cannot
+independently prove the actions occurred. The checker cannot infer a
 completely missed trigger, device/application coverage, stuck state, or native
 side effects.
 

@@ -1,15 +1,21 @@
 public struct InputSpikeEvidenceBatchEntry: Equatable, Sendable {
     public let runLabel: String
     public let trigger: String
+    public let sequenceTarget: Int
+    public let completedSequenceCount: Int
     public let assessment: InputSpikeEvidenceAssessment
 
     public init(
         runLabel: String,
         trigger: String,
+        sequenceTarget: Int = 1,
+        completedSequenceCount: Int = 0,
         assessment: InputSpikeEvidenceAssessment
     ) {
         self.runLabel = runLabel
         self.trigger = trigger
+        self.sequenceTarget = sequenceTarget
+        self.completedSequenceCount = completedSequenceCount
         self.assessment = assessment
     }
 }
@@ -24,12 +30,21 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let duplicateRunLabels: [String]
     public let missingRequiredTriggers: [String]
     public let insufficientTriggerRunCounts: [String]
+    public let requiredRunFindings: [String]
+    public let attemptCountFindings: [String]
+    public let missingRequiredScenarios: [String]
     public let requiresManualReview: Bool
 
     public static func evaluate(
         _ entries: [InputSpikeEvidenceBatchEntry],
         requiredTriggers: Set<String> = [],
-        minimumRunCountByTrigger: [String: Int] = [:]
+        minimumRunCountByTrigger: [String: Int] = [:],
+        requiredRuns: [String: String] = [:],
+        requiredScenarios: Set<String> = [],
+        attestedScenariosByRunLabel: [String: Set<String>] = [:],
+        attestedAttemptCountByRunLabel: [String: Int] = [:],
+        requiredAttemptCount: Int? = nil,
+        maximumMissedAttemptCount: Int? = nil
     ) -> Self {
         let assessments = entries.map(\.assessment)
         let passedCount = assessments.filter { $0.outcome == .passed }.count
@@ -55,13 +70,101 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
                 return "\(trigger) (\(observedCount)/\(requiredCount))"
             }
             .sorted()
+        let entriesByRunLabel = Dictionary(grouping: entries, by: \.runLabel)
+        let supportedTriggers = Set([
+            "capsLock",
+            "rightOption",
+            "mouseSideButton"
+        ])
+        let requiredRunFindings = requiredRuns
+            .compactMap { runLabel, expectedTrigger -> String? in
+                guard InputEvidenceRunLabel.validationError(for: runLabel) == nil else {
+                    return "required run contract contains an invalid privacy-safe label"
+                }
+                guard supportedTriggers.contains(expectedTrigger) else {
+                    return "\(runLabel) (unsupported expected trigger)"
+                }
+                guard let entry = entriesByRunLabel[runLabel]?.first else {
+                    return "\(runLabel) (missing; expected \(expectedTrigger))"
+                }
+                guard entry.trigger != expectedTrigger else { return nil }
+                return "\(runLabel) (observed \(entry.trigger); "
+                    + "expected \(expectedTrigger))"
+            }
+            .sorted()
+        let requiredAttemptLabels = requiredRuns.isEmpty
+            ? Set(entries.map(\.runLabel))
+            : Set(requiredRuns.keys)
+        var attemptCountFindings = attestedAttemptCountByRunLabel
+            .compactMap { runLabel, attemptCount -> String? in
+                guard InputEvidenceRunLabel.validationError(for: runLabel) == nil else {
+                    return "attempt contract contains an invalid privacy-safe label"
+                }
+                guard attemptCount > 0 else {
+                    return "\(runLabel) (invalid attempt count)"
+                }
+                guard let entry = entriesByRunLabel[runLabel]?.first else {
+                    return "\(runLabel) (attempt count has no evidence run)"
+                }
+                guard entry.completedSequenceCount <= attemptCount else {
+                    return "\(runLabel) (\(entry.completedSequenceCount) observed exceeds "
+                        + "\(attemptCount) attested attempts)"
+                }
+                if let requiredAttemptCount,
+                   entry.sequenceTarget != requiredAttemptCount {
+                    return "\(runLabel) (evidence target \(entry.sequenceTarget); "
+                        + "required \(requiredAttemptCount))"
+                }
+                if let maximumMissedAttemptCount,
+                   maximumMissedAttemptCount >= 0 {
+                    let missedAttemptCount = attemptCount - entry.completedSequenceCount
+                    guard missedAttemptCount <= maximumMissedAttemptCount else {
+                        return "\(runLabel) (\(missedAttemptCount) missed; maximum "
+                            + "\(maximumMissedAttemptCount))"
+                    }
+                }
+                return nil
+            }
+        if let maximumMissedAttemptCount,
+           maximumMissedAttemptCount < 0 {
+            attemptCountFindings.append("invalid maximum missed-attempt count")
+        }
+        if let requiredAttemptCount {
+            if requiredAttemptCount <= 0 {
+                attemptCountFindings.append("invalid required attempt count")
+            } else {
+                attemptCountFindings.append(contentsOf: requiredAttemptLabels.compactMap { runLabel in
+                    guard let attested = attestedAttemptCountByRunLabel[runLabel] else {
+                        return "\(runLabel) (missing attempt attestation)"
+                    }
+                    guard attested == requiredAttemptCount else {
+                        return "\(runLabel) (attested \(attested); required \(requiredAttemptCount))"
+                    }
+                    return nil
+                })
+            }
+        }
+        attemptCountFindings.sort()
+        let requiredScenarioRunLabels = requiredRuns.isEmpty
+            ? Set(entries.map(\.runLabel))
+            : Set(requiredRuns.keys)
+        let missingRequiredScenarios = requiredScenarioRunLabels
+            .flatMap { runLabel in
+                requiredScenarios
+                    .subtracting(attestedScenariosByRunLabel[runLabel, default: []])
+                    .map { "\(runLabel): \($0)" }
+            }
+            .sorted()
 
         let outcome: InputSpikeEvidenceAssessment.Outcome
         if entries.isEmpty
             || failedCount > 0
             || !duplicateRunLabels.isEmpty
             || !missingRequiredTriggers.isEmpty
-            || !insufficientTriggerRunCounts.isEmpty {
+            || !insufficientTriggerRunCounts.isEmpty
+            || !requiredRunFindings.isEmpty
+            || !attemptCountFindings.isEmpty
+            || !missingRequiredScenarios.isEmpty {
             outcome = .failed
         } else if incompleteCount > 0 {
             outcome = .incomplete
@@ -77,6 +180,9 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             duplicateRunLabels: duplicateRunLabels,
             missingRequiredTriggers: missingRequiredTriggers,
             insufficientTriggerRunCounts: insufficientTriggerRunCounts,
+            requiredRunFindings: requiredRunFindings,
+            attemptCountFindings: attemptCountFindings,
+            missingRequiredScenarios: missingRequiredScenarios,
             requiresManualReview: true
         )
     }
