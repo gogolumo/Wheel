@@ -3,6 +3,8 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
     public let minimumRunCountByTrigger: [String: Int]
     public let requiredRuns: [String: String]
     public let requiredScenarios: Set<String>
+    public let requiredRunReviews: Set<String>
+    public let requiresRecordingAttestation: Bool
     public let requiredAttemptCount: Int
     public let maximumMissedAttemptCount: Int
     public let expectedSequenceTarget: Int
@@ -28,6 +30,12 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
             "full-screen",
             "sleep-wake"
         ],
+        requiredRunReviews: [
+            "intended-vs-observed",
+            "stuck-state",
+            "side-effects"
+        ],
+        requiresRecordingAttestation: true,
         requiredAttemptCount: 100,
         maximumMissedAttemptCount: 1,
         expectedSequenceTarget: 100,

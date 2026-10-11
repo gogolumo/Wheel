@@ -221,6 +221,54 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         )
     }
 
+    func testRequiredManualReviewsApplyToEveryRequiredRun() {
+        let reviews = Set(["intended-vs-observed", "stuck-state", "side-effects"])
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiredRuns: ["right-option-built-in": "rightOption"],
+            requiredRunReviews: reviews,
+            attestedRunReviewsByRunLabel: [
+                "right-option-built-in": ["intended-vs-observed", "stuck-state"]
+            ]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(
+            batch.missingRequiredRunReviews,
+            ["right-option-built-in: side-effects"]
+        )
+    }
+
+    func testRequiredManualReviewsPassWithCompleteAttestations() {
+        let reviews = Set(["intended-vs-observed", "stuck-state", "side-effects"])
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiredRuns: ["right-option-built-in": "rightOption"],
+            requiredRunReviews: reviews,
+            attestedRunReviewsByRunLabel: ["right-option-built-in": reviews]
+        )
+
+        XCTAssertEqual(batch.outcome, .passed)
+        XCTAssertTrue(batch.missingRequiredRunReviews.isEmpty)
+    }
+
+    func testRequiredRecordingAttestationFailsClosedUntilProvided() {
+        let missing = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiresRecordingAttestation: true
+        )
+        let complete = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiresRecordingAttestation: true,
+            recordingAttested: true
+        )
+
+        XCTAssertEqual(missing.outcome, .failed)
+        XCTAssertTrue(missing.missingRecordingAttestation)
+        XCTAssertEqual(complete.outcome, .passed)
+        XCTAssertFalse(complete.missingRecordingAttestation)
+    }
+
     func testRequiredAttemptCountsCoverEveryRequiredRun() {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate(
             [

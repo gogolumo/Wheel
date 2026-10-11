@@ -139,10 +139,15 @@ mistaken for the complete comparison:
 ```bash
 run_labels=(caps-lock-built-in caps-lock-external right-option-built-in right-option-external)
 scenarios=(finder chrome vscode full-screen sleep-wake)
+reviews=(intended-vs-observed stuck-state side-effects)
 scenario_args=()
+review_args=()
 for run_label in "${run_labels[@]}"; do
   for scenario in "${scenarios[@]}"; do
     scenario_args+=(--attest-run-scenario "$run_label" "$scenario")
+  done
+  for review in "${reviews[@]}"; do
+    review_args+=(--attest-run-review "$run_label" "$review")
   done
 done
 
@@ -153,6 +158,8 @@ swift run wheel-evidence-check \
   --attempt-count right-option-built-in 100 \
   --attempt-count right-option-external 100 \
   "${scenario_args[@]}" \
+  "${review_args[@]}" \
+  --attest-recording \
   spike-001-*.json
 ```
 
@@ -170,6 +177,13 @@ text, or application activity. The canonical profile fails closed if any of
 Finder, Chrome, VS Code, full-screen, or sleep/wake is omitted for any of the
 four required run labels. These flags do not prove the scenario occurred, so
 the recording and manual review remain mandatory.
+
+Each `--attest-run-review` confirms only that the operator reviewed that run
+for the named category: intended versus observed directions, stuck state, or
+native side effects. `--attest-recording` confirms only that the required
+two-minute recording exists. Neither flag records a result, asserts `PASS`, or
+turns the automated check into a `GO` decision; the recording, observations,
+and final decision must still be reviewed manually.
 
 The two-run minimum prevents a single export per trigger from being presented as
 the built-in plus external-device comparison. Use unique privacy-safe run labels

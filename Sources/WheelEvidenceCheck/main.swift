@@ -8,6 +8,8 @@ private func printUsage() {
         "Usage: wheel-evidence-check "
             + "[--profile spike-001-final] "
             + "[--attest-run-scenario LABEL finder|chrome|vscode|full-screen|sleep-wake]... "
+            + "[--attest-run-review LABEL intended-vs-observed|stuck-state|side-effects]... "
+            + "[--attest-recording] "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
             + "[--minimum-runs-per-trigger TRIGGER COUNT]... "
             + "[--require-run LABEL TRIGGER]... "
@@ -47,6 +49,8 @@ var entries: [InputSpikeEvidenceBatchEntry] = []
 var unreadableFileCount = 0
 var evidenceProfile: InputSpikeEvidenceProfile?
 var attestedScenariosByRunLabel: [String: Set<String>] = [:]
+var attestedRunReviewsByRunLabel: [String: Set<String>] = [:]
+var recordingAttested = false
 var requiredTriggers: Set<String> = []
 var minimumRunCountByTrigger: [String: Int] = [:]
 var requiredRuns: [String: String] = [:]
@@ -56,6 +60,7 @@ var maximumMissedAttemptCount: Int?
 var evidencePaths: [String] = []
 let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
 let supportedScenarios = Set(["finder", "chrome", "vscode", "full-screen", "sleep-wake"])
+let supportedRunReviews = Set(["intended-vs-observed", "stuck-state", "side-effects"])
 var expectedTrigger: TriggerType?
 var expectedSequenceTarget: Int?
 var minimumObservedSequenceCount: Int?
@@ -101,6 +106,35 @@ while argumentIndex < CommandLine.arguments.count {
         }
         attestedScenariosByRunLabel[runLabel, default: []]
             .insert(CommandLine.arguments[argumentIndex])
+    } else if argument == "--attest-run-review" {
+        argumentIndex += 1
+        guard argumentIndex < CommandLine.arguments.count else {
+            printUsage()
+            exit(64)
+        }
+        let runLabel = CommandLine.arguments[argumentIndex]
+        argumentIndex += 1
+        guard
+            InputEvidenceRunLabel.validationError(for: runLabel) == nil,
+            argumentIndex < CommandLine.arguments.count,
+            supportedRunReviews.contains(CommandLine.arguments[argumentIndex]),
+            !(attestedRunReviewsByRunLabel[runLabel]?.contains(
+                CommandLine.arguments[argumentIndex]
+            ) ?? false)
+        else {
+            print("Invalid or repeated --attest-run-review value")
+            printUsage()
+            exit(64)
+        }
+        attestedRunReviewsByRunLabel[runLabel, default: []]
+            .insert(CommandLine.arguments[argumentIndex])
+    } else if argument == "--attest-recording" {
+        guard !recordingAttested else {
+            print("Repeated --attest-recording value")
+            printUsage()
+            exit(64)
+        }
+        recordingAttested = true
     } else if argument == "--require-trigger" {
         argumentIndex += 1
         guard argumentIndex < CommandLine.arguments.count else {
@@ -305,8 +339,12 @@ guard !evidencePaths.isEmpty else {
     exit(64)
 }
 
-guard evidenceProfile != nil || attestedScenariosByRunLabel.isEmpty else {
-    print("--attest-run-scenario requires --profile")
+guard evidenceProfile != nil
+    || (attestedScenariosByRunLabel.isEmpty
+        && attestedRunReviewsByRunLabel.isEmpty
+        && !recordingAttested)
+else {
+    print("physical attestations require --profile")
     printUsage()
     exit(64)
 }
@@ -405,6 +443,10 @@ let batch = InputSpikeEvidenceBatchAssessment.evaluate(
     requiredRuns: requiredRuns,
     requiredScenarios: evidenceProfile?.requiredScenarios ?? [],
     attestedScenariosByRunLabel: attestedScenariosByRunLabel,
+    requiredRunReviews: evidenceProfile?.requiredRunReviews ?? [],
+    attestedRunReviewsByRunLabel: attestedRunReviewsByRunLabel,
+    requiresRecordingAttestation: evidenceProfile?.requiresRecordingAttestation ?? false,
+    recordingAttested: recordingAttested,
     attestedAttemptCountByRunLabel: attestedAttemptCountByRunLabel,
     requiredAttemptCount: requiredAttemptCount,
     maximumMissedAttemptCount: maximumMissedAttemptCount
@@ -437,6 +479,13 @@ if !batch.attemptCountFindings.isEmpty {
 if !batch.missingRequiredScenarios.isEmpty {
     let scenarios = batch.missingRequiredScenarios.joined(separator: ", ")
     print("- missing physical scenario attestations: \(scenarios)")
+}
+if !batch.missingRequiredRunReviews.isEmpty {
+    let reviews = batch.missingRequiredRunReviews.joined(separator: ", ")
+    print("- missing manual run reviews: \(reviews)")
+}
+if batch.missingRecordingAttestation {
+    print("- missing two-minute recording attestation")
 }
 print("Manual physical matrix review is still required; this is not a GO decision.")
 

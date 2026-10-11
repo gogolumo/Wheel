@@ -33,6 +33,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let requiredRunFindings: [String]
     public let attemptCountFindings: [String]
     public let missingRequiredScenarios: [String]
+    public let missingRequiredRunReviews: [String]
+    public let missingRecordingAttestation: Bool
     public let requiresManualReview: Bool
 
     public static func evaluate(
@@ -42,6 +44,10 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
         requiredRuns: [String: String] = [:],
         requiredScenarios: Set<String> = [],
         attestedScenariosByRunLabel: [String: Set<String>] = [:],
+        requiredRunReviews: Set<String> = [],
+        attestedRunReviewsByRunLabel: [String: Set<String>] = [:],
+        requiresRecordingAttestation: Bool = false,
+        recordingAttested: Bool = false,
         attestedAttemptCountByRunLabel: [String: Int] = [:],
         requiredAttemptCount: Int? = nil,
         maximumMissedAttemptCount: Int? = nil
@@ -155,6 +161,15 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
                     .map { "\(runLabel): \($0)" }
             }
             .sorted()
+        let missingRequiredRunReviews = requiredScenarioRunLabels
+            .flatMap { runLabel in
+                requiredRunReviews
+                    .subtracting(attestedRunReviewsByRunLabel[runLabel, default: []])
+                    .map { "\(runLabel): \($0)" }
+            }
+            .sorted()
+        let missingRecordingAttestation = requiresRecordingAttestation
+            && !recordingAttested
 
         let outcome: InputSpikeEvidenceAssessment.Outcome
         if entries.isEmpty
@@ -164,7 +179,9 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             || !insufficientTriggerRunCounts.isEmpty
             || !requiredRunFindings.isEmpty
             || !attemptCountFindings.isEmpty
-            || !missingRequiredScenarios.isEmpty {
+            || !missingRequiredScenarios.isEmpty
+            || !missingRequiredRunReviews.isEmpty
+            || missingRecordingAttestation {
             outcome = .failed
         } else if incompleteCount > 0 {
             outcome = .incomplete
@@ -183,6 +200,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             requiredRunFindings: requiredRunFindings,
             attemptCountFindings: attemptCountFindings,
             missingRequiredScenarios: missingRequiredScenarios,
+            missingRequiredRunReviews: missingRequiredRunReviews,
+            missingRecordingAttestation: missingRecordingAttestation,
             requiresManualReview: true
         )
     }

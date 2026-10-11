@@ -23,6 +23,11 @@ final class InputSpikeEvidenceProfileTests: XCTestCase {
             profile.requiredScenarios,
             ["finder", "chrome", "vscode", "full-screen", "sleep-wake"]
         )
+        XCTAssertEqual(
+            profile.requiredRunReviews,
+            ["intended-vs-observed", "stuck-state", "side-effects"]
+        )
+        XCTAssertTrue(profile.requiresRecordingAttestation)
         XCTAssertEqual(profile.requiredAttemptCount, 100)
         XCTAssertEqual(profile.maximumMissedAttemptCount, 1)
         XCTAssertEqual(profile.expectedSequenceTarget, 100)
