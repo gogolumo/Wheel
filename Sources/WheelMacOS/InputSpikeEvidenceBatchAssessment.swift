@@ -34,7 +34,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let attemptCountFindings: [String]
     public let missingRequiredScenarios: [String]
     public let missingRequiredRunReviews: [String]
-    public let missingRecordingAttestation: Bool
+    public let recordingDurationFinding: String?
     public let requiresManualReview: Bool
 
     public static func evaluate(
@@ -46,8 +46,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
         attestedScenariosByRunLabel: [String: Set<String>] = [:],
         requiredRunReviews: Set<String> = [],
         attestedRunReviewsByRunLabel: [String: Set<String>] = [:],
-        requiresRecordingAttestation: Bool = false,
-        recordingAttested: Bool = false,
+        minimumRecordingDurationSeconds: Int? = nil,
+        attestedRecordingDurationSeconds: Int? = nil,
         attestedAttemptCountByRunLabel: [String: Int] = [:],
         requiredAttemptCount: Int? = nil,
         maximumMissedAttemptCount: Int? = nil
@@ -168,8 +168,23 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
                     .map { "\(runLabel): \($0)" }
             }
             .sorted()
-        let missingRecordingAttestation = requiresRecordingAttestation
-            && !recordingAttested
+        let recordingDurationFinding: String?
+        if let minimumRecordingDurationSeconds {
+            if minimumRecordingDurationSeconds <= 0 {
+                recordingDurationFinding = "invalid minimum recording duration"
+            } else if let attestedRecordingDurationSeconds {
+                recordingDurationFinding = attestedRecordingDurationSeconds
+                    < minimumRecordingDurationSeconds
+                    ? "recording is shorter than the required duration"
+                    : nil
+            } else {
+                recordingDurationFinding = "missing recording duration attestation"
+            }
+        } else if attestedRecordingDurationSeconds != nil {
+            recordingDurationFinding = "recording duration has no matching requirement"
+        } else {
+            recordingDurationFinding = nil
+        }
 
         let outcome: InputSpikeEvidenceAssessment.Outcome
         if entries.isEmpty
@@ -181,7 +196,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             || !attemptCountFindings.isEmpty
             || !missingRequiredScenarios.isEmpty
             || !missingRequiredRunReviews.isEmpty
-            || missingRecordingAttestation {
+            || recordingDurationFinding != nil {
             outcome = .failed
         } else if incompleteCount > 0 {
             outcome = .incomplete
@@ -201,7 +216,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             attemptCountFindings: attemptCountFindings,
             missingRequiredScenarios: missingRequiredScenarios,
             missingRequiredRunReviews: missingRequiredRunReviews,
-            missingRecordingAttestation: missingRecordingAttestation,
+            recordingDurationFinding: recordingDurationFinding,
             requiresManualReview: true
         )
     }

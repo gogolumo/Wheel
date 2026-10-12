@@ -9,7 +9,7 @@ private func printUsage() {
             + "[--profile spike-001-final] "
             + "[--attest-run-scenario LABEL finder|chrome|vscode|full-screen|sleep-wake]... "
             + "[--attest-run-review LABEL intended-vs-observed|stuck-state|side-effects]... "
-            + "[--attest-recording] "
+            + "[--recording-duration-seconds SECONDS] "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
             + "[--minimum-runs-per-trigger TRIGGER COUNT]... "
             + "[--require-run LABEL TRIGGER]... "
@@ -50,7 +50,7 @@ var unreadableFileCount = 0
 var evidenceProfile: InputSpikeEvidenceProfile?
 var attestedScenariosByRunLabel: [String: Set<String>] = [:]
 var attestedRunReviewsByRunLabel: [String: Set<String>] = [:]
-var recordingAttested = false
+var attestedRecordingDurationSeconds: Int?
 var requiredTriggers: Set<String> = []
 var minimumRunCountByTrigger: [String: Int] = [:]
 var requiredRuns: [String: String] = [:]
@@ -128,13 +128,19 @@ while argumentIndex < CommandLine.arguments.count {
         }
         attestedRunReviewsByRunLabel[runLabel, default: []]
             .insert(CommandLine.arguments[argumentIndex])
-    } else if argument == "--attest-recording" {
-        guard !recordingAttested else {
-            print("Repeated --attest-recording value")
+    } else if argument == "--recording-duration-seconds" {
+        argumentIndex += 1
+        guard
+            attestedRecordingDurationSeconds == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let duration = Int(CommandLine.arguments[argumentIndex]),
+            duration > 0
+        else {
+            print("Invalid or repeated --recording-duration-seconds value")
             printUsage()
             exit(64)
         }
-        recordingAttested = true
+        attestedRecordingDurationSeconds = duration
     } else if argument == "--require-trigger" {
         argumentIndex += 1
         guard argumentIndex < CommandLine.arguments.count else {
@@ -342,7 +348,7 @@ guard !evidencePaths.isEmpty else {
 guard evidenceProfile != nil
     || (attestedScenariosByRunLabel.isEmpty
         && attestedRunReviewsByRunLabel.isEmpty
-        && !recordingAttested)
+        && attestedRecordingDurationSeconds == nil)
 else {
     print("physical attestations require --profile")
     printUsage()
@@ -445,8 +451,8 @@ let batch = InputSpikeEvidenceBatchAssessment.evaluate(
     attestedScenariosByRunLabel: attestedScenariosByRunLabel,
     requiredRunReviews: evidenceProfile?.requiredRunReviews ?? [],
     attestedRunReviewsByRunLabel: attestedRunReviewsByRunLabel,
-    requiresRecordingAttestation: evidenceProfile?.requiresRecordingAttestation ?? false,
-    recordingAttested: recordingAttested,
+    minimumRecordingDurationSeconds: evidenceProfile?.minimumRecordingDurationSeconds,
+    attestedRecordingDurationSeconds: attestedRecordingDurationSeconds,
     attestedAttemptCountByRunLabel: attestedAttemptCountByRunLabel,
     requiredAttemptCount: requiredAttemptCount,
     maximumMissedAttemptCount: maximumMissedAttemptCount
@@ -484,8 +490,8 @@ if !batch.missingRequiredRunReviews.isEmpty {
     let reviews = batch.missingRequiredRunReviews.joined(separator: ", ")
     print("- missing manual run reviews: \(reviews)")
 }
-if batch.missingRecordingAttestation {
-    print("- missing two-minute recording attestation")
+if let recordingDurationFinding = batch.recordingDurationFinding {
+    print("- recording duration: \(recordingDurationFinding)")
 }
 print("Manual physical matrix review is still required; this is not a GO decision.")
 

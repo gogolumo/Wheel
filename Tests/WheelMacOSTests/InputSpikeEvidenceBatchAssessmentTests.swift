@@ -252,21 +252,34 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         XCTAssertTrue(batch.missingRequiredRunReviews.isEmpty)
     }
 
-    func testRequiredRecordingAttestationFailsClosedUntilProvided() {
+    func testRequiredRecordingDurationFailsClosedUntilLongEnough() {
         let missing = InputSpikeEvidenceBatchAssessment.evaluate(
             [entry("right-option-built-in", .passed)],
-            requiresRecordingAttestation: true
+            minimumRecordingDurationSeconds: 120
+        )
+        let short = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            minimumRecordingDurationSeconds: 120,
+            attestedRecordingDurationSeconds: 119
         )
         let complete = InputSpikeEvidenceBatchAssessment.evaluate(
             [entry("right-option-built-in", .passed)],
-            requiresRecordingAttestation: true,
-            recordingAttested: true
+            minimumRecordingDurationSeconds: 120,
+            attestedRecordingDurationSeconds: 120
         )
 
         XCTAssertEqual(missing.outcome, .failed)
-        XCTAssertTrue(missing.missingRecordingAttestation)
+        XCTAssertEqual(
+            missing.recordingDurationFinding,
+            "missing recording duration attestation"
+        )
+        XCTAssertEqual(short.outcome, .failed)
+        XCTAssertEqual(
+            short.recordingDurationFinding,
+            "recording is shorter than the required duration"
+        )
         XCTAssertEqual(complete.outcome, .passed)
-        XCTAssertFalse(complete.missingRecordingAttestation)
+        XCTAssertNil(complete.recordingDurationFinding)
     }
 
     func testRequiredAttemptCountsCoverEveryRequiredRun() {

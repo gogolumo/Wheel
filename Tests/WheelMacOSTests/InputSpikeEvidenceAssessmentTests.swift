@@ -22,7 +22,7 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertTrue(source.contains("--profile"))
         XCTAssertTrue(source.contains("--attest-run-scenario"))
         XCTAssertTrue(source.contains("--attest-run-review"))
-        XCTAssertTrue(source.contains("--attest-recording"))
+        XCTAssertTrue(source.contains("--recording-duration-seconds"))
         XCTAssertTrue(source.contains(".spike001Final"))
         XCTAssertTrue(source.contains("--require-run"))
         XCTAssertTrue(source.contains("--attempt-count"))
@@ -35,7 +35,7 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertTrue(source.contains("attestedAttemptCountByRunLabel:"))
         XCTAssertTrue(source.contains("attestedScenariosByRunLabel:"))
         XCTAssertTrue(source.contains("attestedRunReviewsByRunLabel:"))
-        XCTAssertTrue(source.contains("recordingAttested:"))
+        XCTAssertTrue(source.contains("attestedRecordingDurationSeconds:"))
     }
 
     func testPassesCompleteConsistentExportButKeepsManualGate() {

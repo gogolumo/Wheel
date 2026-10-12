@@ -159,7 +159,7 @@ swift run wheel-evidence-check \
   --attempt-count right-option-external 100 \
   "${scenario_args[@]}" \
   "${review_args[@]}" \
-  --attest-recording \
+  --recording-duration-seconds 120 \
   spike-001-*.json
 ```
 
@@ -180,8 +180,8 @@ the recording and manual review remain mandatory.
 
 Each `--attest-run-review` confirms only that the operator reviewed that run
 for the named category: intended versus observed directions, stuck state, or
-native side effects. `--attest-recording` confirms only that the required
-two-minute recording exists. Neither flag records a result, asserts `PASS`, or
+native side effects. `--recording-duration-seconds 120` confirms only that the
+required recording is at least two minutes long. Neither flag records a result, asserts `PASS`, or
 turns the automated check into a `GO` decision; the recording, observations,
 and final decision must still be reviewed manually.
 
