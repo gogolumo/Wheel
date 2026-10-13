@@ -21,6 +21,7 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertTrue(source.contains("--minimum-runs-per-trigger"))
         XCTAssertTrue(source.contains("--profile"))
         XCTAssertTrue(source.contains("--attest-run-scenario"))
+        XCTAssertTrue(source.contains("timeout-recovery"))
         XCTAssertTrue(source.contains("--attest-run-review"))
         XCTAssertTrue(source.contains("--recording-duration-seconds"))
         XCTAssertTrue(source.contains(".spike001Final"))

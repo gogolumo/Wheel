@@ -138,7 +138,7 @@ mistaken for the complete comparison:
 
 ```bash
 run_labels=(caps-lock-built-in caps-lock-external right-option-built-in right-option-external)
-scenarios=(finder chrome vscode full-screen sleep-wake)
+scenarios=(finder chrome vscode full-screen sleep-wake timeout-recovery)
 reviews=(intended-vs-observed stuck-state side-effects)
 scenario_args=()
 review_args=()
@@ -174,7 +174,8 @@ Each `--attest-run-scenario` is also an operator attestation, not collected
 telemetry. The fixed allowlist records only whether the required test setting
 was exercised; it does not store window titles, URLs, document contents, typed
 text, or application activity. The canonical profile fails closed if any of
-Finder, Chrome, VS Code, full-screen, or sleep/wake is omitted for any of the
+Finder, Chrome, VS Code, full-screen, sleep/wake, or event-tap timeout recovery
+is omitted for any of the
 four required run labels. These flags do not prove the scenario occurred, so
 the recording and manual review remain mandatory.
 

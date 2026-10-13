@@ -7,7 +7,7 @@ private func printUsage() {
     print(
         "Usage: wheel-evidence-check "
             + "[--profile spike-001-final] "
-            + "[--attest-run-scenario LABEL finder|chrome|vscode|full-screen|sleep-wake]... "
+            + "[--attest-run-scenario LABEL finder|chrome|vscode|full-screen|sleep-wake|timeout-recovery]... "
             + "[--attest-run-review LABEL intended-vs-observed|stuck-state|side-effects]... "
             + "[--recording-duration-seconds SECONDS] "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
@@ -59,7 +59,9 @@ var requiredAttemptCount: Int?
 var maximumMissedAttemptCount: Int?
 var evidencePaths: [String] = []
 let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
-let supportedScenarios = Set(["finder", "chrome", "vscode", "full-screen", "sleep-wake"])
+let supportedScenarios = Set([
+    "finder", "chrome", "vscode", "full-screen", "sleep-wake", "timeout-recovery"
+])
 let supportedRunReviews = Set(["intended-vs-observed", "stuck-state", "side-effects"])
 var expectedTrigger: TriggerType?
 var expectedSequenceTarget: Int?

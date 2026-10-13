@@ -28,7 +28,8 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
             "chrome",
             "vscode",
             "full-screen",
-            "sleep-wake"
+            "sleep-wake",
+            "timeout-recovery"
         ],
         requiredRunReviews: [
             "intended-vs-observed",

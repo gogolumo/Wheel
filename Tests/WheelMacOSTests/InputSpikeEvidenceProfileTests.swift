@@ -21,7 +21,10 @@ final class InputSpikeEvidenceProfileTests: XCTestCase {
         )
         XCTAssertEqual(
             profile.requiredScenarios,
-            ["finder", "chrome", "vscode", "full-screen", "sleep-wake"]
+            [
+                "finder", "chrome", "vscode", "full-screen", "sleep-wake",
+                "timeout-recovery"
+            ]
         )
         XCTAssertEqual(
             profile.requiredRunReviews,
