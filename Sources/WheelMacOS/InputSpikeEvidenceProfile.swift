@@ -4,6 +4,7 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
     public let requiredRuns: [String: String]
     public let requiredScenarios: Set<String>
     public let requiredRunReviews: Set<String>
+    public let requiredEnvironmentAttestations: Set<String>
     public let minimumRecordingDurationSeconds: Int
     public let requiredAttemptCount: Int
     public let maximumMissedAttemptCount: Int
@@ -36,6 +37,7 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
             "stuck-state",
             "side-effects"
         ],
+        requiredEnvironmentAttestations: ["clean-account", "signed-build"],
         minimumRecordingDurationSeconds: 120,
         requiredAttemptCount: 100,
         maximumMissedAttemptCount: 1,

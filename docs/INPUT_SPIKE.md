@@ -159,6 +159,8 @@ swift run wheel-evidence-check \
   --attempt-count right-option-external 100 \
   "${scenario_args[@]}" \
   "${review_args[@]}" \
+  --attest-environment clean-account \
+  --attest-environment signed-build \
   --recording-duration-seconds 120 \
   spike-001-*.json
 ```
@@ -185,6 +187,10 @@ native side effects. `--recording-duration-seconds 120` confirms only that the
 required recording is at least two minutes long. Neither flag records a result, asserts `PASS`, or
 turns the automated check into a `GO` decision; the recording, observations,
 and final decision must still be reviewed manually.
+
+The two `--attest-environment` flags confirm that the matrix was executed from
+a clean macOS account with the signed spike build required by SPIKE-001. They
+do not inspect the account, certificate, username, team identifier, or hardware.
 
 The two-run minimum prevents a single export per trigger from being presented as
 the built-in plus external-device comparison. Use unique privacy-safe run labels

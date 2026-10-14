@@ -252,6 +252,29 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         XCTAssertTrue(batch.missingRequiredRunReviews.isEmpty)
     }
 
+    func testRequiredEnvironmentAttestationsFailClosedWhenIncomplete() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiredEnvironmentAttestations: ["clean-account", "signed-build"],
+            attestedEnvironment: ["clean-account"]
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(batch.missingEnvironmentAttestations, ["signed-build"])
+    }
+
+    func testRequiredEnvironmentAttestationsPassWhenComplete() {
+        let environment = Set(["clean-account", "signed-build"])
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiredEnvironmentAttestations: environment,
+            attestedEnvironment: environment
+        )
+
+        XCTAssertEqual(batch.outcome, .passed)
+        XCTAssertTrue(batch.missingEnvironmentAttestations.isEmpty)
+    }
+
     func testRequiredRecordingDurationFailsClosedUntilLongEnough() {
         let missing = InputSpikeEvidenceBatchAssessment.evaluate(
             [entry("right-option-built-in", .passed)],

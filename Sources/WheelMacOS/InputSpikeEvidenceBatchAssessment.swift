@@ -34,6 +34,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let attemptCountFindings: [String]
     public let missingRequiredScenarios: [String]
     public let missingRequiredRunReviews: [String]
+    public let missingEnvironmentAttestations: [String]
     public let recordingDurationFinding: String?
     public let requiresManualReview: Bool
 
@@ -46,6 +47,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
         attestedScenariosByRunLabel: [String: Set<String>] = [:],
         requiredRunReviews: Set<String> = [],
         attestedRunReviewsByRunLabel: [String: Set<String>] = [:],
+        requiredEnvironmentAttestations: Set<String> = [],
+        attestedEnvironment: Set<String> = [],
         minimumRecordingDurationSeconds: Int? = nil,
         attestedRecordingDurationSeconds: Int? = nil,
         attestedAttemptCountByRunLabel: [String: Int] = [:],
@@ -168,6 +171,9 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
                     .map { "\(runLabel): \($0)" }
             }
             .sorted()
+        let missingEnvironmentAttestations = requiredEnvironmentAttestations
+            .subtracting(attestedEnvironment)
+            .sorted()
         let recordingDurationFinding: String?
         if let minimumRecordingDurationSeconds {
             if minimumRecordingDurationSeconds <= 0 {
@@ -196,6 +202,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             || !attemptCountFindings.isEmpty
             || !missingRequiredScenarios.isEmpty
             || !missingRequiredRunReviews.isEmpty
+            || !missingEnvironmentAttestations.isEmpty
             || recordingDurationFinding != nil {
             outcome = .failed
         } else if incompleteCount > 0 {
@@ -216,6 +223,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             attemptCountFindings: attemptCountFindings,
             missingRequiredScenarios: missingRequiredScenarios,
             missingRequiredRunReviews: missingRequiredRunReviews,
+            missingEnvironmentAttestations: missingEnvironmentAttestations,
             recordingDurationFinding: recordingDurationFinding,
             requiresManualReview: true
         )

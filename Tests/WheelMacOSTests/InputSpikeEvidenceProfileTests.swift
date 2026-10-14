@@ -31,6 +31,10 @@ final class InputSpikeEvidenceProfileTests: XCTestCase {
             ["intended-vs-observed", "stuck-state", "side-effects"]
         )
         XCTAssertEqual(profile.minimumRecordingDurationSeconds, 120)
+        XCTAssertEqual(
+            profile.requiredEnvironmentAttestations,
+            ["clean-account", "signed-build"]
+        )
         XCTAssertEqual(profile.requiredAttemptCount, 100)
         XCTAssertEqual(profile.maximumMissedAttemptCount, 1)
         XCTAssertEqual(profile.expectedSequenceTarget, 100)

@@ -9,6 +9,7 @@ private func printUsage() {
             + "[--profile spike-001-final] "
             + "[--attest-run-scenario LABEL finder|chrome|vscode|full-screen|sleep-wake|timeout-recovery]... "
             + "[--attest-run-review LABEL intended-vs-observed|stuck-state|side-effects]... "
+            + "[--attest-environment clean-account|signed-build]... "
             + "[--recording-duration-seconds SECONDS] "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
             + "[--minimum-runs-per-trigger TRIGGER COUNT]... "
@@ -50,6 +51,7 @@ var unreadableFileCount = 0
 var evidenceProfile: InputSpikeEvidenceProfile?
 var attestedScenariosByRunLabel: [String: Set<String>] = [:]
 var attestedRunReviewsByRunLabel: [String: Set<String>] = [:]
+var attestedEnvironment: Set<String> = []
 var attestedRecordingDurationSeconds: Int?
 var requiredTriggers: Set<String> = []
 var minimumRunCountByTrigger: [String: Int] = [:]
@@ -63,6 +65,7 @@ let supportedScenarios = Set([
     "finder", "chrome", "vscode", "full-screen", "sleep-wake", "timeout-recovery"
 ])
 let supportedRunReviews = Set(["intended-vs-observed", "stuck-state", "side-effects"])
+let supportedEnvironmentAttestations = Set(["clean-account", "signed-build"])
 var expectedTrigger: TriggerType?
 var expectedSequenceTarget: Int?
 var minimumObservedSequenceCount: Int?
@@ -130,6 +133,18 @@ while argumentIndex < CommandLine.arguments.count {
         }
         attestedRunReviewsByRunLabel[runLabel, default: []]
             .insert(CommandLine.arguments[argumentIndex])
+    } else if argument == "--attest-environment" {
+        argumentIndex += 1
+        guard
+            argumentIndex < CommandLine.arguments.count,
+            supportedEnvironmentAttestations.contains(CommandLine.arguments[argumentIndex]),
+            !attestedEnvironment.contains(CommandLine.arguments[argumentIndex])
+        else {
+            print("Invalid or repeated --attest-environment value")
+            printUsage()
+            exit(64)
+        }
+        attestedEnvironment.insert(CommandLine.arguments[argumentIndex])
     } else if argument == "--recording-duration-seconds" {
         argumentIndex += 1
         guard
@@ -350,6 +365,7 @@ guard !evidencePaths.isEmpty else {
 guard evidenceProfile != nil
     || (attestedScenariosByRunLabel.isEmpty
         && attestedRunReviewsByRunLabel.isEmpty
+        && attestedEnvironment.isEmpty
         && attestedRecordingDurationSeconds == nil)
 else {
     print("physical attestations require --profile")
@@ -453,6 +469,8 @@ let batch = InputSpikeEvidenceBatchAssessment.evaluate(
     attestedScenariosByRunLabel: attestedScenariosByRunLabel,
     requiredRunReviews: evidenceProfile?.requiredRunReviews ?? [],
     attestedRunReviewsByRunLabel: attestedRunReviewsByRunLabel,
+    requiredEnvironmentAttestations: evidenceProfile?.requiredEnvironmentAttestations ?? [],
+    attestedEnvironment: attestedEnvironment,
     minimumRecordingDurationSeconds: evidenceProfile?.minimumRecordingDurationSeconds,
     attestedRecordingDurationSeconds: attestedRecordingDurationSeconds,
     attestedAttemptCountByRunLabel: attestedAttemptCountByRunLabel,
@@ -491,6 +509,10 @@ if !batch.missingRequiredScenarios.isEmpty {
 if !batch.missingRequiredRunReviews.isEmpty {
     let reviews = batch.missingRequiredRunReviews.joined(separator: ", ")
     print("- missing manual run reviews: \(reviews)")
+}
+if !batch.missingEnvironmentAttestations.isEmpty {
+    let environment = batch.missingEnvironmentAttestations.joined(separator: ", ")
+    print("- missing physical environment attestations: \(environment)")
 }
 if let recordingDurationFinding = batch.recordingDurationFinding {
     print("- recording duration: \(recordingDurationFinding)")
