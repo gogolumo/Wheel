@@ -8,7 +8,7 @@ private func printUsage() {
         "Usage: wheel-evidence-check "
             + "[--profile spike-001-final] "
             + "[--attest-run-scenario LABEL finder|chrome|vscode|full-screen|sleep-wake|timeout-recovery]... "
-            + "[--attest-run-review LABEL intended-vs-observed|stuck-state|side-effects]... "
+            + "[--attest-run-review LABEL event-order|intended-vs-observed|stuck-state|side-effects]... "
             + "[--attest-environment clean-account|signed-build]... "
             + "[--recording-duration-seconds SECONDS] "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
@@ -64,7 +64,7 @@ let supportedTriggers = Set(["capsLock", "rightOption", "mouseSideButton"])
 let supportedScenarios = Set([
     "finder", "chrome", "vscode", "full-screen", "sleep-wake", "timeout-recovery"
 ])
-let supportedRunReviews = Set(["intended-vs-observed", "stuck-state", "side-effects"])
+let supportedRunReviews = Set(["event-order", "intended-vs-observed", "stuck-state", "side-effects"])
 let supportedEnvironmentAttestations = Set(["clean-account", "signed-build"])
 var expectedTrigger: TriggerType?
 var expectedSequenceTarget: Int?

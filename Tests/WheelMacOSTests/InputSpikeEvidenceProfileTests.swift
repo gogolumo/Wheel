@@ -28,7 +28,7 @@ final class InputSpikeEvidenceProfileTests: XCTestCase {
         )
         XCTAssertEqual(
             profile.requiredRunReviews,
-            ["intended-vs-observed", "stuck-state", "side-effects"]
+            ["event-order", "intended-vs-observed", "stuck-state", "side-effects"]
         )
         XCTAssertEqual(profile.minimumRecordingDurationSeconds, 120)
         XCTAssertEqual(

@@ -33,6 +33,7 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
             "timeout-recovery"
         ],
         requiredRunReviews: [
+            "event-order",
             "intended-vs-observed",
             "stuck-state",
             "side-effects"

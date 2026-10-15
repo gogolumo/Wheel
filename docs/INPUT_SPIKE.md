@@ -139,7 +139,7 @@ mistaken for the complete comparison:
 ```bash
 run_labels=(caps-lock-built-in caps-lock-external right-option-built-in right-option-external)
 scenarios=(finder chrome vscode full-screen sleep-wake timeout-recovery)
-reviews=(intended-vs-observed stuck-state side-effects)
+reviews=(event-order intended-vs-observed stuck-state side-effects)
 scenario_args=()
 review_args=()
 for run_label in "${run_labels[@]}"; do
@@ -182,11 +182,13 @@ four required run labels. These flags do not prove the scenario occurred, so
 the recording and manual review remain mandatory.
 
 Each `--attest-run-review` confirms only that the operator reviewed that run
-for the named category: intended versus observed directions, stuck state, or
-native side effects. `--recording-duration-seconds 120` confirms only that the
-required recording is at least two minutes long. Neither flag records a result, asserts `PASS`, or
-turns the automated check into a `GO` decision; the recording, observations,
-and final decision must still be reviewed manually.
+for the named category: `press -> move -> release` event order, intended versus
+observed directions, stuck state, or native side effects. Aggregate event
+counts cannot establish event order. `--recording-duration-seconds 120`
+confirms only that the required recording is at least two minutes long. Neither
+flag records a result, asserts `PASS`, or turns the automated check into a `GO`
+decision; the recording, observations, and final decision must still be
+reviewed manually.
 
 The two `--attest-environment` flags confirm that the matrix was executed from
 a clean macOS account with the signed spike build required by SPIKE-001. They
