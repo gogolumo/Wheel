@@ -137,20 +137,85 @@ keyboard candidates. This prevents several files for one trigger from being
 mistaken for the complete comparison:
 
 ```bash
+run_labels=(caps-lock-built-in caps-lock-external right-option-built-in right-option-external)
+scenarios=(finder chrome vscode full-screen sleep-wake timeout-recovery)
+reviews=(event-order intended-vs-observed stuck-state side-effects)
+scenario_args=()
+review_args=()
+for run_label in "${run_labels[@]}"; do
+  for scenario in "${scenarios[@]}"; do
+    scenario_args+=(--attest-run-scenario "$run_label" "$scenario")
+  done
+  for review in "${reviews[@]}"; do
+    review_args+=(--attest-run-review "$run_label" "$review")
+  done
+done
+
 swift run wheel-evidence-check \
-  --require-trigger capsLock \
-  --require-trigger rightOption \
-  --minimum-runs-per-trigger capsLock 2 \
-  --minimum-runs-per-trigger rightOption 2 \
+  --profile spike-001-final \
+  --attempt-count caps-lock-built-in 100 \
+  --attempt-count caps-lock-external 100 \
+  --attempt-count right-option-built-in 100 \
+  --attempt-count right-option-external 100 \
+  "${scenario_args[@]}" \
+  "${review_args[@]}" \
+  --attest-environment clean-account \
+  --attest-environment signed-build \
+  --recording-duration-seconds 120 \
+  --record-decision go \
   spike-001-*.json
 ```
+
+`--profile spike-001-final` expands to the recorded trigger, independent-run,
+named-slot, 100-sequence, 99/100 reliability, direction-coverage, and 25 ms
+median-latency requirements. It intentionally does not supply any
+`--attempt-count`: the operator must attest each physical run explicitly.
+The profile cannot be mixed with individual requirement options, preventing a
+partially overridden gate from looking canonical.
+
+Each `--attest-run-scenario` is also an operator attestation, not collected
+telemetry. The fixed allowlist records only whether the required test setting
+was exercised; it does not store window titles, URLs, document contents, typed
+text, or application activity. The canonical profile fails closed if any of
+Finder, Chrome, VS Code, full-screen, sleep/wake, or event-tap timeout recovery
+is omitted for any of the
+four required run labels. These flags do not prove the scenario occurred, so
+the recording and manual review remain mandatory.
+
+Each `--attest-run-review` confirms only that the operator reviewed that run
+for the named category: `press -> move -> release` event order, intended versus
+observed directions, stuck state, or native side effects. Aggregate event
+counts cannot establish event order. `--recording-duration-seconds 120`
+confirms only that the required recording is at least two minutes long. Neither
+flag records a result, asserts `PASS`, or turns the automated check into a `GO`
+decision; the recording, observations, and final decision must still be
+reviewed manually.
+
+Record `--record-decision go` only after the recording and written observations
+have been reviewed. The canonical gate fails closed when the decision is absent,
+or when the recorded outcome is `adjust` or `stop`; the flag is an operator
+decision, not an automated inference from the aggregate JSON.
+
+The two `--attest-environment` flags confirm that the matrix was executed from
+a clean macOS account with the signed spike build required by SPIKE-001. They
+do not inspect the account, certificate, username, team identifier, or hardware.
 
 The two-run minimum prevents a single export per trigger from being presented as
 the built-in plus external-device comparison. Use unique privacy-safe run labels
 for those independent runs. This command still checks only aggregate coverage
-and evidence integrity: it cannot identify hardware or prove which device was
-used. The physical attempt tally, device/application matrix, stuck-state result,
-and side effects still require manual review.
+and evidence integrity. The named run requirements ensure that each expected
+privacy-safe matrix slot exists and is bound to the intended trigger, but they
+cannot identify hardware or prove which device was used. Each `--attempt-count`
+is an operator attestation, not telemetry: the checker requires it for every
+named slot, verifies the declared 100-attempt target, and rejects an impossible
+tally lower than the observed sequence count. It also requires every attested
+export's configured `sequenceTarget` to equal 100, so a shorter run cannot be
+paired with a larger manual attestation. The per-run missed-attempt limit
+independently enforces the 99/100 reliability
+criterion from the attested attempt count and observed sequence count.
+Device/application coverage,
+intended versus observed directions, stuck state, and side effects still require
+manual review.
 
 The checker identifies inputs only as `Evidence file #1`, `#2`, and so on. It
 does not echo file paths or raw filesystem/decoder errors into terminal or CI
