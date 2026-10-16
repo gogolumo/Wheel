@@ -28,6 +28,8 @@ Wheel is a local-first macOS utility that turns recent application activity into
 > [!IMPORTANT]
 > Wheel is an **early native MVP**, not a public release. The current build works at **application level**. Exact window, browser tab, Finder folder, editor file, scroll position, and unsaved-state restoration are not implemented yet. The runtime status **Listening** only means the input monitor is active; SPIKE-001 and SPIKE-002 still require full physical-Mac validation before their feasibility gates can be closed.
 
+> **Commercial inquiries:** Looking for a tailored macOS productivity workflow? [Discuss custom implementation](COMMERCIAL.md). Wheel is still an early MVP; its existing MIT license is unchanged.
+
 ## What Wheel does today
 
 | Capability | Current behavior |
