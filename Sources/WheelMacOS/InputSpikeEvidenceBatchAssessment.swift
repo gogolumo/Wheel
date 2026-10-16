@@ -20,6 +20,12 @@ public struct InputSpikeEvidenceBatchEntry: Equatable, Sendable {
     }
 }
 
+public enum InputSpikeEvidenceDecision: String, Equatable, Sendable {
+    case go
+    case adjust
+    case stop
+}
+
 /// Aggregates multiple independently validated evidence files while preserving
 /// the manual physical-matrix gate.
 public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
@@ -36,6 +42,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
     public let missingRequiredRunReviews: [String]
     public let missingEnvironmentAttestations: [String]
     public let recordingDurationFinding: String?
+    public let decisionFinding: String?
     public let requiresManualReview: Bool
 
     public static func evaluate(
@@ -51,6 +58,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
         attestedEnvironment: Set<String> = [],
         minimumRecordingDurationSeconds: Int? = nil,
         attestedRecordingDurationSeconds: Int? = nil,
+        requiredDecision: InputSpikeEvidenceDecision? = nil,
+        recordedDecision: InputSpikeEvidenceDecision? = nil,
         attestedAttemptCountByRunLabel: [String: Int] = [:],
         requiredAttemptCount: Int? = nil,
         maximumMissedAttemptCount: Int? = nil
@@ -191,6 +200,21 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
         } else {
             recordingDurationFinding = nil
         }
+        let decisionFinding: String?
+        if let requiredDecision {
+            if let recordedDecision {
+                decisionFinding = recordedDecision == requiredDecision
+                    ? nil
+                    : "recorded \(recordedDecision.rawValue.uppercased()); required "
+                        + requiredDecision.rawValue.uppercased()
+            } else {
+                decisionFinding = "missing final decision"
+            }
+        } else if recordedDecision != nil {
+            decisionFinding = "final decision has no matching requirement"
+        } else {
+            decisionFinding = nil
+        }
 
         let outcome: InputSpikeEvidenceAssessment.Outcome
         if entries.isEmpty
@@ -203,7 +227,8 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             || !missingRequiredScenarios.isEmpty
             || !missingRequiredRunReviews.isEmpty
             || !missingEnvironmentAttestations.isEmpty
-            || recordingDurationFinding != nil {
+            || recordingDurationFinding != nil
+            || decisionFinding != nil {
             outcome = .failed
         } else if incompleteCount > 0 {
             outcome = .incomplete
@@ -225,6 +250,7 @@ public struct InputSpikeEvidenceBatchAssessment: Equatable, Sendable {
             missingRequiredRunReviews: missingRequiredRunReviews,
             missingEnvironmentAttestations: missingEnvironmentAttestations,
             recordingDurationFinding: recordingDurationFinding,
+            decisionFinding: decisionFinding,
             requiresManualReview: true
         )
     }

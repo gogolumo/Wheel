@@ -162,6 +162,7 @@ swift run wheel-evidence-check \
   --attest-environment clean-account \
   --attest-environment signed-build \
   --recording-duration-seconds 120 \
+  --record-decision go \
   spike-001-*.json
 ```
 
@@ -189,6 +190,11 @@ confirms only that the required recording is at least two minutes long. Neither
 flag records a result, asserts `PASS`, or turns the automated check into a `GO`
 decision; the recording, observations, and final decision must still be
 reviewed manually.
+
+Record `--record-decision go` only after the recording and written observations
+have been reviewed. The canonical gate fails closed when the decision is absent,
+or when the recorded outcome is `adjust` or `stop`; the flag is an operator
+decision, not an automated inference from the aggregate JSON.
 
 The two `--attest-environment` flags confirm that the matrix was executed from
 a clean macOS account with the signed spike build required by SPIKE-001. They

@@ -11,6 +11,7 @@ private func printUsage() {
             + "[--attest-run-review LABEL event-order|intended-vs-observed|stuck-state|side-effects]... "
             + "[--attest-environment clean-account|signed-build]... "
             + "[--recording-duration-seconds SECONDS] "
+            + "[--record-decision go|adjust|stop] "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
             + "[--minimum-runs-per-trigger TRIGGER COUNT]... "
             + "[--require-run LABEL TRIGGER]... "
@@ -53,6 +54,7 @@ var attestedScenariosByRunLabel: [String: Set<String>] = [:]
 var attestedRunReviewsByRunLabel: [String: Set<String>] = [:]
 var attestedEnvironment: Set<String> = []
 var attestedRecordingDurationSeconds: Int?
+var recordedDecision: InputSpikeEvidenceDecision?
 var requiredTriggers: Set<String> = []
 var minimumRunCountByTrigger: [String: Int] = [:]
 var requiredRuns: [String: String] = [:]
@@ -158,6 +160,20 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         attestedRecordingDurationSeconds = duration
+    } else if argument == "--record-decision" {
+        argumentIndex += 1
+        guard
+            recordedDecision == nil,
+            argumentIndex < CommandLine.arguments.count,
+            let decision = InputSpikeEvidenceDecision(
+                rawValue: CommandLine.arguments[argumentIndex]
+            )
+        else {
+            print("Invalid or repeated --record-decision value")
+            printUsage()
+            exit(64)
+        }
+        recordedDecision = decision
     } else if argument == "--require-trigger" {
         argumentIndex += 1
         guard argumentIndex < CommandLine.arguments.count else {
@@ -366,7 +382,8 @@ guard evidenceProfile != nil
     || (attestedScenariosByRunLabel.isEmpty
         && attestedRunReviewsByRunLabel.isEmpty
         && attestedEnvironment.isEmpty
-        && attestedRecordingDurationSeconds == nil)
+        && attestedRecordingDurationSeconds == nil
+        && recordedDecision == nil)
 else {
     print("physical attestations require --profile")
     printUsage()
@@ -473,6 +490,8 @@ let batch = InputSpikeEvidenceBatchAssessment.evaluate(
     attestedEnvironment: attestedEnvironment,
     minimumRecordingDurationSeconds: evidenceProfile?.minimumRecordingDurationSeconds,
     attestedRecordingDurationSeconds: attestedRecordingDurationSeconds,
+    requiredDecision: evidenceProfile?.requiredDecision,
+    recordedDecision: recordedDecision,
     attestedAttemptCountByRunLabel: attestedAttemptCountByRunLabel,
     requiredAttemptCount: requiredAttemptCount,
     maximumMissedAttemptCount: maximumMissedAttemptCount
@@ -517,7 +536,12 @@ if !batch.missingEnvironmentAttestations.isEmpty {
 if let recordingDurationFinding = batch.recordingDurationFinding {
     print("- recording duration: \(recordingDurationFinding)")
 }
-print("Manual physical matrix review is still required; this is not a GO decision.")
+if let decisionFinding = batch.decisionFinding {
+    print("- final decision: \(decisionFinding)")
+} else if let recordedDecision {
+    print("- recorded operator decision: \(recordedDecision.rawValue.uppercased())")
+}
+print("Automated checks do not create a GO decision; physical review remains authoritative.")
 
 if unreadableFileCount > 0 || batch.outcome == .failed {
     exit(1)

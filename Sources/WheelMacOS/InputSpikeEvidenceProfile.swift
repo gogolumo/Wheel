@@ -6,6 +6,7 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
     public let requiredRunReviews: Set<String>
     public let requiredEnvironmentAttestations: Set<String>
     public let minimumRecordingDurationSeconds: Int
+    public let requiredDecision: InputSpikeEvidenceDecision
     public let requiredAttemptCount: Int
     public let maximumMissedAttemptCount: Int
     public let expectedSequenceTarget: Int
@@ -40,6 +41,7 @@ public struct InputSpikeEvidenceProfile: Equatable, Sendable {
         ],
         requiredEnvironmentAttestations: ["clean-account", "signed-build"],
         minimumRecordingDurationSeconds: 120,
+        requiredDecision: .go,
         requiredAttemptCount: 100,
         maximumMissedAttemptCount: 1,
         expectedSequenceTarget: 100,

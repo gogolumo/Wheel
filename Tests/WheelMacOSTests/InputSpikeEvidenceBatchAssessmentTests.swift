@@ -305,6 +305,44 @@ final class InputSpikeEvidenceBatchAssessmentTests: XCTestCase {
         XCTAssertNil(complete.recordingDurationFinding)
     }
 
+    func testRequiredFinalDecisionFailsClosedWhenMissing() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiredDecision: .go
+        )
+
+        XCTAssertEqual(batch.outcome, .failed)
+        XCTAssertEqual(batch.decisionFinding, "missing final decision")
+    }
+
+    func testAdjustOrStopCannotPassAGoGate() {
+        for decision in [InputSpikeEvidenceDecision.adjust, .stop] {
+            let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+                [entry("right-option-built-in", .passed)],
+                requiredDecision: .go,
+                recordedDecision: decision
+            )
+
+            XCTAssertEqual(batch.outcome, .failed)
+            XCTAssertEqual(
+                batch.decisionFinding,
+                "recorded \(decision.rawValue.uppercased()); required GO"
+            )
+        }
+    }
+
+    func testRecordedGoSatisfiesFinalDecisionRequirement() {
+        let batch = InputSpikeEvidenceBatchAssessment.evaluate(
+            [entry("right-option-built-in", .passed)],
+            requiredDecision: .go,
+            recordedDecision: .go
+        )
+
+        XCTAssertEqual(batch.outcome, .passed)
+        XCTAssertNil(batch.decisionFinding)
+        XCTAssertTrue(batch.requiresManualReview)
+    }
+
     func testRequiredAttemptCountsCoverEveryRequiredRun() {
         let batch = InputSpikeEvidenceBatchAssessment.evaluate(
             [
