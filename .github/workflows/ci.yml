@@ -39,7 +39,10 @@ jobs:
           bash -n scripts/uninstall-app.sh
           bash -n scripts/lib/app-process.sh
           bash -n scripts/test-app-process.sh
+          bash -n scripts/verify-spike-signed-build.sh
+          bash -n scripts/test-spike-signed-build.sh
           bash scripts/test-app-process.sh
+          bash scripts/test-spike-signed-build.sh
 
       - name: Build package (including macOS input spike)
         run: |
