@@ -22,7 +22,10 @@ bash scripts/verify-spike-signed-build.sh dist/Wheel.app
 The verifier prints only `PASS` or a generic failure. It does not print the
 certificate identity, Team ID, account name, or application path. A passing
 result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
-signing authority, and nothing about the remaining physical matrix.
+signing authority, and that the bundle's stamped `WheelSourceRevision` matches
+the repository's current `HEAD`. This prevents a stale, correctly signed build
+from satisfying the precondition. It proves nothing about the remaining
+physical matrix.
 
 ## Fix the active Xcode toolchain
 
