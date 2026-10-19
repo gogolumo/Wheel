@@ -30,6 +30,15 @@ fi
 [[ "$expected_revision" =~ ^[0-9a-f]{40}$ ]] \
     || fail "expected source revision is invalid"
 
+# `build-app.sh` compiles the current checkout, not only committed files. A
+# dirty checkout could therefore produce a bundle stamped with HEAD while its
+# executable contains unreviewed source. Do not print porcelain output because
+# filenames can contain private information.
+worktree_status="$(git -C "$repo_root" status --porcelain --untracked-files=all 2>/dev/null)" \
+    || fail "source worktree state is unavailable"
+[[ -z "$worktree_status" ]] \
+    || fail "source worktree must be clean before physical evidence"
+
 bundle_revision="$(plutil -extract WheelSourceRevision raw -o - "$info_plist" 2>/dev/null)" \
     || fail "bundle source revision is unavailable"
 [[ "$bundle_revision" =~ ^[0-9a-f]{40}$ ]] \

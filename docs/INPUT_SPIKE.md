@@ -23,9 +23,12 @@ The verifier prints only `PASS` or a generic failure. It does not print the
 certificate identity, Team ID, account name, or application path. A passing
 result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
 signing authority, and that the bundle's stamped `WheelSourceRevision` matches
-the repository's current `HEAD`. This prevents a stale, correctly signed build
-from satisfying the precondition. It proves nothing about the remaining
-physical matrix.
+the repository's current `HEAD`. It also fails when the repository has staged,
+unstaged, or untracked files, because `build-app.sh` compiles the checkout and a
+dirty tree could otherwise place unreviewed code in a bundle stamped with
+`HEAD`. The verifier never prints dirty filenames. These checks prevent stale
+or locally modified signed builds from satisfying the precondition; they prove
+nothing about the remaining physical matrix.
 
 ## Fix the active Xcode toolchain
 

@@ -38,7 +38,11 @@ EOF
 
 cat >"$fake_bin/git" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' "${WHEEL_TEST_GIT_REVISION:?}"
+if [[ " $* " == *" status "* ]]; then
+    printf '%s' "${WHEEL_TEST_WORKTREE_STATUS:-}"
+else
+    printf '%s\n' "${WHEEL_TEST_GIT_REVISION:?}"
+fi
 EOF
 
 cat >"$fake_bin/plutil" <<'EOF'
@@ -83,6 +87,11 @@ if invalid_revision_output="$(PATH="$fake_bin:/usr/bin:/bin" \
     exit 1
 fi
 
+if dirty_output="$(WHEEL_TEST_WORKTREE_STATUS='?? private-filename.swift' run_verifier)"; then
+    echo "signed-build verifier accepted a dirty source worktree" >&2
+    exit 1
+fi
+
 failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true)"
 [[ "$failure_output" != *"$test_root"* ]]
 [[ "$failure_output" != *"Private Identity"* ]]
@@ -90,5 +99,6 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$stale_output" != *"$expected_revision"* ]]
 [[ "$stale_output" != *"$stale_revision"* ]]
 [[ "$invalid_revision_output" != *"private-revision"* ]]
+[[ "$dirty_output" != *"private-filename.swift"* ]]
 
 echo "SPIKE-001 signed-build verifier tests PASS"
