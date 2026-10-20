@@ -30,6 +30,16 @@ fi
 [[ "$expected_revision" =~ ^[0-9a-f]{40}$ ]] \
     || fail "expected source revision is invalid"
 
+# Physical evidence must be reproducible from the published review branch, not
+# only from a clean local commit. This deliberately relies on the fetched
+# upstream ref; the protocol fetches and fast-forwards immediately beforehand.
+upstream_revision="$(git -C "$repo_root" rev-parse --verify '@{upstream}' 2>/dev/null)" \
+    || fail "a published upstream source revision is required"
+[[ "$upstream_revision" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "published upstream source revision is invalid"
+[[ "$upstream_revision" == "$expected_revision" ]] \
+    || fail "tested source revision is not the published branch head"
+
 # `build-app.sh` compiles the current checkout, not only committed files. A
 # dirty checkout could therefore produce a bundle stamped with HEAD while its
 # executable contains unreviewed source. Do not print porcelain output because

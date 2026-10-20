@@ -40,6 +40,8 @@ cat >"$fake_bin/git" <<'EOF'
 #!/usr/bin/env bash
 if [[ " $* " == *" status "* ]]; then
     printf '%s' "${WHEEL_TEST_WORKTREE_STATUS:-}"
+elif [[ "$*" == *"@{upstream}"* ]]; then
+    printf '%s\n' "${WHEEL_TEST_UPSTREAM_REVISION:?}"
 else
     printf '%s\n' "${WHEEL_TEST_GIT_REVISION:?}"
 fi
@@ -55,6 +57,7 @@ chmod +x "$fake_bin/uname" "$fake_bin/codesign" "$fake_bin/git" "$fake_bin/pluti
 run_verifier() {
     PATH="$fake_bin:/usr/bin:/bin" \
         WHEEL_TEST_GIT_REVISION="$expected_revision" \
+        WHEEL_TEST_UPSTREAM_REVISION="${WHEEL_TEST_UPSTREAM_REVISION:-$expected_revision}" \
         WHEEL_TEST_BUNDLE_REVISION="${1:-$expected_revision}" \
         bash "$repo_root/scripts/verify-spike-signed-build.sh" "$app" 2>&1
 }
@@ -92,6 +95,12 @@ if dirty_output="$(WHEEL_TEST_WORKTREE_STATUS='?? private-filename.swift' run_ve
     exit 1
 fi
 
+unpublished_revision="abcdef0123456789abcdef0123456789abcdef01"
+if unpublished_output="$(WHEEL_TEST_UPSTREAM_REVISION="$unpublished_revision" run_verifier)"; then
+    echo "signed-build verifier accepted an unpublished source revision" >&2
+    exit 1
+fi
+
 failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true)"
 [[ "$failure_output" != *"$test_root"* ]]
 [[ "$failure_output" != *"Private Identity"* ]]
@@ -100,5 +109,7 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$stale_output" != *"$stale_revision"* ]]
 [[ "$invalid_revision_output" != *"private-revision"* ]]
 [[ "$dirty_output" != *"private-filename.swift"* ]]
+[[ "$unpublished_output" != *"$expected_revision"* ]]
+[[ "$unpublished_output" != *"$unpublished_revision"* ]]
 
 echo "SPIKE-001 signed-build verifier tests PASS"
