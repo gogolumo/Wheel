@@ -90,6 +90,17 @@ if invalid_revision_output="$(PATH="$fake_bin:/usr/bin:/bin" \
     exit 1
 fi
 
+other_valid_revision="1111111111111111111111111111111111111111"
+if mismatched_pin_output="$(PATH="$fake_bin:/usr/bin:/bin" \
+    WHEEL_TEST_GIT_REVISION="$expected_revision" \
+    WHEEL_TEST_UPSTREAM_REVISION="$other_valid_revision" \
+    WHEEL_TEST_BUNDLE_REVISION="$other_valid_revision" \
+    bash "$repo_root/scripts/verify-spike-signed-build.sh" \
+        "$app" "$other_valid_revision" 2>&1)"; then
+    echo "signed-build verifier accepted a revision pin that differs from HEAD" >&2
+    exit 1
+fi
+
 if dirty_output="$(WHEEL_TEST_WORKTREE_STATUS='?? private-filename.swift' run_verifier)"; then
     echo "signed-build verifier accepted a dirty source worktree" >&2
     exit 1
@@ -108,6 +119,8 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$stale_output" != *"$expected_revision"* ]]
 [[ "$stale_output" != *"$stale_revision"* ]]
 [[ "$invalid_revision_output" != *"private-revision"* ]]
+[[ "$mismatched_pin_output" != *"$expected_revision"* ]]
+[[ "$mismatched_pin_output" != *"$other_valid_revision"* ]]
 [[ "$dirty_output" != *"private-filename.swift"* ]]
 [[ "$unpublished_output" != *"$expected_revision"* ]]
 [[ "$unpublished_output" != *"$unpublished_revision"* ]]

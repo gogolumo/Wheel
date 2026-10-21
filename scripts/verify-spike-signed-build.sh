@@ -23,12 +23,18 @@ info_plist="$app/Contents/Info.plist"
 [[ -f "$info_plist" && ! -L "$info_plist" ]] \
     || fail "application metadata is unavailable"
 
+head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
+    || fail "current source revision is unavailable"
+[[ "$head_revision" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "current source revision is invalid"
+
 if [[ -z "$expected_revision" ]]; then
-    expected_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
-        || fail "expected source revision is unavailable"
+    expected_revision="$head_revision"
 fi
 [[ "$expected_revision" =~ ^[0-9a-f]{40}$ ]] \
     || fail "expected source revision is invalid"
+[[ "$expected_revision" == "$head_revision" ]] \
+    || fail "expected source revision does not match the current checkout"
 
 # Physical evidence must be reproducible from the published review branch, not
 # only from a clean local commit. This deliberately relies on the fetched
