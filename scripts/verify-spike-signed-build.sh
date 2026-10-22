@@ -65,6 +65,15 @@ bundle_revision="$(plutil -extract WheelSourceRevision raw -o - "$info_plist" 2>
 codesign --verify --deep --strict "$app" >/dev/null 2>&1 \
     || fail "code signature verification failed"
 
+# A locally created self-signed certificate can produce a structurally valid,
+# non-ad-hoc signature with an Authority field. SPIKE-001 requires an Apple-
+# issued development or distribution identity, so validate the trust anchor
+# without printing the certificate chain or Team ID.
+codesign --verify --deep --strict \
+    --test-requirement '=anchor apple generic and identifier "dev.gogolumo.Wheel"' \
+    "$app" >/dev/null 2>&1 \
+    || fail "an Apple-issued signing identity is required"
+
 signature_details="$(codesign -dv --verbose=4 "$app" 2>&1)" \
     || fail "code signature metadata is unavailable"
 grep -Fqx "Identifier=dev.gogolumo.Wheel" <<<"$signature_details" \

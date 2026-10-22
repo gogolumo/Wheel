@@ -26,6 +26,10 @@ EOF
 cat >"$fake_bin/codesign" <<'EOF'
 #!/usr/bin/env bash
 if [[ "$1" == "--verify" ]]; then
+    if [[ " $* " == *" --test-requirement "* ]]; then
+        [[ "${WHEEL_TEST_APPLE_ANCHOR_MODE:-valid}" != invalid ]]
+        exit
+    fi
     [[ "${WHEEL_TEST_SIGNATURE_MODE:-valid}" != invalid ]]
     exit
 fi
@@ -75,6 +79,11 @@ if WHEEL_TEST_SIGNATURE_MODE=invalid run_verifier >/dev/null; then
     exit 1
 fi
 
+if self_signed_output="$(WHEEL_TEST_APPLE_ANCHOR_MODE=invalid run_verifier)"; then
+    echo "signed-build verifier accepted a non-Apple signing authority" >&2
+    exit 1
+fi
+
 stale_revision="fedcba9876543210fedcba9876543210fedcba98"
 if stale_output="$(run_verifier "$stale_revision")"; then
     echo "signed-build verifier accepted a stale source revision" >&2
@@ -116,6 +125,8 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$failure_output" != *"$test_root"* ]]
 [[ "$failure_output" != *"Private Identity"* ]]
 [[ "$failure_output" != *"PRIVATE123"* ]]
+[[ "$self_signed_output" != *"Private Identity"* ]]
+[[ "$self_signed_output" != *"PRIVATE123"* ]]
 [[ "$stale_output" != *"$expected_revision"* ]]
 [[ "$stale_output" != *"$stale_revision"* ]]
 [[ "$invalid_revision_output" != *"private-revision"* ]]

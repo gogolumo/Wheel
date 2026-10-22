@@ -22,7 +22,8 @@ bash scripts/verify-spike-signed-build.sh dist/Wheel.app
 The verifier prints only `PASS` or a generic failure. It does not print the
 certificate identity, Team ID, account name, or application path. A passing
 result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
-signing authority, and that the bundle's stamped `WheelSourceRevision` matches
+signing authority anchored to Apple's code-signing trust chain, and that the
+bundle's stamped `WheelSourceRevision` matches
 the repository's current `HEAD`. An optional explicit revision pin must also
 match `HEAD`; it cannot redirect verification to another clean, published
 commit. The same revision must be the configured
