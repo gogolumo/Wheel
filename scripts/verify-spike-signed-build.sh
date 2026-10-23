@@ -20,8 +20,23 @@ done
 [[ -d "$app" && ! -L "$app" ]] || fail "application bundle is unavailable"
 
 info_plist="$app/Contents/Info.plist"
+executable="$app/Contents/MacOS/Wheel"
+icon="$app/Contents/Resources/Wheel.icns"
 [[ -f "$info_plist" && ! -L "$info_plist" ]] \
     || fail "application metadata is unavailable"
+[[ -f "$executable" && -x "$executable" && ! -L "$executable" ]] \
+    || fail "application executable is unavailable"
+[[ -f "$icon" && ! -L "$icon" ]] \
+    || fail "application resources are unavailable"
+
+bundle_executable="$(plutil -extract CFBundleExecutable raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "application executable metadata is unavailable"
+[[ "$bundle_executable" == Wheel ]] \
+    || fail "application executable metadata is invalid"
+bundle_identifier="$(plutil -extract CFBundleIdentifier raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "application identifier metadata is unavailable"
+[[ "$bundle_identifier" == dev.gogolumo.Wheel ]] \
+    || fail "application identifier metadata is invalid"
 
 head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "current source revision is unavailable"

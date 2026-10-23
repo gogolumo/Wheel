@@ -6,9 +6,15 @@ test_root="$(mktemp -d)"
 fake_bin="$test_root/bin"
 app="$test_root/private-account/Wheel.app"
 info_plist="$app/Contents/Info.plist"
+executable="$app/Contents/MacOS/Wheel"
+icon="$app/Contents/Resources/Wheel.icns"
 expected_revision="0123456789abcdef0123456789abcdef01234567"
-mkdir -p "$fake_bin" "$(dirname "$info_plist")"
+mkdir -p "$fake_bin" "$(dirname "$info_plist")" \
+    "$(dirname "$executable")" "$(dirname "$icon")"
 : >"$info_plist"
+: >"$executable"
+: >"$icon"
+chmod +x "$executable"
 
 cleanup() {
     local status=$?
@@ -53,7 +59,11 @@ EOF
 
 cat >"$fake_bin/plutil" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' "${WHEEL_TEST_BUNDLE_REVISION:?}"
+case "$*" in
+    *CFBundleExecutable*) printf '%s\n' "${WHEEL_TEST_BUNDLE_EXECUTABLE:-Wheel}" ;;
+    *CFBundleIdentifier*) printf '%s\n' "${WHEEL_TEST_BUNDLE_IDENTIFIER:-dev.gogolumo.Wheel}" ;;
+    *) printf '%s\n' "${WHEEL_TEST_BUNDLE_REVISION:?}" ;;
+esac
 EOF
 
 chmod +x "$fake_bin/uname" "$fake_bin/codesign" "$fake_bin/git" "$fake_bin/plutil"
@@ -81,6 +91,18 @@ fi
 
 if self_signed_output="$(WHEEL_TEST_APPLE_ANCHOR_MODE=invalid run_verifier)"; then
     echo "signed-build verifier accepted a non-Apple signing authority" >&2
+    exit 1
+fi
+
+chmod -x "$executable"
+if missing_executable_output="$(run_verifier)"; then
+    echo "signed-build verifier accepted an unusable application executable" >&2
+    exit 1
+fi
+chmod +x "$executable"
+
+if foreign_identifier_output="$(WHEEL_TEST_BUNDLE_IDENTIFIER=com.example.NotWheel run_verifier)"; then
+    echo "signed-build verifier accepted foreign bundle metadata" >&2
     exit 1
 fi
 
@@ -127,6 +149,8 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$failure_output" != *"PRIVATE123"* ]]
 [[ "$self_signed_output" != *"Private Identity"* ]]
 [[ "$self_signed_output" != *"PRIVATE123"* ]]
+[[ "$missing_executable_output" != *"$test_root"* ]]
+[[ "$foreign_identifier_output" != *"com.example.NotWheel"* ]]
 [[ "$stale_output" != *"$expected_revision"* ]]
 [[ "$stale_output" != *"$stale_revision"* ]]
 [[ "$invalid_revision_output" != *"private-revision"* ]]

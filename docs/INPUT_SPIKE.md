@@ -24,7 +24,10 @@ certificate identity, Team ID, account name, or application path. A passing
 result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
 signing authority anchored to Apple's code-signing trust chain, and that the
 bundle's stamped `WheelSourceRevision` matches
-the repository's current `HEAD`. An optional explicit revision pin must also
+the repository's current `HEAD`. It also requires the expected non-symbolic
+executable, icon, executable metadata, and bundle-identifier metadata, so an
+incomplete or structurally foreign signed bundle fails closed. An optional
+explicit revision pin must also
 match `HEAD`; it cannot redirect verification to another clean, published
 commit. The same revision must be the configured
 upstream branch head, so a detached, unpushed, or locally diverged commit cannot
