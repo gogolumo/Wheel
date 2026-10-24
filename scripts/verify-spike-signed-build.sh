@@ -22,12 +22,23 @@ done
 info_plist="$app/Contents/Info.plist"
 executable="$app/Contents/MacOS/Wheel"
 icon="$app/Contents/Resources/Wheel.icns"
+resource_bundle="$app/Contents/Resources/Wheel_WheelApp.bundle"
 [[ -f "$info_plist" && ! -L "$info_plist" ]] \
     || fail "application metadata is unavailable"
 [[ -f "$executable" && -x "$executable" && ! -L "$executable" ]] \
     || fail "application executable is unavailable"
 [[ -f "$icon" && ! -L "$icon" ]] \
     || fail "application resources are unavailable"
+[[ -d "$resource_bundle" && ! -L "$resource_bundle" ]] \
+    || fail "application brand resources are unavailable"
+brand_resources="$resource_bundle/Contents/Resources"
+[[ -d "$brand_resources" ]] || brand_resources="$resource_bundle"
+for resource in WheelSymbol.pdf WheelSymbolLight.pdf \
+    WheelSymbolMonochromeBlack.pdf WheelSymbolMonochromeWhite.pdf \
+    WheelMenuBarTemplate.pdf WheelAppIcon.png; do
+    [[ -f "$brand_resources/$resource" && ! -L "$brand_resources/$resource" ]] \
+        || fail "application brand resources are incomplete"
+done
 
 bundle_executable="$(plutil -extract CFBundleExecutable raw -o - "$info_plist" 2>/dev/null)" \
     || fail "application executable metadata is unavailable"

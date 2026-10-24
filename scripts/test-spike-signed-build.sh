@@ -8,13 +8,19 @@ app="$test_root/private-account/Wheel.app"
 info_plist="$app/Contents/Info.plist"
 executable="$app/Contents/MacOS/Wheel"
 icon="$app/Contents/Resources/Wheel.icns"
+resource_bundle="$app/Contents/Resources/Wheel_WheelApp.bundle"
 expected_revision="0123456789abcdef0123456789abcdef01234567"
 mkdir -p "$fake_bin" "$(dirname "$info_plist")" \
-    "$(dirname "$executable")" "$(dirname "$icon")"
+    "$(dirname "$executable")" "$(dirname "$icon")" "$resource_bundle"
 : >"$info_plist"
 : >"$executable"
 : >"$icon"
 chmod +x "$executable"
+for resource in WheelSymbol.pdf WheelSymbolLight.pdf \
+    WheelSymbolMonochromeBlack.pdf WheelSymbolMonochromeWhite.pdf \
+    WheelMenuBarTemplate.pdf WheelAppIcon.png; do
+    : >"$resource_bundle/$resource"
+done
 
 cleanup() {
     local status=$?
@@ -106,6 +112,13 @@ if foreign_identifier_output="$(WHEEL_TEST_BUNDLE_IDENTIFIER=com.example.NotWhee
     exit 1
 fi
 
+rm "$resource_bundle/WheelMenuBarTemplate.pdf"
+if incomplete_resources_output="$(run_verifier)"; then
+    echo "signed-build verifier accepted incomplete brand resources" >&2
+    exit 1
+fi
+: >"$resource_bundle/WheelMenuBarTemplate.pdf"
+
 stale_revision="fedcba9876543210fedcba9876543210fedcba98"
 if stale_output="$(run_verifier "$stale_revision")"; then
     echo "signed-build verifier accepted a stale source revision" >&2
@@ -151,6 +164,7 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$self_signed_output" != *"PRIVATE123"* ]]
 [[ "$missing_executable_output" != *"$test_root"* ]]
 [[ "$foreign_identifier_output" != *"com.example.NotWheel"* ]]
+[[ "$incomplete_resources_output" != *"WheelMenuBarTemplate.pdf"* ]]
 [[ "$stale_output" != *"$expected_revision"* ]]
 [[ "$stale_output" != *"$stale_revision"* ]]
 [[ "$invalid_revision_output" != *"private-revision"* ]]

@@ -25,8 +25,9 @@ result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
 signing authority anchored to Apple's code-signing trust chain, and that the
 bundle's stamped `WheelSourceRevision` matches
 the repository's current `HEAD`. It also requires the expected non-symbolic
-executable, icon, executable metadata, and bundle-identifier metadata, so an
-incomplete or structurally foreign signed bundle fails closed. An optional
+executable and icon, executable and bundle-identifier metadata, and the complete
+non-symbolic Wheel brand resource set, so an incomplete or structurally foreign
+signed bundle fails closed. An optional
 explicit revision pin must also
 match `HEAD`; it cannot redirect verification to another clean, published
 commit. The same revision must be the configured
