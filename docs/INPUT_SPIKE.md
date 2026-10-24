@@ -8,6 +8,39 @@ It is a diagnostic, not production gesture handling. A successful compile does
 not prove that Caps Lock is viable; that decision requires repeated testing on a
 real Mac.
 
+## Verify the signed physical-test build
+
+The default local bundle is ad-hoc signed and does not satisfy SPIKE-001's
+signed-environment requirement. Build with a Keychain signing identity, then
+run the privacy-safe verifier before checking `signed-build` in the final gate:
+
+```bash
+WHEEL_CODESIGN_IDENTITY="Apple Development: …" bash scripts/build-app.sh
+bash scripts/verify-spike-signed-build.sh dist/Wheel.app
+```
+
+The verifier prints only `PASS` or a generic failure. It does not print the
+certificate identity, Team ID, account name, or application path. A passing
+result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
+signing authority anchored to Apple's code-signing trust chain, and that the
+bundle's stamped `WheelSourceRevision` matches
+the repository's current `HEAD`. It also requires the expected non-symbolic
+executable and icon, executable and bundle-identifier metadata, and the complete
+non-symbolic Wheel brand resource set, so an incomplete or structurally foreign
+signed bundle fails closed. An optional
+explicit revision pin must also
+match `HEAD`; it cannot redirect verification to another clean, published
+commit. The same revision must be the configured
+upstream branch head, so a detached, unpushed, or locally diverged commit cannot
+be presented as reviewable evidence. Fetch and fast-forward the test branch
+immediately before building. The verifier also fails when the repository has
+staged, unstaged, or untracked files, because `build-app.sh` compiles the
+checkout and a dirty tree could otherwise place unreviewed code in a bundle
+stamped with `HEAD`. It never prints branch names, revisions, or dirty
+filenames. These checks prevent stale, unpublished, or locally modified signed
+builds from satisfying the precondition; they prove nothing about the remaining
+physical matrix.
+
 ## Fix the active Xcode toolchain
 
 If `swift test` reports `no such module 'XCTest'`, Command Line Tools are active
