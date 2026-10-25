@@ -68,6 +68,7 @@ cat >"$fake_bin/plutil" <<'EOF'
 case "$*" in
     *CFBundleExecutable*) printf '%s\n' "${WHEEL_TEST_BUNDLE_EXECUTABLE:-Wheel}" ;;
     *CFBundleIdentifier*) printf '%s\n' "${WHEEL_TEST_BUNDLE_IDENTIFIER:-dev.gogolumo.Wheel}" ;;
+    *LSUIElement*) printf '%s\n' "${WHEEL_TEST_BACKGROUND_AGENT:-true}" ;;
     *) printf '%s\n' "${WHEEL_TEST_BUNDLE_REVISION:?}" ;;
 esac
 EOF
@@ -109,6 +110,11 @@ chmod +x "$executable"
 
 if foreign_identifier_output="$(WHEEL_TEST_BUNDLE_IDENTIFIER=com.example.NotWheel run_verifier)"; then
     echo "signed-build verifier accepted foreign bundle metadata" >&2
+    exit 1
+fi
+
+if foreground_app_output="$(WHEEL_TEST_BACKGROUND_AGENT=false run_verifier)"; then
+    echo "signed-build verifier accepted a foreground application" >&2
     exit 1
 fi
 
@@ -164,6 +170,7 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$self_signed_output" != *"PRIVATE123"* ]]
 [[ "$missing_executable_output" != *"$test_root"* ]]
 [[ "$foreign_identifier_output" != *"com.example.NotWheel"* ]]
+[[ "$foreground_app_output" != *"LSUIElement"* ]]
 [[ "$incomplete_resources_output" != *"WheelMenuBarTemplate.pdf"* ]]
 [[ "$stale_output" != *"$expected_revision"* ]]
 [[ "$stale_output" != *"$stale_revision"* ]]

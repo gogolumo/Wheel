@@ -27,7 +27,9 @@ bundle's stamped `WheelSourceRevision` matches
 the repository's current `HEAD`. It also requires the expected non-symbolic
 executable and icon, executable and bundle-identifier metadata, and the complete
 non-symbolic Wheel brand resource set, so an incomplete or structurally foreign
-signed bundle fails closed. An optional
+signed bundle fails closed. `LSUIElement` must remain `true`, binding the test
+to Wheel's non-activating background/menu-bar application rather than a
+foreground substitute. An optional
 explicit revision pin must also
 match `HEAD`; it cannot redirect verification to another clean, published
 commit. The same revision must be the configured

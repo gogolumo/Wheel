@@ -48,6 +48,10 @@ bundle_identifier="$(plutil -extract CFBundleIdentifier raw -o - "$info_plist" 2
     || fail "application identifier metadata is unavailable"
 [[ "$bundle_identifier" == dev.gogolumo.Wheel ]] \
     || fail "application identifier metadata is invalid"
+background_agent="$(plutil -extract LSUIElement raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "background application metadata is unavailable"
+[[ "$background_agent" == true ]] \
+    || fail "signed evidence must use the background menu-bar application"
 
 head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "current source revision is unavailable"
