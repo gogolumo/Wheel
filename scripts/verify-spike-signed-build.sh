@@ -48,6 +48,14 @@ bundle_identifier="$(plutil -extract CFBundleIdentifier raw -o - "$info_plist" 2
     || fail "application identifier metadata is unavailable"
 [[ "$bundle_identifier" == dev.gogolumo.Wheel ]] \
     || fail "application identifier metadata is invalid"
+bundle_package_type="$(plutil -extract CFBundlePackageType raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "application package metadata is unavailable"
+[[ "$bundle_package_type" == APPL ]] \
+    || fail "application package metadata is invalid"
+brand_resource_version="$(plutil -extract WheelBrandResourceVersion raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "brand resource metadata is unavailable"
+[[ "$brand_resource_version" == 1 ]] \
+    || fail "brand resource metadata is incompatible"
 background_agent="$(plutil -extract LSUIElement raw -o - "$info_plist" 2>/dev/null)" \
     || fail "background application metadata is unavailable"
 [[ "$background_agent" == true ]] \

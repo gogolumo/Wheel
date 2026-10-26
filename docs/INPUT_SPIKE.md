@@ -27,7 +27,10 @@ bundle's stamped `WheelSourceRevision` matches
 the repository's current `HEAD`. It also requires the expected non-symbolic
 executable and icon, executable and bundle-identifier metadata, and the complete
 non-symbolic Wheel brand resource set, so an incomplete or structurally foreign
-signed bundle fails closed. `LSUIElement` must remain `true`, binding the test
+signed bundle fails closed. The bundle must also declare the macOS application
+package type (`APPL`) and supported Wheel brand-resource contract version 1;
+foreign package types and incompatible resource layouts are rejected without
+printing their values. `LSUIElement` must remain `true`, binding the test
 to Wheel's non-activating background/menu-bar application rather than a
 foreground substitute. An optional
 explicit revision pin must also

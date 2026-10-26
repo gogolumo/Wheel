@@ -68,6 +68,8 @@ cat >"$fake_bin/plutil" <<'EOF'
 case "$*" in
     *CFBundleExecutable*) printf '%s\n' "${WHEEL_TEST_BUNDLE_EXECUTABLE:-Wheel}" ;;
     *CFBundleIdentifier*) printf '%s\n' "${WHEEL_TEST_BUNDLE_IDENTIFIER:-dev.gogolumo.Wheel}" ;;
+    *CFBundlePackageType*) printf '%s\n' "${WHEEL_TEST_PACKAGE_TYPE:-APPL}" ;;
+    *WheelBrandResourceVersion*) printf '%s\n' "${WHEEL_TEST_BRAND_RESOURCE_VERSION:-1}" ;;
     *LSUIElement*) printf '%s\n' "${WHEEL_TEST_BACKGROUND_AGENT:-true}" ;;
     *) printf '%s\n' "${WHEEL_TEST_BUNDLE_REVISION:?}" ;;
 esac
@@ -110,6 +112,16 @@ chmod +x "$executable"
 
 if foreign_identifier_output="$(WHEEL_TEST_BUNDLE_IDENTIFIER=com.example.NotWheel run_verifier)"; then
     echo "signed-build verifier accepted foreign bundle metadata" >&2
+    exit 1
+fi
+
+if foreign_package_output="$(WHEEL_TEST_PACKAGE_TYPE=BNDL run_verifier)"; then
+    echo "signed-build verifier accepted a non-application package" >&2
+    exit 1
+fi
+
+if incompatible_brand_output="$(WHEEL_TEST_BRAND_RESOURCE_VERSION=2 run_verifier)"; then
+    echo "signed-build verifier accepted incompatible brand resources" >&2
     exit 1
 fi
 
@@ -170,6 +182,8 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$self_signed_output" != *"PRIVATE123"* ]]
 [[ "$missing_executable_output" != *"$test_root"* ]]
 [[ "$foreign_identifier_output" != *"com.example.NotWheel"* ]]
+[[ "$foreign_package_output" != *"BNDL"* ]]
+[[ "$incompatible_brand_output" != *"2"* ]]
 [[ "$foreground_app_output" != *"LSUIElement"* ]]
 [[ "$incomplete_resources_output" != *"WheelMenuBarTemplate.pdf"* ]]
 [[ "$stale_output" != *"$expected_revision"* ]]
