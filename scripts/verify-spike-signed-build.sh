@@ -4,15 +4,41 @@ set -euo pipefail
 # Verify only the SPIKE-001 signed-build precondition. Keep certificate
 # identities, Team IDs, and local filesystem paths out of stdout/stderr.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-app="${1:-$repo_root/dist/Wheel.app}"
-expected_revision="${2:-}"
 
 fail() {
     echo "SPIKE-001 signed-build evidence FAILED: $1" >&2
     exit 1
 }
 
-[[ $# -le 2 ]] || fail "expected an optional application and source revision"
+app="$repo_root/dist/Wheel.app"
+expected_revision=""
+summary_json=""
+positional_count=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --summary-json)
+            [[ $# -ge 2 && -n "$2" ]] || fail "summary output requires a destination"
+            [[ -z "$summary_json" ]] || fail "summary output may be specified only once"
+            summary_json="$2"
+            shift 2
+            ;;
+        --*)
+            fail "unsupported verification option"
+            ;;
+        *)
+            if [[ "$positional_count" -eq 0 ]]; then
+                app="$1"
+            elif [[ "$positional_count" -eq 1 ]]; then
+                expected_revision="$1"
+            else
+                fail "expected an optional application and source revision"
+            fi
+            positional_count=$((positional_count + 1))
+            shift
+            ;;
+    esac
+done
+
 [[ "$(uname -s)" == Darwin ]] || fail "verification requires macOS"
 for command in codesign git plutil; do
     command -v "$command" >/dev/null 2>&1 || fail "a required macOS tool is unavailable"
@@ -121,5 +147,37 @@ if grep -Fqx "Signature=adhoc" <<<"$signature_details"; then
 fi
 grep -Fq "Authority=" <<<"$signature_details" \
     || fail "a signing authority is required"
+
+if [[ -n "$summary_json" ]]; then
+    # Evidence output is deliberately allowlisted: public source revision and
+    # invariant contract values only. Never serialize certificate identity,
+    # Team ID, local paths, account data, or hardware identifiers.
+    [[ ! -e "$summary_json" && ! -L "$summary_json" ]] \
+        || fail "summary destination must not already exist"
+    summary_dir="$(dirname "$summary_json")"
+    [[ -d "$summary_dir" ]] || fail "summary destination directory is unavailable"
+    summary_tmp="$(mktemp "$summary_dir/.wheel-signed-build.XXXXXX")" \
+        || fail "summary output could not be prepared"
+    chmod 600 "$summary_tmp" \
+        || { rm -f "$summary_tmp"; fail "summary output could not be secured"; }
+    if ! printf '{
+  "schemaVersion": 1,
+  "result": "pass",
+  "sourceRevision": "%s",
+  "bundleIdentifier": "dev.gogolumo.Wheel",
+  "packageType": "APPL",
+  "backgroundApplication": true,
+  "brandResourceVersion": 1,
+  "signingTrust": "apple-generic"
+}\n' "$expected_revision" >"$summary_tmp"; then
+        rm -f "$summary_tmp"
+        fail "summary output could not be written"
+    fi
+    if ! ln "$summary_tmp" "$summary_json" 2>/dev/null; then
+        rm -f "$summary_tmp"
+        fail "summary destination became unavailable"
+    fi
+    rm -f "$summary_tmp"
+fi
 
 echo "SPIKE-001 signed-build evidence PASS"

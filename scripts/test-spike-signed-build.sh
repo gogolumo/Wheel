@@ -88,6 +88,30 @@ run_verifier() {
 output="$(run_verifier)"
 [[ "$output" == "SPIKE-001 signed-build evidence PASS" ]]
 
+summary_json="$test_root/signed-build-evidence.json"
+summary_output="$(PATH="$fake_bin:/usr/bin:/bin" \
+    WHEEL_TEST_GIT_REVISION="$expected_revision" \
+    WHEEL_TEST_UPSTREAM_REVISION="$expected_revision" \
+    WHEEL_TEST_BUNDLE_REVISION="$expected_revision" \
+    bash "$repo_root/scripts/verify-spike-signed-build.sh" \
+        "$app" --summary-json "$summary_json" 2>&1)"
+[[ "$summary_output" == "SPIKE-001 signed-build evidence PASS" ]]
+[[ "$(cat "$summary_json")" == *"\"sourceRevision\": \"$expected_revision\""* ]]
+[[ "$(cat "$summary_json")" == *"\"signingTrust\": \"apple-generic\""* ]]
+[[ "$(cat "$summary_json")" != *"Private Identity"* ]]
+[[ "$(cat "$summary_json")" != *"PRIVATE123"* ]]
+[[ "$(cat "$summary_json")" != *"$test_root"* ]]
+
+if existing_summary_output="$(PATH="$fake_bin:/usr/bin:/bin" \
+    WHEEL_TEST_GIT_REVISION="$expected_revision" \
+    WHEEL_TEST_UPSTREAM_REVISION="$expected_revision" \
+    WHEEL_TEST_BUNDLE_REVISION="$expected_revision" \
+    bash "$repo_root/scripts/verify-spike-signed-build.sh" \
+        "$app" --summary-json "$summary_json" 2>&1)"; then
+    echo "signed-build verifier overwrote existing evidence" >&2
+    exit 1
+fi
+
 if WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier >/dev/null; then
     echo "signed-build verifier accepted an ad-hoc signature" >&2
     exit 1
@@ -194,5 +218,6 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$dirty_output" != *"private-filename.swift"* ]]
 [[ "$unpublished_output" != *"$expected_revision"* ]]
 [[ "$unpublished_output" != *"$unpublished_revision"* ]]
+[[ "$existing_summary_output" != *"$summary_json"* ]]
 
 echo "SPIKE-001 signed-build verifier tests PASS"

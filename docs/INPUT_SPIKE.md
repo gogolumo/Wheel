@@ -16,7 +16,8 @@ run the privacy-safe verifier before checking `signed-build` in the final gate:
 
 ```bash
 WHEEL_CODESIGN_IDENTITY="Apple Development: …" bash scripts/build-app.sh
-bash scripts/verify-spike-signed-build.sh dist/Wheel.app
+bash scripts/verify-spike-signed-build.sh dist/Wheel.app \
+  --summary-json ../spike-001-signed-build.json
 ```
 
 The verifier prints only `PASS` or a generic failure. It does not print the
@@ -44,7 +45,11 @@ checkout and a dirty tree could otherwise place unreviewed code in a bundle
 stamped with `HEAD`. It never prints branch names, revisions, or dirty
 filenames. These checks prevent stale, unpublished, or locally modified signed
 builds from satisfying the precondition; they prove nothing about the remaining
-physical matrix.
+physical matrix. The optional summary is created atomically and never
+overwrites an existing file. It contains only the public source revision and
+allowlisted contract results; certificate identity, Team ID, account data,
+local paths, and hardware identifiers are excluded. Attach this JSON alongside
+the four physical run exports.
 
 ## Fix the active Xcode toolchain
 
