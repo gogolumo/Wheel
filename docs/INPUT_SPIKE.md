@@ -203,7 +203,7 @@ swift run wheel-evidence-check \
   "${scenario_args[@]}" \
   "${review_args[@]}" \
   --attest-environment clean-account \
-  --attest-environment signed-build \
+  --signed-build-evidence ../spike-001-signed-build.json \
   --recording-duration-seconds 120 \
   --record-decision go \
   spike-001-*.json
@@ -239,9 +239,12 @@ have been reviewed. The canonical gate fails closed when the decision is absent,
 or when the recorded outcome is `adjust` or `stop`; the flag is an operator
 decision, not an automated inference from the aggregate JSON.
 
-The two `--attest-environment` flags confirm that the matrix was executed from
-a clean macOS account with the signed spike build required by SPIKE-001. They
-do not inspect the account, certificate, username, team identifier, or hardware.
+`--attest-environment clean-account` remains an operator confirmation. The
+signed-build requirement cannot be satisfied by a text attestation: the
+canonical gate strictly decodes `--signed-build-evidence`, rejects unknown
+fields or foreign/failed contracts, and requires its public source revision to
+match the current checkout. It does not expose the supplied path or inspect the
+account, certificate identity, username, team identifier, or hardware.
 
 The two-run minimum prevents a single export per trigger from being presented as
 the built-in plus external-device comparison. Use unique privacy-safe run labels
