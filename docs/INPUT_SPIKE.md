@@ -242,9 +242,10 @@ decision, not an automated inference from the aggregate JSON.
 `--attest-environment clean-account` remains an operator confirmation. The
 signed-build requirement cannot be satisfied by a text attestation: the
 canonical gate strictly decodes `--signed-build-evidence`, rejects unknown
-fields or foreign/failed contracts, and requires its public source revision to
-match the current checkout. It does not expose the supplied path or inspect the
-account, certificate identity, username, team identifier, or hardware.
+or repeated fields, oversized documents, foreign/failed contracts, and requires
+its public source revision to match the current checkout. It does not expose
+the supplied path or inspect the account, certificate identity, username, team
+identifier, or hardware.
 
 The two-run minimum prevents a single export per trigger from being presented as
 the built-in plus external-device comparison. Use unique privacy-safe run labels

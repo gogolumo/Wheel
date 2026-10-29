@@ -5,7 +5,9 @@ import Foundation
 /// deliberately absent from this schema.
 public struct SignedBuildEvidence: Codable, Equatable, Sendable {
     public enum ValidationError: Error, Equatable, Sendable {
+        case documentTooLarge
         case topLevelObjectRequired
+        case repeatedFields
         case unsupportedFields
         case invalidContract
     }
@@ -31,12 +33,23 @@ public struct SignedBuildEvidence: Codable, Equatable, Sendable {
     public let signingTrust: String
 
     public static func decodeValidatedJSON(_ data: Data) throws -> Self {
+        guard data.count <= 4_096 else {
+            throw ValidationError.documentTooLarge
+        }
+        guard let source = String(data: data, encoding: .utf8) else {
+            throw ValidationError.topLevelObjectRequired
+        }
         let object = try JSONSerialization.jsonObject(with: data)
         guard let fields = object as? [String: Any] else {
             throw ValidationError.topLevelObjectRequired
         }
         guard Set(fields.keys) == Set(CodingKeys.allCases.map(\.rawValue)) else {
             throw ValidationError.unsupportedFields
+        }
+        guard CodingKeys.allCases.allSatisfy({
+            source.components(separatedBy: "\"\($0.rawValue)\"").count == 2
+        }) else {
+            throw ValidationError.repeatedFields
         }
 
         let evidence = try JSONDecoder().decode(Self.self, from: data)

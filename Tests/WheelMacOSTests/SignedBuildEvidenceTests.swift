@@ -31,6 +31,37 @@ final class SignedBuildEvidenceTests: XCTestCase {
         }
     }
 
+    func testRejectsRepeatedFieldsEvenWhenDecoderWouldChooseOne() {
+        let json = String(decoding: validData(), as: UTF8.self)
+            .replacingOccurrences(
+                of: #""result": "pass""#,
+                with: #""result": "failed", "result": "pass""#
+            )
+
+        XCTAssertThrowsError(
+            try SignedBuildEvidence.decodeValidatedJSON(Data(json.utf8))
+        ) { error in
+            XCTAssertEqual(
+                error as? SignedBuildEvidence.ValidationError,
+                .repeatedFields
+            )
+        }
+    }
+
+    func testRejectsOversizedDocumentBeforeDecoding() {
+        var data = validData()
+        data.append(Data(repeating: 0x20, count: 4_096))
+
+        XCTAssertThrowsError(
+            try SignedBuildEvidence.decodeValidatedJSON(data)
+        ) { error in
+            XCTAssertEqual(
+                error as? SignedBuildEvidence.ValidationError,
+                .documentTooLarge
+            )
+        }
+    }
+
     func testRejectsFailedOrForeignContract() {
         for replacement in [
             #""result": "failed""#,
