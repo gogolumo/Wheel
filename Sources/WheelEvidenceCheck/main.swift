@@ -478,6 +478,26 @@ if let signedBuildEvidencePath {
         print("- signed build does not match the current checkout")
         exit(1)
     }
+    let statusProcess = Process()
+    statusProcess.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+    statusProcess.arguments = ["status", "--porcelain=v1", "--untracked-files=normal"]
+    let statusOutput = Pipe()
+    statusProcess.standardOutput = statusOutput
+    statusProcess.standardError = FileHandle.nullDevice
+    do {
+        try statusProcess.run()
+        statusProcess.waitUntilExit()
+    } catch {
+        print("Signed-build evidence: FAILED")
+        print("- current source checkout status is unavailable")
+        exit(1)
+    }
+    let statusData = statusOutput.fileHandleForReading.readDataToEndOfFile()
+    guard statusProcess.terminationStatus == 0, statusData.isEmpty else {
+        print("Signed-build evidence: FAILED")
+        print("- current source checkout contains uncommitted changes")
+        exit(1)
+    }
     attestedEnvironment.insert("signed-build")
     print("Signed-build evidence: PASS")
 }

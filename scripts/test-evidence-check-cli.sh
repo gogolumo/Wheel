@@ -18,7 +18,9 @@ current_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "source revision is unavailable"
 
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/wheel-evidence-check.XXXXXX")"
+dirty_marker="$repo_root/.wheel-evidence-check-private-dirty"
 cleanup() {
+    rm -f "$dirty_marker"
     rm -rf "$test_root"
 }
 trap cleanup EXIT
@@ -84,5 +86,23 @@ fi
 [[ "$stale_output" != *"Evidence file #1"* ]] \
     || fail "the CLI continued into physical evidence after a stale build"
 assert_private_values_absent "$stale_output" "stale-evidence"
+
+touch "$dirty_marker"
+if dirty_output="$($checker \
+    --profile spike-001-final \
+    --signed-build-evidence "$valid_evidence" \
+    "$missing_run" 2>&1)"; then
+    fail "a dirty source checkout unexpectedly passed"
+fi
+rm -f "$dirty_marker"
+[[ "$dirty_output" == *"Signed-build evidence: FAILED"* ]] \
+    || fail "a dirty source checkout did not fail at the CLI gate"
+[[ "$dirty_output" == *"uncommitted changes"* ]] \
+    || fail "the dirty-checkout failure was not actionable"
+[[ "$dirty_output" != *"$dirty_marker"* ]] \
+    || fail "dirty-checkout output disclosed the changed path"
+[[ "$dirty_output" != *"Evidence file #1"* ]] \
+    || fail "the CLI continued into physical evidence from a dirty checkout"
+assert_private_values_absent "$dirty_output" "dirty-checkout"
 
 echo "wheel-evidence-check CLI contract tests PASS"
