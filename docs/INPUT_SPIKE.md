@@ -8,6 +8,49 @@ It is a diagnostic, not production gesture handling. A successful compile does
 not prove that Caps Lock is viable; that decision requires repeated testing on a
 real Mac.
 
+## Verify the signed physical-test build
+
+The default local bundle is ad-hoc signed and does not satisfy SPIKE-001's
+signed-environment requirement. Build with a Keychain signing identity, then
+run the privacy-safe verifier before checking `signed-build` in the final gate:
+
+```bash
+WHEEL_CODESIGN_IDENTITY="Apple Development: …" bash scripts/build-app.sh
+bash scripts/verify-spike-signed-build.sh dist/Wheel.app \
+  --summary-json ../spike-001-signed-build.json
+```
+
+The verifier prints only `PASS` or a generic failure. It does not print the
+certificate identity, Team ID, account name, or application path. A passing
+result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
+signing authority anchored to Apple's code-signing trust chain, and that the
+bundle's stamped `WheelSourceRevision` matches
+the repository's current `HEAD`. It also requires the expected non-symbolic
+executable and icon, executable and bundle-identifier metadata, and the complete
+non-symbolic Wheel brand resource set, so an incomplete or structurally foreign
+signed bundle fails closed. The bundle must also declare the macOS application
+package type (`APPL`) and supported Wheel brand-resource contract version 1;
+foreign package types and incompatible resource layouts are rejected without
+printing their values. `LSUIElement` must remain `true`, binding the test
+to Wheel's non-activating background/menu-bar application rather than a
+foreground substitute. An optional
+explicit revision pin must also
+match `HEAD`; it cannot redirect verification to another clean, published
+commit. The same revision must be the configured
+upstream branch head, so a detached, unpushed, or locally diverged commit cannot
+be presented as reviewable evidence. Fetch and fast-forward the test branch
+immediately before building. The verifier also fails when the repository has
+staged, unstaged, or untracked files, because `build-app.sh` compiles the
+checkout and a dirty tree could otherwise place unreviewed code in a bundle
+stamped with `HEAD`. It never prints branch names, revisions, or dirty
+filenames. These checks prevent stale, unpublished, or locally modified signed
+builds from satisfying the precondition; they prove nothing about the remaining
+physical matrix. The optional summary is created atomically and never
+overwrites an existing file. It contains only the public source revision and
+allowlisted contract results; certificate identity, Team ID, account data,
+local paths, and hardware identifiers are excluded. Attach this JSON alongside
+the four physical run exports.
+
 ## Fix the active Xcode toolchain
 
 If `swift test` reports `no such module 'XCTest'`, Command Line Tools are active
@@ -160,7 +203,7 @@ swift run wheel-evidence-check \
   "${scenario_args[@]}" \
   "${review_args[@]}" \
   --attest-environment clean-account \
-  --attest-environment signed-build \
+  --signed-build-evidence ../spike-001-signed-build.json \
   --recording-duration-seconds 120 \
   --record-decision go \
   spike-001-*.json
@@ -196,9 +239,13 @@ have been reviewed. The canonical gate fails closed when the decision is absent,
 or when the recorded outcome is `adjust` or `stop`; the flag is an operator
 decision, not an automated inference from the aggregate JSON.
 
-The two `--attest-environment` flags confirm that the matrix was executed from
-a clean macOS account with the signed spike build required by SPIKE-001. They
-do not inspect the account, certificate, username, team identifier, or hardware.
+`--attest-environment clean-account` remains an operator confirmation. The
+signed-build requirement cannot be satisfied by a text attestation: the
+canonical gate strictly decodes `--signed-build-evidence`, rejects unknown
+or repeated fields, oversized documents, foreign/failed contracts, and requires
+its public source revision to match the current checkout. It does not expose
+the supplied path or inspect the account, certificate identity, username, team
+identifier, or hardware.
 
 The two-run minimum prevents a single export per trigger from being presented as
 the built-in plus external-device comparison. Use unique privacy-safe run labels

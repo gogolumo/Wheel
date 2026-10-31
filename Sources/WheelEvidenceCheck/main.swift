@@ -9,7 +9,8 @@ private func printUsage() {
             + "[--profile spike-001-final] "
             + "[--attest-run-scenario LABEL finder|chrome|vscode|full-screen|sleep-wake|timeout-recovery]... "
             + "[--attest-run-review LABEL event-order|intended-vs-observed|stuck-state|side-effects]... "
-            + "[--attest-environment clean-account|signed-build]... "
+            + "[--attest-environment clean-account] "
+            + "[--signed-build-evidence PATH] "
             + "[--recording-duration-seconds SECONDS] "
             + "[--record-decision go|adjust|stop] "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
@@ -53,6 +54,7 @@ var evidenceProfile: InputSpikeEvidenceProfile?
 var attestedScenariosByRunLabel: [String: Set<String>] = [:]
 var attestedRunReviewsByRunLabel: [String: Set<String>] = [:]
 var attestedEnvironment: Set<String> = []
+var signedBuildEvidencePath: String?
 var attestedRecordingDurationSeconds: Int?
 var recordedDecision: InputSpikeEvidenceDecision?
 var requiredTriggers: Set<String> = []
@@ -67,7 +69,7 @@ let supportedScenarios = Set([
     "finder", "chrome", "vscode", "full-screen", "sleep-wake", "timeout-recovery"
 ])
 let supportedRunReviews = Set(["event-order", "intended-vs-observed", "stuck-state", "side-effects"])
-let supportedEnvironmentAttestations = Set(["clean-account", "signed-build"])
+let supportedEnvironmentAttestations = Set(["clean-account"])
 var expectedTrigger: TriggerType?
 var expectedSequenceTarget: Int?
 var minimumObservedSequenceCount: Int?
@@ -147,6 +149,17 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         attestedEnvironment.insert(CommandLine.arguments[argumentIndex])
+    } else if argument == "--signed-build-evidence" {
+        argumentIndex += 1
+        guard
+            signedBuildEvidencePath == nil,
+            argumentIndex < CommandLine.arguments.count
+        else {
+            print("Invalid or repeated --signed-build-evidence value")
+            printUsage()
+            exit(64)
+        }
+        signedBuildEvidencePath = CommandLine.arguments[argumentIndex]
     } else if argument == "--recording-duration-seconds" {
         argumentIndex += 1
         guard
@@ -382,6 +395,7 @@ guard evidenceProfile != nil
     || (attestedScenariosByRunLabel.isEmpty
         && attestedRunReviewsByRunLabel.isEmpty
         && attestedEnvironment.isEmpty
+        && signedBuildEvidencePath == nil
         && attestedRecordingDurationSeconds == nil
         && recordedDecision == nil)
 else {
@@ -421,6 +435,71 @@ if let profile = evidenceProfile {
     minimumNoneSequenceCount = profile.minimumNoneSequenceCount
     maximumMedianCallbackLatencyMilliseconds =
         profile.maximumMedianCallbackLatencyMilliseconds
+}
+
+if let signedBuildEvidencePath {
+    let data: Data
+    do {
+        data = try Data(contentsOf: URL(fileURLWithPath: signedBuildEvidencePath))
+    } catch {
+        print("Signed-build evidence: FAILED")
+        print("- unable to read signed-build evidence")
+        exit(1)
+    }
+
+    let evidence: SignedBuildEvidence
+    do {
+        evidence = try SignedBuildEvidence.decodeValidatedJSON(data)
+    } catch {
+        print("Signed-build evidence: FAILED")
+        print("- unable to validate signed-build evidence")
+        exit(1)
+    }
+
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+    process.arguments = ["rev-parse", "--verify", "HEAD"]
+    let output = Pipe()
+    process.standardOutput = output
+    process.standardError = FileHandle.nullDevice
+    do {
+        try process.run()
+        process.waitUntilExit()
+    } catch {
+        print("Signed-build evidence: FAILED")
+        print("- current source revision is unavailable")
+        exit(1)
+    }
+    let revisionData = output.fileHandleForReading.readDataToEndOfFile()
+    let currentRevision = String(data: revisionData, encoding: .utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard process.terminationStatus == 0, evidence.sourceRevision == currentRevision else {
+        print("Signed-build evidence: FAILED")
+        print("- signed build does not match the current checkout")
+        exit(1)
+    }
+    let statusProcess = Process()
+    statusProcess.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+    statusProcess.arguments = ["status", "--porcelain=v1", "--untracked-files=normal"]
+    let statusOutput = Pipe()
+    statusProcess.standardOutput = statusOutput
+    statusProcess.standardError = FileHandle.nullDevice
+    do {
+        try statusProcess.run()
+        statusProcess.waitUntilExit()
+    } catch {
+        print("Signed-build evidence: FAILED")
+        print("- current source checkout status is unavailable")
+        exit(1)
+    }
+    let statusData = statusOutput.fileHandleForReading.readDataToEndOfFile()
+    guard statusProcess.terminationStatus == 0, statusData.isEmpty else {
+        print("Signed-build evidence: FAILED")
+        print("- current source checkout contains uncommitted changes")
+        exit(1)
+    }
+    attestedEnvironment.insert("signed-build")
+    print("Signed-build evidence: PASS")
 }
 
 let requirements = InputSpikeEvidenceRequirements(
