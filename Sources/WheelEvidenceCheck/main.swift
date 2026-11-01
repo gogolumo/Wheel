@@ -480,7 +480,7 @@ if let signedBuildEvidencePath {
     }
     let statusProcess = Process()
     statusProcess.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-    statusProcess.arguments = ["status", "--porcelain=v1", "--untracked-files=normal"]
+    statusProcess.arguments = ["status", "--porcelain=v1", "--untracked-files=all"]
     let statusOutput = Pipe()
     statusProcess.standardOutput = statusOutput
     statusProcess.standardError = FileHandle.nullDevice

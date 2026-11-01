@@ -96,7 +96,7 @@ while [[ "$dirty_index" -lt 1200 ]]; do
     touch "$dirty_root/$dirty_name"
     dirty_index=$((dirty_index + 1))
 done
-dirty_status_bytes="$(git -C "$repo_root" status --porcelain=v1 --untracked-files=normal \
+dirty_status_bytes="$(git -C "$repo_root" status --porcelain=v1 --untracked-files=all \
     | wc -c | tr -d '[:space:]')"
 [[ "$dirty_status_bytes" -gt 65536 ]] \
     || fail "dirty-checkout fixture did not exceed a pipe buffer"
