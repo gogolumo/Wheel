@@ -18,9 +18,9 @@ current_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "source revision is unavailable"
 
 test_root="$(mktemp -d "${TMPDIR:-/tmp}/wheel-evidence-check.XXXXXX")"
-dirty_marker="$repo_root/.wheel-evidence-check-private-dirty"
+dirty_root="$repo_root/.wheel-evidence-check-private-dirty"
 cleanup() {
-    rm -f "$dirty_marker"
+    rm -rf "$dirty_root"
     rm -rf "$test_root"
 }
 trap cleanup EXIT
@@ -87,19 +87,31 @@ fi
     || fail "the CLI continued into physical evidence after a stale build"
 assert_private_values_absent "$stale_output" "stale-evidence"
 
-touch "$dirty_marker"
+mkdir "$dirty_root"
+dirty_index=0
+while [[ "$dirty_index" -lt 1200 ]]; do
+    printf -v dirty_name \
+        'private-change-%04d-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' \
+        "$dirty_index"
+    touch "$dirty_root/$dirty_name"
+    dirty_index=$((dirty_index + 1))
+done
+dirty_status_bytes="$(git -C "$repo_root" status --porcelain=v1 --untracked-files=normal \
+    | wc -c | tr -d '[:space:]')"
+[[ "$dirty_status_bytes" -gt 65536 ]] \
+    || fail "dirty-checkout fixture did not exceed a pipe buffer"
 if dirty_output="$($checker \
     --profile spike-001-final \
     --signed-build-evidence "$valid_evidence" \
     "$missing_run" 2>&1)"; then
     fail "a dirty source checkout unexpectedly passed"
 fi
-rm -f "$dirty_marker"
+rm -rf "$dirty_root"
 [[ "$dirty_output" == *"Signed-build evidence: FAILED"* ]] \
     || fail "a dirty source checkout did not fail at the CLI gate"
 [[ "$dirty_output" == *"uncommitted changes"* ]] \
     || fail "the dirty-checkout failure was not actionable"
-[[ "$dirty_output" != *"$dirty_marker"* ]] \
+[[ "$dirty_output" != *"$dirty_root"* ]] \
     || fail "dirty-checkout output disclosed the changed path"
 [[ "$dirty_output" != *"Evidence file #1"* ]] \
     || fail "the CLI continued into physical evidence from a dirty checkout"

@@ -464,13 +464,13 @@ if let signedBuildEvidencePath {
     process.standardError = FileHandle.nullDevice
     do {
         try process.run()
-        process.waitUntilExit()
     } catch {
         print("Signed-build evidence: FAILED")
         print("- current source revision is unavailable")
         exit(1)
     }
     let revisionData = output.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
     let currentRevision = String(data: revisionData, encoding: .utf8)?
         .trimmingCharacters(in: .whitespacesAndNewlines)
     guard process.terminationStatus == 0, evidence.sourceRevision == currentRevision else {
@@ -486,13 +486,13 @@ if let signedBuildEvidencePath {
     statusProcess.standardError = FileHandle.nullDevice
     do {
         try statusProcess.run()
-        statusProcess.waitUntilExit()
     } catch {
         print("Signed-build evidence: FAILED")
         print("- current source checkout status is unavailable")
         exit(1)
     }
     let statusData = statusOutput.fileHandleForReading.readDataToEndOfFile()
+    statusProcess.waitUntilExit()
     guard statusProcess.terminationStatus == 0, statusData.isEmpty else {
         print("Signed-build evidence: FAILED")
         print("- current source checkout contains uncommitted changes")
