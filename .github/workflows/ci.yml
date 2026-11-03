@@ -41,9 +41,12 @@ jobs:
           bash -n scripts/test-app-process.sh
           bash -n scripts/verify-spike-signed-build.sh
           bash -n scripts/test-spike-signed-build.sh
+          bash -n scripts/prepare-spike-001-physical.sh
+          bash -n scripts/test-prepare-spike-001-physical.sh
           bash -n scripts/test-evidence-check-cli.sh
           bash scripts/test-app-process.sh
           bash scripts/test-spike-signed-build.sh
+          bash scripts/test-prepare-spike-001-physical.sh
 
       - name: Build package (including macOS input spike)
         run: |

@@ -11,14 +11,19 @@ real Mac.
 ## Verify the signed physical-test build
 
 The default local bundle is ad-hoc signed and does not satisfy SPIKE-001's
-signed-environment requirement. Build with a Keychain signing identity, then
-run the privacy-safe verifier before checking `signed-build` in the final gate:
+signed-environment requirement. After fetching and fast-forwarding the review
+branch, use the preparation command with a Keychain signing identity:
 
 ```bash
-WHEEL_CODESIGN_IDENTITY="Apple Development: …" bash scripts/build-app.sh
-bash scripts/verify-spike-signed-build.sh dist/Wheel.app \
-  --summary-json ../spike-001-signed-build.json
+WHEEL_CODESIGN_IDENTITY="Apple Development: …" \
+  bash scripts/prepare-spike-001-physical.sh
 ```
+
+The command builds the app, runs the privacy-safe verifier, and writes
+`../spike-001-signed-build.json`. An optional destination may be passed as the
+only argument, but it must be outside the source checkout and must not already
+exist. Keeping the JSON outside the repository prevents the evidence file from
+making the checkout dirty and invalidating the signed-build precondition.
 
 The verifier prints only `PASS` or a generic failure. It does not print the
 certificate identity, Team ID, account name, or application path. A passing
