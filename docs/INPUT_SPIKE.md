@@ -25,8 +25,11 @@ only argument, but it must be outside the source checkout and must not already
 exist. Keeping the JSON outside the repository prevents the evidence file from
 making the checkout dirty and invalidating the signed-build precondition.
 
-The verifier prints only `PASS` or a generic failure. It does not print the
-certificate identity, Team ID, account name, or application path. A passing
+The verifier prints only `PASS` or a generic failure. The signing boundary also
+replaces raw `codesign` failures with a generic build error, so a failed
+Keychain lookup cannot echo the supplied certificate identity or artifact path.
+The verifier does not print the certificate identity, Team ID, account name, or
+application path. A passing
 result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
 signing authority anchored to Apple's code-signing trust chain, and that the
 bundle's stamped `WheelSourceRevision` matches
