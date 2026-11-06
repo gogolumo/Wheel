@@ -12,6 +12,10 @@ fail() {
 required_text=(
     "fix/SPIKE-001-signed-build-evidence"
     "scripts/prepare-spike-001-physical.sh"
+    "scripts/run-spike-001-slot.sh caps-lock-built-in"
+    "scripts/run-spike-001-slot.sh caps-lock-external"
+    "scripts/run-spike-001-slot.sh right-option-built-in"
+    "scripts/run-spike-001-slot.sh right-option-external"
     "--profile spike-001-final"
     "--signed-build-evidence ../spike-001-signed-build.json"
     "--recording-duration-seconds 120"

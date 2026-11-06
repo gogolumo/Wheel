@@ -76,30 +76,17 @@ physical attempts finish before 100 sequences are observed, press Control-C so
 the partial JSON records the miss.
 
 ```bash
-swift run wheel-input-spike \
-  --trigger caps-lock \
-  --sequences 100 \
-  --label "caps-lock-built-in" \
-  --summary-json ../caps-lock-built-in.json
-
-swift run wheel-input-spike \
-  --trigger caps-lock \
-  --sequences 100 \
-  --label "caps-lock-external" \
-  --summary-json ../caps-lock-external.json
-
-swift run wheel-input-spike \
-  --trigger right-option \
-  --sequences 100 \
-  --label "right-option-built-in" \
-  --summary-json ../right-option-built-in.json
-
-swift run wheel-input-spike \
-  --trigger right-option \
-  --sequences 100 \
-  --label "right-option-external" \
-  --summary-json ../right-option-external.json
+bash scripts/run-spike-001-slot.sh caps-lock-built-in
+bash scripts/run-spike-001-slot.sh caps-lock-external
+bash scripts/run-spike-001-slot.sh right-option-built-in
+bash scripts/run-spike-001-slot.sh right-option-external
 ```
+
+The slot runner fixes the trigger, label, 100-sequence target, and default
+external JSON destination for each approved slot. It rejects a dirty or
+unpublished checkout, an existing destination, and output inside the source
+tree. Built-in/external remains an operator-selected condition; the runner does
+not query or retain a device name, serial number, vendor, or product identifier.
 
 For every slot, exercise Finder, Chrome, VS Code, full-screen, sleep/wake, and
 timeout recovery; review event order, intended versus observed direction,
