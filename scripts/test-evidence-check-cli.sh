@@ -60,6 +60,12 @@ assert_private_values_absent() {
 }
 
 write_evidence "$valid_evidence" "$current_revision"
+valid_preflight_output="$($checker --signed-build-only "$valid_evidence" 2>&1)" \
+    || fail "valid signed-build preflight failed"
+[[ "$valid_preflight_output" == "Signed-build evidence: PASS" ]] \
+    || fail "valid signed-build preflight emitted an unexpected result"
+assert_private_values_absent "$valid_preflight_output" "valid-preflight"
+
 if valid_output="$($checker \
     --profile spike-001-final \
     --signed-build-evidence "$valid_evidence" \
@@ -73,6 +79,13 @@ fi
 assert_private_values_absent "$valid_output" "valid-evidence"
 
 write_evidence "$stale_evidence" "$stale_revision"
+if stale_preflight_output="$($checker --signed-build-only "$stale_evidence" 2>&1)"; then
+    fail "stale signed-build preflight unexpectedly passed"
+fi
+[[ "$stale_preflight_output" == *"Signed-build evidence: FAILED"* ]] \
+    || fail "stale signed-build preflight did not fail closed"
+assert_private_values_absent "$stale_preflight_output" "stale-preflight"
+
 if stale_output="$($checker \
     --profile spike-001-final \
     --signed-build-evidence "$stale_evidence" \

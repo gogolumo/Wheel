@@ -10,8 +10,8 @@ fail() {
     exit 1
 }
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-    fail "expected a canonical slot and optional summary destination"
+if [[ $# -lt 1 || $# -gt 3 ]]; then
+    fail "expected a canonical slot, optional summary destination, and optional signed-build evidence"
 fi
 
 slot="$1"
@@ -28,6 +28,7 @@ case "$slot" in
 esac
 
 summary_json="${2:-$repo_root/../$slot.json}"
+signed_build_evidence="${3:-$repo_root/../spike-001-signed-build.json}"
 summary_dir="$(dirname "$summary_json")"
 summary_name="$(basename "$summary_json")"
 [[ -n "$summary_name" && "$summary_name" != "." && "$summary_name" != ".." ]] \
@@ -45,6 +46,22 @@ esac
 [[ ! -e "$summary_json" && ! -L "$summary_json" ]] \
     || fail "summary destination must not already exist"
 
+signed_build_dir="$(dirname "$signed_build_evidence")"
+signed_build_name="$(basename "$signed_build_evidence")"
+[[ -n "$signed_build_name" && "$signed_build_name" != "." && "$signed_build_name" != ".." ]] \
+    || fail "signed-build evidence path is invalid"
+[[ -d "$signed_build_dir" ]] || fail "signed-build evidence directory is unavailable"
+signed_build_dir="$(cd "$signed_build_dir" && pwd -P)" \
+    || fail "signed-build evidence directory is unavailable"
+signed_build_evidence="$signed_build_dir/$signed_build_name"
+case "$signed_build_evidence" in
+    "$repo_root"|"$repo_root"/*)
+        fail "signed-build evidence must be outside the source checkout"
+        ;;
+esac
+[[ -f "$signed_build_evidence" && ! -L "$signed_build_evidence" ]] \
+    || fail "signed-build evidence is unavailable"
+
 head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "current source revision is unavailable"
 upstream_revision="$(git -C "$repo_root" rev-parse --verify '@{upstream}' 2>/dev/null)" \
@@ -59,6 +76,7 @@ worktree_status="$(git -C "$repo_root" status --porcelain --untracked-files=all 
     || fail "source worktree must be clean before a physical slot"
 
 cd "$repo_root"
+swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
 swift run wheel-input-spike \
     --trigger "$trigger" \
     --sequences 100 \

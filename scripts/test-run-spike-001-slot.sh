@@ -6,8 +6,10 @@ script="$repo_root/scripts/run-spike-001-slot.sh"
 test_root="$(mktemp -d)"
 fake_bin="$test_root/bin"
 invocation_log="$test_root/swift-invocation"
+signed_build_evidence="$test_root/spike-001-signed-build.json"
 trap 'rm -rf "$test_root"' EXIT
 mkdir -p "$fake_bin"
+printf '%s\n' '{}' >"$signed_build_evidence"
 
 fail() {
     echo "SPIKE-001 physical slot tests FAILED: $1" >&2
@@ -35,7 +37,7 @@ EOF
 
 cat >"$fake_bin/swift" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' "$*" >"$WHEEL_SLOT_TEST_LOG"
+printf '%s\n' "$*" >>"$WHEEL_SLOT_TEST_LOG"
 EOF
 chmod +x "$fake_bin/git" "$fake_bin/swift"
 
@@ -55,38 +57,50 @@ assert_failure() {
 slots=(caps-lock-built-in caps-lock-external right-option-built-in right-option-external)
 for slot in "${slots[@]}"; do
     summary="$test_root/$slot.json"
+    : >"$invocation_log"
     PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
-        bash "$script" "$slot" "$summary" \
+        bash "$script" "$slot" "$summary" "$signed_build_evidence" \
         || fail "canonical slot failed"
 
     expected_trigger="right-option"
     [[ "$slot" == caps-lock-* ]] && expected_trigger="caps-lock"
-    expected="run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --summary-json $summary"
+    expected="run wheel-evidence-check --signed-build-only $signed_build_evidence
+run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --summary-json $summary"
     [[ "$(<"$invocation_log")" == "$expected" ]] \
         || fail "canonical slot arguments changed"
 done
 
 assert_failure "unsupported physical slot" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
-    bash "$script" private-device-name "$test_root/invalid.json"
+    bash "$script" private-device-name "$test_root/invalid.json" "$signed_build_evidence"
 
 assert_failure "summary destination must be outside the source checkout" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
-    bash "$script" caps-lock-built-in "$repo_root/private.json"
+    bash "$script" caps-lock-built-in "$repo_root/private.json" "$signed_build_evidence"
 
 touch "$test_root/existing.json"
 assert_failure "summary destination must not already exist" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
-    bash "$script" caps-lock-built-in "$test_root/existing.json"
+    bash "$script" caps-lock-built-in "$test_root/existing.json" "$signed_build_evidence"
+
+assert_failure "signed-build evidence is unavailable" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    bash "$script" caps-lock-built-in "$test_root/missing-build.json" \
+    "$test_root/missing-signed-build.json"
+
+assert_failure "signed-build evidence must be outside the source checkout" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    bash "$script" caps-lock-built-in "$test_root/inside-build.json" \
+    "$repo_root/Package.swift"
 
 assert_failure "source worktree must be clean before a physical slot" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
     WHEEL_SLOT_TEST_DIRTY=1 \
-    bash "$script" caps-lock-built-in "$test_root/dirty.json"
+    bash "$script" caps-lock-built-in "$test_root/dirty.json" "$signed_build_evidence"
 
 assert_failure "current source revision must equal the published branch head" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
     WHEEL_SLOT_TEST_UPSTREAM=abcdefabcdefabcdefabcdefabcdefabcdefabcd \
-    bash "$script" right-option-built-in "$test_root/diverged.json"
+    bash "$script" right-option-built-in "$test_root/diverged.json" "$signed_build_evidence"
 
 echo "SPIKE-001 physical slot tests PASS"

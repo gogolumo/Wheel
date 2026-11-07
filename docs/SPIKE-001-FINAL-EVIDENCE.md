@@ -82,6 +82,11 @@ bash scripts/run-spike-001-slot.sh right-option-built-in
 bash scripts/run-spike-001-slot.sh right-option-external
 ```
 
+Each slot command first validates `../spike-001-signed-build.json` against the
+current clean checkout. It fails closed before listening for input if the
+signed-build evidence is missing, malformed, stale, or was produced from a
+different revision.
+
 The slot runner fixes the trigger, label, 100-sequence target, and default
 external JSON destination for each approved slot. It rejects a dirty or
 unpublished checkout, an existing destination, and output inside the source

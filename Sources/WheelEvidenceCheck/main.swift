@@ -11,6 +11,7 @@ private func printUsage() {
             + "[--attest-run-review LABEL event-order|intended-vs-observed|stuck-state|side-effects]... "
             + "[--attest-environment clean-account] "
             + "[--signed-build-evidence PATH] "
+            + "[--signed-build-only PATH] "
             + "[--recording-duration-seconds SECONDS] "
             + "[--record-decision go|adjust|stop] "
             + "[--require-trigger capsLock|rightOption|mouseSideButton]... "
@@ -55,6 +56,7 @@ var attestedScenariosByRunLabel: [String: Set<String>] = [:]
 var attestedRunReviewsByRunLabel: [String: Set<String>] = [:]
 var attestedEnvironment: Set<String> = []
 var signedBuildEvidencePath: String?
+var signedBuildOnly = false
 var attestedRecordingDurationSeconds: Int?
 var recordedDecision: InputSpikeEvidenceDecision?
 var requiredTriggers: Set<String> = []
@@ -160,6 +162,18 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         signedBuildEvidencePath = CommandLine.arguments[argumentIndex]
+    } else if argument == "--signed-build-only" {
+        argumentIndex += 1
+        guard
+            signedBuildEvidencePath == nil,
+            argumentIndex < CommandLine.arguments.count
+        else {
+            print("Invalid or repeated --signed-build-only value")
+            printUsage()
+            exit(64)
+        }
+        signedBuildEvidencePath = CommandLine.arguments[argumentIndex]
+        signedBuildOnly = true
     } else if argument == "--recording-duration-seconds" {
         argumentIndex += 1
         guard
@@ -386,12 +400,41 @@ while argumentIndex < CommandLine.arguments.count {
     argumentIndex += 1
 }
 
-guard !evidencePaths.isEmpty else {
-    printUsage()
-    exit(64)
+if signedBuildOnly {
+    guard
+        evidencePaths.isEmpty,
+        evidenceProfile == nil,
+        attestedScenariosByRunLabel.isEmpty,
+        attestedRunReviewsByRunLabel.isEmpty,
+        attestedEnvironment.isEmpty,
+        attestedRecordingDurationSeconds == nil,
+        recordedDecision == nil,
+        requiredTriggers.isEmpty,
+        minimumRunCountByTrigger.isEmpty,
+        requiredRuns.isEmpty,
+        attestedAttemptCountByRunLabel.isEmpty,
+        requiredAttemptCount == nil,
+        maximumMissedAttemptCount == nil,
+        expectedTrigger == nil,
+        expectedSequenceTarget == nil,
+        minimumObservedSequenceCount == nil,
+        minimumLeftSequenceCount == nil,
+        minimumRightSequenceCount == nil,
+        minimumNoneSequenceCount == nil,
+        maximumMedianCallbackLatencyMilliseconds == nil
+    else {
+        print("--signed-build-only cannot be combined with physical evidence options")
+        printUsage()
+        exit(64)
+    }
+} else {
+    guard !evidencePaths.isEmpty else {
+        printUsage()
+        exit(64)
+    }
 }
 
-guard evidenceProfile != nil
+guard signedBuildOnly || evidenceProfile != nil
     || (attestedScenariosByRunLabel.isEmpty
         && attestedRunReviewsByRunLabel.isEmpty
         && attestedEnvironment.isEmpty
@@ -500,6 +543,10 @@ if let signedBuildEvidencePath {
     }
     attestedEnvironment.insert("signed-build")
     print("Signed-build evidence: PASS")
+
+    if signedBuildOnly {
+        exit(0)
+    }
 }
 
 let requirements = InputSpikeEvidenceRequirements(
