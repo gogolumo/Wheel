@@ -69,6 +69,9 @@ The `git status --short` output must be empty. The preparation command must end
 with `SPIKE-001 physical preparation PASS` and create
 `../spike-001-signed-build.json`. Do not move that file into the checkout:
 doing so would make the source tree dirty and invalidate the attestation.
+The successful preparation output must direct the operator to the same four
+canonical slot commands shown below; the standalone diagnostics GUI does not
+produce the evidence files required by this gate.
 
 Run four independent 100-sequence slots. Keep an external tally of deliberate
 attempts because a completely missed trigger cannot report itself. If 100

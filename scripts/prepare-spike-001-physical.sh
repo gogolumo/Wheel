@@ -55,4 +55,8 @@ bash "$repo_root/scripts/verify-spike-signed-build.sh" \
     --summary-json "$summary_json"
 
 echo "SPIKE-001 physical preparation PASS"
-echo "Next: run swift run wheel-input-diagnostics and complete the documented matrix."
+echo "Next: run the four canonical physical slots:"
+echo "  bash scripts/run-spike-001-slot.sh caps-lock-built-in"
+echo "  bash scripts/run-spike-001-slot.sh caps-lock-external"
+echo "  bash scripts/run-spike-001-slot.sh right-option-built-in"
+echo "  bash scripts/run-spike-001-slot.sh right-option-external"

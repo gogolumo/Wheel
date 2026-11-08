@@ -11,6 +11,21 @@ fail() {
     exit 1
 }
 
+required_handoff=(
+    'echo "SPIKE-001 physical preparation PASS"'
+    'bash scripts/run-spike-001-slot.sh caps-lock-built-in'
+    'bash scripts/run-spike-001-slot.sh caps-lock-external'
+    'bash scripts/run-spike-001-slot.sh right-option-built-in'
+    'bash scripts/run-spike-001-slot.sh right-option-external'
+)
+for text in "${required_handoff[@]}"; do
+    grep -Fq -- "$text" "$script" \
+        || fail "successful preparation handoff is incomplete"
+done
+if grep -Fq -- "swift run wheel-input-diagnostics" "$script"; then
+    fail "stale diagnostics handoff returned"
+fi
+
 assert_failure() {
     local expected="$1"
     shift
