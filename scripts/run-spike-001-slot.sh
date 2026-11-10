@@ -77,8 +77,24 @@ worktree_status="$(git -C "$repo_root" status --porcelain --untracked-files=all 
 
 cd "$repo_root"
 swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
+capture_exit=0
 swift run wheel-input-spike \
     --trigger "$trigger" \
     --sequences 100 \
     --label "$slot" \
-    --summary-json "$summary_json"
+    --summary-json "$summary_json" \
+    || capture_exit=$?
+
+# Control-C is the documented way to preserve a 99/100 partial run. Validate
+# that evidence before returning the original interrupt status. Other capture
+# failures are not evidence and propagate immediately.
+if [[ "$capture_exit" -ne 0 && "$capture_exit" -ne 130 ]]; then
+    exit "$capture_exit"
+fi
+[[ -s "$summary_json" && ! -L "$summary_json" ]] \
+    || fail "input spike did not create evidence"
+swift run wheel-evidence-check \
+    --expected-trigger "$trigger" \
+    --expected-sequence-target 100 \
+    "$summary_json"
+exit "$capture_exit"

@@ -38,6 +38,22 @@ EOF
 cat >"$fake_bin/swift" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$WHEEL_SLOT_TEST_LOG"
+if [[ "$*" == *"run wheel-input-spike "* ]]; then
+    summary=""
+    previous=""
+    for argument in "$@"; do
+        if [[ "$previous" == "--summary-json" ]]; then
+            summary="$argument"
+            break
+        fi
+        previous="$argument"
+    done
+    [[ -n "$summary" ]]
+    if [[ "${WHEEL_SLOT_TEST_SKIP_SUMMARY:-0}" == 0 ]]; then
+        printf '%s\n' '{}' >"$summary"
+    fi
+    exit "${WHEEL_SLOT_TEST_CAPTURE_EXIT:-0}"
+fi
 EOF
 chmod +x "$fake_bin/git" "$fake_bin/swift"
 
@@ -65,10 +81,30 @@ for slot in "${slots[@]}"; do
     expected_trigger="right-option"
     [[ "$slot" == caps-lock-* ]] && expected_trigger="caps-lock"
     expected="run wheel-evidence-check --signed-build-only $signed_build_evidence
-run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --summary-json $summary"
+run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --summary-json $summary
+run wheel-evidence-check --expected-trigger $expected_trigger --expected-sequence-target 100 $summary"
     [[ "$(<"$invocation_log")" == "$expected" ]] \
         || fail "canonical slot arguments changed"
 done
+
+missing_summary="$test_root/missing-summary.json"
+assert_failure "input spike did not create evidence" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_SKIP_SUMMARY=1 \
+    bash "$script" caps-lock-built-in "$missing_summary" "$signed_build_evidence"
+
+interrupted_summary="$test_root/interrupted.json"
+: >"$invocation_log"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_CAPTURE_EXIT=130 \
+    bash "$script" right-option-external "$interrupted_summary" "$signed_build_evidence"
+interrupted_exit=$?
+set -e
+[[ "$interrupted_exit" -eq 130 && -s "$interrupted_summary" ]] \
+    || fail "interrupted physical slot did not preserve partial evidence status"
+[[ "$(<"$invocation_log")" == *"run wheel-evidence-check --expected-trigger right-option --expected-sequence-target 100 $interrupted_summary" ]] \
+    || fail "interrupted physical slot skipped evidence postflight"
 
 assert_failure "unsupported physical slot" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
