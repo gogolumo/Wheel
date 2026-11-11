@@ -79,10 +79,12 @@ for slot in "${slots[@]}"; do
         || fail "canonical slot failed"
 
     expected_trigger="right-option"
+    expected_evidence_trigger="rightOption"
     [[ "$slot" == caps-lock-* ]] && expected_trigger="caps-lock"
+    [[ "$slot" == caps-lock-* ]] && expected_evidence_trigger="capsLock"
     expected="run wheel-evidence-check --signed-build-only $signed_build_evidence
 run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --summary-json $summary
-run wheel-evidence-check --expected-trigger $expected_trigger --expected-sequence-target 100 $summary"
+run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expected-trigger $expected_trigger --expected-sequence-target 100 $summary"
     [[ "$(<"$invocation_log")" == "$expected" ]] \
         || fail "canonical slot arguments changed"
 done
@@ -103,7 +105,7 @@ interrupted_exit=$?
 set -e
 [[ "$interrupted_exit" -eq 130 && -s "$interrupted_summary" ]] \
     || fail "interrupted physical slot did not preserve partial evidence status"
-[[ "$(<"$invocation_log")" == *"run wheel-evidence-check --expected-trigger right-option --expected-sequence-target 100 $interrupted_summary" ]] \
+[[ "$(<"$invocation_log")" == *"run wheel-evidence-check --require-run right-option-external rightOption --expected-trigger right-option --expected-sequence-target 100 $interrupted_summary" ]] \
     || fail "interrupted physical slot skipped evidence postflight"
 
 assert_failure "unsupported physical slot" \

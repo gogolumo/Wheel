@@ -18,9 +18,11 @@ slot="$1"
 case "$slot" in
     caps-lock-built-in|caps-lock-external)
         trigger="caps-lock"
+        evidence_trigger="capsLock"
         ;;
     right-option-built-in|right-option-external)
         trigger="right-option"
+        evidence_trigger="rightOption"
         ;;
     *)
         fail "unsupported physical slot"
@@ -94,6 +96,7 @@ fi
 [[ -s "$summary_json" && ! -L "$summary_json" ]] \
     || fail "input spike did not create evidence"
 swift run wheel-evidence-check \
+    --require-run "$slot" "$evidence_trigger" \
     --expected-trigger "$trigger" \
     --expected-sequence-target 100 \
     "$summary_json"
