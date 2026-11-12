@@ -38,6 +38,11 @@ EOF
 cat >"$fake_bin/swift" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$WHEEL_SLOT_TEST_LOG"
+if [[ "$*" == *"run wheel-evidence-check --signed-build-only "* \
+    && "${WHEEL_SLOT_TEST_POSTFLIGHT_SOURCE_FAILURE:-0}" == 1 ]]; then
+    signed_checks="$(grep -c 'run wheel-evidence-check --signed-build-only ' "$WHEEL_SLOT_TEST_LOG")"
+    [[ "$signed_checks" -lt 2 ]] || exit 1
+fi
 if [[ "$*" == *"run wheel-input-spike "* ]]; then
     summary=""
     previous=""
@@ -84,10 +89,26 @@ for slot in "${slots[@]}"; do
     [[ "$slot" == caps-lock-* ]] && expected_evidence_trigger="capsLock"
     expected="run wheel-evidence-check --signed-build-only $signed_build_evidence
 run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --summary-json $summary
+run wheel-evidence-check --signed-build-only $signed_build_evidence
 run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expected-trigger $expected_trigger --expected-sequence-target 100 $summary"
     [[ "$(<"$invocation_log")" == "$expected" ]] \
         || fail "canonical slot arguments changed"
 done
+
+changed_source_summary="$test_root/changed-source.json"
+: >"$invocation_log"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_POSTFLIGHT_SOURCE_FAILURE=1 \
+    bash "$script" caps-lock-built-in "$changed_source_summary" "$signed_build_evidence"
+changed_source_exit=$?
+set -e
+[[ "$changed_source_exit" -ne 0 ]] \
+    || fail "changed source during capture unexpectedly passed"
+[[ "$(grep -c 'run wheel-evidence-check --signed-build-only ' "$invocation_log")" -eq 2 ]] \
+    || fail "signed source was not checked before and after capture"
+[[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
+    || fail "changed source continued into evidence postflight"
 
 missing_summary="$test_root/missing-summary.json"
 assert_failure "input spike did not create evidence" \
@@ -105,6 +126,8 @@ interrupted_exit=$?
 set -e
 [[ "$interrupted_exit" -eq 130 && -s "$interrupted_summary" ]] \
     || fail "interrupted physical slot did not preserve partial evidence status"
+[[ "$(<"$invocation_log")" == *"run wheel-evidence-check --signed-build-only $signed_build_evidence"$'\n'"run wheel-evidence-check --require-run right-option-external"* ]] \
+    || fail "interrupted physical slot skipped signed-source postflight"
 [[ "$(<"$invocation_log")" == *"run wheel-evidence-check --require-run right-option-external rightOption --expected-trigger right-option --expected-sequence-target 100 $interrupted_summary" ]] \
     || fail "interrupted physical slot skipped evidence postflight"
 

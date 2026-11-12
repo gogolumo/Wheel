@@ -95,6 +95,10 @@ if [[ "$capture_exit" -ne 0 && "$capture_exit" -ne 130 ]]; then
 fi
 [[ -s "$summary_json" && ! -L "$summary_json" ]] \
     || fail "input spike did not create evidence"
+# Revalidate the signed source after the long-running physical capture. This
+# closes the gap where the checkout or published branch could change after the
+# preflight but before the JSON is accepted as evidence.
+swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
 swift run wheel-evidence-check \
     --require-run "$slot" "$evidence_trigger" \
     --expected-trigger "$trigger" \
