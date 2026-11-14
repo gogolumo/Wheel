@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+fail() {
+    echo "wheel-evidence-check CLI contract FAILED: $1" >&2
+    exit 1
+}
+
+[[ $# -eq 1 ]] || fail "expected the wheel-evidence-check executable path"
+
+checker="$1"
+[[ -x "$checker" ]] || fail "checker executable is unavailable"
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" \
+    || fail "repository root is unavailable"
+current_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
+    || fail "source revision is unavailable"
+
+test_root="$(mktemp -d "${TMPDIR:-/tmp}/wheel-evidence-check.XXXXXX")"
+dirty_root="$repo_root/.wheel-evidence-check-private-dirty"
+cleanup() {
+    rm -rf "$dirty_root"
+    rm -rf "$test_root"
+}
+trap cleanup EXIT
+
+valid_evidence="$test_root/private-valid-signed-build.json"
+stale_evidence="$test_root/private-stale-signed-build.json"
+missing_run="$test_root/private-missing-run.json"
+stale_revision="0000000000000000000000000000000000000000"
+
+write_evidence() {
+    local path="$1"
+    local revision="$2"
+
+    printf '%s\n' \
+        '{' \
+        '  "schemaVersion": 1,' \
+        '  "result": "pass",' \
+        "  \"sourceRevision\": \"$revision\"," \
+        '  "bundleIdentifier": "dev.gogolumo.Wheel",' \
+        '  "packageType": "APPL",' \
+        '  "backgroundApplication": true,' \
+        '  "brandResourceVersion": 1,' \
+        '  "signingTrust": "apple-generic"' \
+        '}' >"$path"
+}
+
+assert_private_values_absent() {
+    local output="$1"
+    local label="$2"
+
+    [[ "$output" != *"$test_root"* ]] \
+        || fail "$label output disclosed a private path"
+    [[ "$output" != *"$current_revision"* ]] \
+        || fail "$label output disclosed the current revision"
+    [[ "$output" != *"$stale_revision"* ]] \
+        || fail "$label output disclosed the rejected revision"
+}
+
+write_evidence "$valid_evidence" "$current_revision"
+valid_preflight_output="$($checker --signed-build-only "$valid_evidence" 2>&1)" \
+    || fail "valid signed-build preflight failed"
+[[ "$valid_preflight_output" == "Signed-build evidence: PASS" ]] \
+    || fail "valid signed-build preflight emitted an unexpected result"
+assert_private_values_absent "$valid_preflight_output" "valid-preflight"
+
+if valid_output="$($checker \
+    --profile spike-001-final \
+    --signed-build-evidence "$valid_evidence" \
+    "$missing_run" 2>&1)"; then
+    fail "incomplete physical evidence unexpectedly passed"
+fi
+[[ "$valid_output" == *"Signed-build evidence: PASS"* ]] \
+    || fail "valid signed-build evidence did not reach the CLI gate"
+[[ "$valid_output" == *"Automated checks: FAILED"* ]] \
+    || fail "missing physical evidence did not fail closed"
+assert_private_values_absent "$valid_output" "valid-evidence"
+
+write_evidence "$stale_evidence" "$stale_revision"
+if stale_preflight_output="$($checker --signed-build-only "$stale_evidence" 2>&1)"; then
+    fail "stale signed-build preflight unexpectedly passed"
+fi
+[[ "$stale_preflight_output" == *"Signed-build evidence: FAILED"* ]] \
+    || fail "stale signed-build preflight did not fail closed"
+assert_private_values_absent "$stale_preflight_output" "stale-preflight"
+
+if stale_output="$($checker \
+    --profile spike-001-final \
+    --signed-build-evidence "$stale_evidence" \
+    "$missing_run" 2>&1)"; then
+    fail "stale signed-build evidence unexpectedly passed"
+fi
+[[ "$stale_output" == *"Signed-build evidence: FAILED"* ]] \
+    || fail "stale signed-build evidence did not fail at the CLI gate"
+[[ "$stale_output" != *"Signed-build evidence: PASS"* ]] \
+    || fail "stale signed-build evidence emitted a contradictory PASS"
+[[ "$stale_output" != *"Evidence file #1"* ]] \
+    || fail "the CLI continued into physical evidence after a stale build"
+assert_private_values_absent "$stale_output" "stale-evidence"
+
+mkdir "$dirty_root"
+dirty_index=0
+while [[ "$dirty_index" -lt 1200 ]]; do
+    printf -v dirty_name \
+        'private-change-%04d-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' \
+        "$dirty_index"
+    touch "$dirty_root/$dirty_name"
+    dirty_index=$((dirty_index + 1))
+done
+dirty_status_bytes="$(git -C "$repo_root" status --porcelain=v1 --untracked-files=all \
+    | wc -c | tr -d '[:space:]')"
+[[ "$dirty_status_bytes" -gt 65536 ]] \
+    || fail "dirty-checkout fixture did not exceed a pipe buffer"
+if dirty_output="$($checker \
+    --profile spike-001-final \
+    --signed-build-evidence "$valid_evidence" \
+    "$missing_run" 2>&1)"; then
+    fail "a dirty source checkout unexpectedly passed"
+fi
+rm -rf "$dirty_root"
+[[ "$dirty_output" == *"Signed-build evidence: FAILED"* ]] \
+    || fail "a dirty source checkout did not fail at the CLI gate"
+[[ "$dirty_output" == *"uncommitted changes"* ]] \
+    || fail "the dirty-checkout failure was not actionable"
+[[ "$dirty_output" != *"$dirty_root"* ]] \
+    || fail "dirty-checkout output disclosed the changed path"
+[[ "$dirty_output" != *"Evidence file #1"* ]] \
+    || fail "the CLI continued into physical evidence from a dirty checkout"
+assert_private_values_absent "$dirty_output" "dirty-checkout"
+
+echo "wheel-evidence-check CLI contract tests PASS"

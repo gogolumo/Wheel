@@ -50,45 +50,109 @@ Newer GestureSession/QA work may be cited for single-active-session and stale-ca
 
 ## Required physical run
 
-From a Mac with Input Monitoring permission, run:
+From a Mac with Input Monitoring permission, fetch the review branch and first
+create the signed-build attestation. The preparation command requires a clean,
+published checkout and writes its privacy-safe JSON outside the repository:
 
 ```bash
-cd ~/Documents/Wheel/Wheel
+cd ~/Documents/Wheel
 git fetch origin
-git switch spike/GH-1-global-input-capture
+git switch fix/SPIKE-001-signed-build-evidence
 git pull --ff-only
+git status --short
 
-swift run wheel-input-spike \
-  --trigger right-option \
-  --sequences 100 \
-  --label "SPIKE-001-final" \
-  --summary-json /tmp/wheel-spike-001-final.json
-
-swift run wheel-evidence-check \
-  /tmp/wheel-spike-001-final.json \
-  --attempt-count SPIKE-001-final 100 \
-  --required-attempt-count 100 \
-  --maximum-missed-attempts 1 \
-  --expected-trigger right-option \
-  --expected-sequence-target 100 \
-  --minimum-observed 99 \
-  --minimum-left 1 \
-  --minimum-right 1 \
-  --minimum-none 1 \
-  --maximum-median-latency-ms 25
+WHEEL_CODESIGN_IDENTITY="APPLE IDENTITY" \
+  bash scripts/prepare-spike-001-physical.sh
 ```
 
-The explicit checker requirements are intentionally separate from the values
-embedded in the export. The expected target check prevents a shorter run from
-being presented as the final 100-sequence run. A valid interrupted export that
-was configured for 100 sequences and contains 99 observed sequences can satisfy
-the aggregate 99/100 criterion, but the operator must still report that 100
-deliberate physical attempts were actually made. `--attempt-count` records that
-operator attestation and fails if it is missing, differs from the required 100,
-is lower than the observed sequence count, or accompanies an export whose
-configured `sequenceTarget` is not 100. It is not telemetry and cannot
-independently prove the actions occurred. The checker cannot infer a
-completely missed trigger, device/application coverage, stuck state, or native
+The `git status --short` output must be empty. The preparation command must end
+with `SPIKE-001 physical preparation PASS` and create
+`../spike-001-signed-build.json`. Do not move that file into the checkout:
+doing so would make the source tree dirty and invalidate the attestation.
+The successful preparation output must direct the operator to the same four
+canonical slot commands shown below; the standalone diagnostics GUI does not
+produce the evidence files required by this gate.
+
+Run four independent 100-sequence slots. Keep an external tally of deliberate
+attempts because a completely missed trigger cannot report itself. If 100
+physical attempts finish before 100 sequences are observed, press Control-C so
+the partial JSON records the miss.
+
+```bash
+bash scripts/run-spike-001-slot.sh caps-lock-built-in
+bash scripts/run-spike-001-slot.sh caps-lock-external
+bash scripts/run-spike-001-slot.sh right-option-built-in
+bash scripts/run-spike-001-slot.sh right-option-external
+```
+
+Each slot command first validates `../spike-001-signed-build.json` against the
+current clean checkout. It fails closed before listening for input if the
+signed-build evidence is missing, malformed, stale, or was produced from a
+different revision.
+After capture, the runner revalidates the signed-build evidence against the
+still-clean, still-published checkout, then validates that a non-empty
+privacy-safe JSON was created for the expected trigger, canonical slot, and
+100-sequence target. This postflight runs for both a completed slot and a
+Control-C partial export before the interrupt status is returned.
+An unexpected capture failure is not evidence: the runner removes any output
+created for that failed attempt and preserves the capture exit status, allowing
+the same canonical slot to be retried without a misleading stale JSON file.
+
+The slot runner fixes the trigger, label, 100-sequence target, and default
+external JSON destination for each approved slot. It rejects a dirty or
+unpublished checkout, an existing destination, and output inside the source
+tree. Built-in/external remains an operator-selected condition; the runner does
+not query or retain a device name, serial number, vendor, or product identifier.
+
+For every slot, exercise Finder, Chrome, VS Code, full-screen, sleep/wake, and
+timeout recovery; review event order, intended versus observed direction,
+stuck state, and native side effects. Record at least 120 seconds of the run.
+Only after reviewing those observations may the operator replace `go` below
+with the actual decision. The canonical gate passes only for a reviewed `go`;
+`adjust` and `stop` remain valid recorded decisions but deliberately fail the
+GO gate.
+
+```bash
+run_labels=(caps-lock-built-in caps-lock-external right-option-built-in right-option-external)
+scenarios=(finder chrome vscode full-screen sleep-wake timeout-recovery)
+reviews=(event-order intended-vs-observed stuck-state side-effects)
+scenario_args=()
+review_args=()
+for run_label in "${run_labels[@]}"; do
+  for scenario in "${scenarios[@]}"; do
+    scenario_args+=(--attest-run-scenario "$run_label" "$scenario")
+  done
+  for review in "${reviews[@]}"; do
+    review_args+=(--attest-run-review "$run_label" "$review")
+  done
+done
+
+swift run wheel-evidence-check \
+  --profile spike-001-final \
+  --attempt-count caps-lock-built-in 100 \
+  --attempt-count caps-lock-external 100 \
+  --attempt-count right-option-built-in 100 \
+  --attempt-count right-option-external 100 \
+  "${scenario_args[@]}" \
+  "${review_args[@]}" \
+  --attest-environment clean-account \
+  --signed-build-evidence ../spike-001-signed-build.json \
+  --recording-duration-seconds 120 \
+  --record-decision go \
+  ../caps-lock-built-in.json \
+  ../caps-lock-external.json \
+  ../right-option-built-in.json \
+  ../right-option-external.json
+```
+
+The profile supplies the fixed trigger, named-slot, target, reliability,
+direction-coverage, latency, scenario, review, recording, and decision
+requirements. It intentionally does not supply `--attempt-count`; each physical
+slot needs an explicit operator attestation. A valid interrupted export that was
+configured for 100 sequences and contains 99 observed sequences can satisfy the
+aggregate 99/100 criterion, but the operator must still report that 100
+deliberate attempts were made. The checker cannot independently prove a missed
+trigger, physical device identity, scenario execution, stuck state, or native
 side effects.
 
 The three direction requirements prevent a run containing only one classifier
@@ -96,7 +160,11 @@ result from passing as the physical LEFT / RIGHT / NONE exercise. They prove
 only aggregate coverage; the operator still records intended versus observed
 directions and any wrong result in the manual matrix.
 
-During the 100 deliberate sequences, alternate LEFT and RIGHT movements and include several intentional below-threshold releases to exercise NONE. Run across Finder, Chrome, VS Code, a normal Space, and a full-screen Space. Record any focus theft, clicks, pointer warping, typed characters, unintended navigation, stuck trigger state, or missed deliberate attempt.
+During each slot's 100 deliberate sequences, alternate LEFT and RIGHT movements
+and include several intentional below-threshold releases to exercise NONE.
+Record any focus theft, clicks, pointer warping, typed characters, unintended
+navigation, stuck trigger state, missed deliberate attempt, and Caps Lock state
+change.
 
 The JSON's `observed sequences` is not by itself proof that 99 of 100 deliberate physical attempts were observed: the operator must also report the number of deliberate attempts and any misses/side effects.
 

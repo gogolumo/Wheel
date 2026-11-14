@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run exactly one canonical SPIKE-001 physical slot. The slot name is the only
+# device descriptor retained in evidence; no hardware identifier is queried.
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+
+fail() {
+    echo "SPIKE-001 physical slot FAILED: $1" >&2
+    exit 1
+}
+
+if [[ $# -lt 1 || $# -gt 3 ]]; then
+    fail "expected a canonical slot, optional summary destination, and optional signed-build evidence"
+fi
+
+slot="$1"
+case "$slot" in
+    caps-lock-built-in|caps-lock-external)
+        trigger="caps-lock"
+        evidence_trigger="capsLock"
+        ;;
+    right-option-built-in|right-option-external)
+        trigger="right-option"
+        evidence_trigger="rightOption"
+        ;;
+    *)
+        fail "unsupported physical slot"
+        ;;
+esac
+
+summary_json="${2:-$repo_root/../$slot.json}"
+signed_build_evidence="${3:-$repo_root/../spike-001-signed-build.json}"
+summary_dir="$(dirname "$summary_json")"
+summary_name="$(basename "$summary_json")"
+[[ -n "$summary_name" && "$summary_name" != "." && "$summary_name" != ".." ]] \
+    || fail "summary destination is invalid"
+[[ -d "$summary_dir" ]] || fail "summary destination directory is unavailable"
+summary_dir="$(cd "$summary_dir" && pwd -P)" \
+    || fail "summary destination directory is unavailable"
+summary_json="$summary_dir/$summary_name"
+
+case "$summary_json" in
+    "$repo_root"|"$repo_root"/*)
+        fail "summary destination must be outside the source checkout"
+        ;;
+esac
+[[ ! -e "$summary_json" && ! -L "$summary_json" ]] \
+    || fail "summary destination must not already exist"
+
+signed_build_dir="$(dirname "$signed_build_evidence")"
+signed_build_name="$(basename "$signed_build_evidence")"
+[[ -n "$signed_build_name" && "$signed_build_name" != "." && "$signed_build_name" != ".." ]] \
+    || fail "signed-build evidence path is invalid"
+[[ -d "$signed_build_dir" ]] || fail "signed-build evidence directory is unavailable"
+signed_build_dir="$(cd "$signed_build_dir" && pwd -P)" \
+    || fail "signed-build evidence directory is unavailable"
+signed_build_evidence="$signed_build_dir/$signed_build_name"
+case "$signed_build_evidence" in
+    "$repo_root"|"$repo_root"/*)
+        fail "signed-build evidence must be outside the source checkout"
+        ;;
+esac
+[[ -f "$signed_build_evidence" && ! -L "$signed_build_evidence" ]] \
+    || fail "signed-build evidence is unavailable"
+
+head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
+    || fail "current source revision is unavailable"
+upstream_revision="$(git -C "$repo_root" rev-parse --verify '@{upstream}' 2>/dev/null)" \
+    || fail "a published upstream source revision is required"
+[[ "$head_revision" == "$upstream_revision" ]] \
+    || fail "current source revision must equal the published branch head"
+
+# Do not print porcelain output: filenames can contain private information.
+worktree_status="$(git -C "$repo_root" status --porcelain --untracked-files=all 2>/dev/null)" \
+    || fail "source worktree state is unavailable"
+[[ -z "$worktree_status" ]] \
+    || fail "source worktree must be clean before a physical slot"
+
+cd "$repo_root"
+swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
+capture_exit=0
+swift run wheel-input-spike \
+    --trigger "$trigger" \
+    --sequences 100 \
+    --label "$slot" \
+    --summary-json "$summary_json" \
+    || capture_exit=$?
+
+# Control-C is the documented way to preserve a 99/100 partial run. Validate
+# that evidence before returning the original interrupt status. Other capture
+# failures are not evidence and propagate immediately.
+if [[ "$capture_exit" -ne 0 && "$capture_exit" -ne 130 ]]; then
+    if [[ -f "$summary_json" || -L "$summary_json" ]]; then
+        rm -f -- "$summary_json" 2>/dev/null \
+            || fail "could not discard failed capture output"
+    fi
+    exit "$capture_exit"
+fi
+[[ -s "$summary_json" && ! -L "$summary_json" ]] \
+    || fail "input spike did not create evidence"
+# Revalidate the signed source after the long-running physical capture. This
+# closes the gap where the checkout or published branch could change after the
+# preflight but before the JSON is accepted as evidence.
+swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
+swift run wheel-evidence-check \
+    --require-run "$slot" "$evidence_trigger" \
+    --expected-trigger "$trigger" \
+    --expected-sequence-target 100 \
+    "$summary_json"
+exit "$capture_exit"

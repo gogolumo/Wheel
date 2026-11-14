@@ -10,6 +10,12 @@ DerivedData/
 xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 
+# CI / local command transcripts
+build.log
+release-build.log
+test.log
+demo.log
+
 # Local tooling
 .env
 *.local
