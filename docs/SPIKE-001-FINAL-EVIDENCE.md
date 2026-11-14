@@ -94,6 +94,9 @@ still-clean, still-published checkout, then validates that a non-empty
 privacy-safe JSON was created for the expected trigger, canonical slot, and
 100-sequence target. This postflight runs for both a completed slot and a
 Control-C partial export before the interrupt status is returned.
+An unexpected capture failure is not evidence: the runner removes any output
+created for that failed attempt and preserves the capture exit status, allowing
+the same canonical slot to be retried without a misleading stale JSON file.
 
 The slot runner fixes the trigger, label, 100-sequence target, and default
 external JSON destination for each approved slot. It rejects a dirty or

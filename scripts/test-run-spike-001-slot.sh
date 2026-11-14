@@ -110,6 +110,21 @@ set -e
 [[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
     || fail "changed source continued into evidence postflight"
 
+failed_capture_summary="$test_root/failed-capture.json"
+: >"$invocation_log"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_CAPTURE_EXIT=2 \
+    bash "$script" caps-lock-external "$failed_capture_summary" "$signed_build_evidence"
+failed_capture_exit=$?
+set -e
+[[ "$failed_capture_exit" -eq 2 ]] \
+    || fail "failed capture status was not preserved"
+[[ ! -e "$failed_capture_summary" && ! -L "$failed_capture_summary" ]] \
+    || fail "failed capture left non-evidence output"
+[[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
+    || fail "failed capture continued into evidence postflight"
+
 missing_summary="$test_root/missing-summary.json"
 assert_failure "input spike did not create evidence" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \

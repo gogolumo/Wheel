@@ -91,6 +91,10 @@ swift run wheel-input-spike \
 # that evidence before returning the original interrupt status. Other capture
 # failures are not evidence and propagate immediately.
 if [[ "$capture_exit" -ne 0 && "$capture_exit" -ne 130 ]]; then
+    if [[ -f "$summary_json" || -L "$summary_json" ]]; then
+        rm -f -- "$summary_json" 2>/dev/null \
+            || fail "could not discard failed capture output"
+    fi
     exit "$capture_exit"
 fi
 [[ -s "$summary_json" && ! -L "$summary_json" ]] \
