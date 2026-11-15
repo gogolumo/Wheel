@@ -45,7 +45,9 @@ jobs:
           bash scripts/check-module-boundaries.sh
 
   test:
-    runs-on: macos-14
+    # Keep Package.swift's macOS 14 deployment target, but use the currently
+    # available hosted image to compile and test it.
+    runs-on: macos-15
     timeout-minutes: 15
 
     steps:
