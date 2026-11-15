@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 script="$repo_root/scripts/run-spike-001-slot.sh"
 test_root="$(mktemp -d)"
+test_root="$(cd "$test_root" && pwd -P)"
 fake_bin="$test_root/bin"
 invocation_log="$test_root/swift-invocation"
 signed_build_evidence="$test_root/spike-001-signed-build.json"
