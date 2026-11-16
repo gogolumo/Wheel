@@ -16,6 +16,7 @@ public struct InputSpikeRunSummary: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
         case schemaVersion
+        case sourceRevision
         case runLabel
         case trigger
         case minimumHorizontalDistance
@@ -38,6 +39,7 @@ public struct InputSpikeRunSummary: Codable, Equatable, Sendable {
     }
 
     public let schemaVersion: Int
+    public let sourceRevision: String?
     public let runLabel: String
     public let trigger: String
     public let minimumHorizontalDistance: Double
@@ -67,6 +69,7 @@ public struct InputSpikeRunSummary: Codable, Equatable, Sendable {
         sequenceTarget: Int,
         statistics: InputSpikeRunStatistics,
         completionReason: CompletionReason,
+        sourceRevision: String? = nil,
         latencyThresholdMilliseconds: Double = 25
     ) {
         precondition(minimumHorizontalDistance > 0)
@@ -75,7 +78,11 @@ public struct InputSpikeRunSummary: Codable, Equatable, Sendable {
         precondition((trigger == .mouseSideButton) == (mouseButtonNumber != nil))
         precondition(sequenceTarget > 0)
         precondition(latencyThresholdMilliseconds > 0)
-        schemaVersion = 3
+        precondition(sourceRevision.map {
+            $0.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil
+        } ?? true)
+        schemaVersion = 4
+        self.sourceRevision = sourceRevision
         self.runLabel = runLabel
         self.trigger = trigger.rawValue
         self.minimumHorizontalDistance = minimumHorizontalDistance

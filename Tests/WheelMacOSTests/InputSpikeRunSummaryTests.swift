@@ -57,12 +57,17 @@ final class InputSpikeRunSummaryTests: XCTestCase {
             sequenceTarget: 30,
             statistics: InputSpikeRunStatistics(),
             completionReason: .interrupted,
+            sourceRevision: "0123456789abcdef0123456789abcdef01234567",
             latencyThresholdMilliseconds: 20
         )
         let object = try XCTUnwrap(
             JSONSerialization.jsonObject(with: summary.encodedJSON()) as? [String: Any]
         )
-        XCTAssertEqual(object["schemaVersion"] as? Int, 3)
+        XCTAssertEqual(object["schemaVersion"] as? Int, 4)
+        XCTAssertEqual(
+            object["sourceRevision"] as? String,
+            "0123456789abcdef0123456789abcdef01234567"
+        )
         XCTAssertEqual(object["runLabel"] as? String, "external-mouse")
         XCTAssertEqual(object["minimumHorizontalDistance"] as? Double, 90)
         XCTAssertEqual(object["minimumDominanceRatio"] as? Double, 1.75)

@@ -480,6 +480,7 @@ if let profile = evidenceProfile {
         profile.maximumMedianCallbackLatencyMilliseconds
 }
 
+var signedBuildSourceRevision: String?
 if let signedBuildEvidencePath {
     let data: Data
     do {
@@ -542,6 +543,7 @@ if let signedBuildEvidencePath {
         exit(1)
     }
     attestedEnvironment.insert("signed-build")
+    signedBuildSourceRevision = evidence.sourceRevision
     print("Signed-build evidence: PASS")
 
     if signedBuildOnly {
@@ -556,7 +558,10 @@ let requirements = InputSpikeEvidenceRequirements(
     minimumLeftSequenceCount: minimumLeftSequenceCount,
     minimumRightSequenceCount: minimumRightSequenceCount,
     minimumNoneSequenceCount: minimumNoneSequenceCount,
-    maximumMedianCallbackLatencyMilliseconds: maximumMedianCallbackLatencyMilliseconds
+    maximumMedianCallbackLatencyMilliseconds: maximumMedianCallbackLatencyMilliseconds,
+    expectedSourceRevision: evidenceProfile == .spike001Final
+        ? signedBuildSourceRevision
+        : nil
 )
 
 for (index, path) in evidencePaths.enumerated() {

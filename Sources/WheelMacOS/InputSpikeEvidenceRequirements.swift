@@ -13,6 +13,7 @@ public struct InputSpikeEvidenceRequirements: Equatable, Sendable {
     public let minimumRightSequenceCount: Int?
     public let minimumNoneSequenceCount: Int?
     public let maximumMedianCallbackLatencyMilliseconds: Double?
+    public let expectedSourceRevision: String?
 
     public init(
         expectedTrigger: TriggerType? = nil,
@@ -21,7 +22,8 @@ public struct InputSpikeEvidenceRequirements: Equatable, Sendable {
         minimumLeftSequenceCount: Int? = nil,
         minimumRightSequenceCount: Int? = nil,
         minimumNoneSequenceCount: Int? = nil,
-        maximumMedianCallbackLatencyMilliseconds: Double? = nil
+        maximumMedianCallbackLatencyMilliseconds: Double? = nil,
+        expectedSourceRevision: String? = nil
     ) {
         self.expectedTrigger = expectedTrigger
         self.expectedSequenceTarget = expectedSequenceTarget
@@ -31,5 +33,6 @@ public struct InputSpikeEvidenceRequirements: Equatable, Sendable {
         self.minimumNoneSequenceCount = minimumNoneSequenceCount
         self.maximumMedianCallbackLatencyMilliseconds =
             maximumMedianCallbackLatencyMilliseconds
+        self.expectedSourceRevision = expectedSourceRevision
     }
 }

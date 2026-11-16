@@ -89,7 +89,7 @@ for slot in "${slots[@]}"; do
     [[ "$slot" == caps-lock-* ]] && expected_trigger="caps-lock"
     [[ "$slot" == caps-lock-* ]] && expected_evidence_trigger="capsLock"
     expected="run wheel-evidence-check --signed-build-only $signed_build_evidence
-run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --summary-json $summary
+run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --source-revision 0123456789012345678901234567890123456789 --summary-json $summary
 run wheel-evidence-check --signed-build-only $signed_build_evidence
 run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expected-trigger $expected_trigger --expected-sequence-target 100 $summary"
     [[ "$(<"$invocation_log")" == "$expected" ]] \

@@ -84,6 +84,7 @@ swift run wheel-input-spike \
     --trigger "$trigger" \
     --sequences 100 \
     --label "$slot" \
+    --source-revision "$head_revision" \
     --summary-json "$summary_json" \
     || capture_exit=$?
 

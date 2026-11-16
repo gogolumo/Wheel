@@ -92,7 +92,10 @@ different revision.
 After capture, the runner revalidates the signed-build evidence against the
 still-clean, still-published checkout, then validates that a non-empty
 privacy-safe JSON was created for the expected trigger, canonical slot, and
-100-sequence target. This postflight runs for both a completed slot and a
+100-sequence target. The export records the exact 40-character source revision;
+the final profile rejects a run whose revision differs from the signed-build
+attestation, so an older physical export cannot be paired with a newer build.
+This postflight runs for both a completed slot and a
 Control-C partial export before the interrupt status is returned.
 An unexpected capture failure is not evidence: the runner removes any output
 created for that failed attempt and preserves the capture exit status, allowing

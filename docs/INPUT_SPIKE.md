@@ -268,6 +268,10 @@ export's configured `sequenceTarget` to equal 100, so a shorter run cannot be
 paired with a larger manual attestation. The per-run missed-attempt limit
 independently enforces the 99/100 reliability
 criterion from the attested attempt count and observed sequence count.
+Canonical slot exports also contain the public Git source revision supplied by
+the runner. The final profile compares it with the validated signed-build
+attestation and fails closed if they differ. This binds each physical export to
+the exact signed source without collecting account, path, device, or content data.
 Device/application coverage,
 intended versus observed directions, stuck state, and side effects still require
 manual review.

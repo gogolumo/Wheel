@@ -53,6 +53,32 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertTrue(assessment.requiresManualReview)
     }
 
+    func testSignedBuildRevisionRequirementRejectsDetachedRun() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(),
+            requirements: InputSpikeEvidenceRequirements(
+                expectedSourceRevision: "0123456789abcdef0123456789abcdef01234567"
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains("sourceRevision does not match the signed build")
+        )
+    }
+
+    func testSignedBuildRevisionRequirementAcceptsMatchingRun() {
+        let revision = "0123456789abcdef0123456789abcdef01234567"
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(sourceRevision: revision),
+            requirements: InputSpikeEvidenceRequirements(
+                expectedSourceRevision: revision
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .passed)
+    }
+
     func testMarksInterruptedExportIncomplete() {
         let assessment = InputSpikeEvidenceAssessment.evaluate(
             makeSummary(sequenceTarget: 2, completionReason: .interrupted)
@@ -434,7 +460,8 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         completedSequenceCount: Int = 1,
         completionReason: InputSpikeRunSummary.CompletionReason = .targetReached,
         latencyMilliseconds: Double = 8,
-        directions: [Direction]? = nil
+        directions: [Direction]? = nil,
+        sourceRevision: String? = nil
     ) -> InputSpikeRunSummary {
         var statistics = InputSpikeRunStatistics()
         let recordedDirections = directions
@@ -451,7 +478,8 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
             minimumDominanceRatio: 1.5,
             sequenceTarget: sequenceTarget,
             statistics: statistics,
-            completionReason: completionReason
+            completionReason: completionReason,
+            sourceRevision: sourceRevision
         )
     }
 }
