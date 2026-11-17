@@ -91,7 +91,7 @@ for slot in "${slots[@]}"; do
     expected="run wheel-evidence-check --signed-build-only $signed_build_evidence
 run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --source-revision 0123456789012345678901234567890123456789 --summary-json $summary
 run wheel-evidence-check --signed-build-only $signed_build_evidence
-run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expected-trigger $expected_trigger --expected-sequence-target 100 $summary"
+run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expected-trigger $expected_trigger --expected-sequence-target 100 --expected-source-revision 0123456789012345678901234567890123456789 $summary"
     [[ "$(<"$invocation_log")" == "$expected" ]] \
         || fail "canonical slot arguments changed"
 done
@@ -144,7 +144,7 @@ set -e
     || fail "interrupted physical slot did not preserve partial evidence status"
 [[ "$(<"$invocation_log")" == *"run wheel-evidence-check --signed-build-only $signed_build_evidence"$'\n'"run wheel-evidence-check --require-run right-option-external"* ]] \
     || fail "interrupted physical slot skipped signed-source postflight"
-[[ "$(<"$invocation_log")" == *"run wheel-evidence-check --require-run right-option-external rightOption --expected-trigger right-option --expected-sequence-target 100 $interrupted_summary" ]] \
+[[ "$(<"$invocation_log")" == *"run wheel-evidence-check --require-run right-option-external rightOption --expected-trigger right-option --expected-sequence-target 100 --expected-source-revision 0123456789012345678901234567890123456789 $interrupted_summary" ]] \
     || fail "interrupted physical slot skipped evidence postflight"
 
 assert_failure "unsupported physical slot" \

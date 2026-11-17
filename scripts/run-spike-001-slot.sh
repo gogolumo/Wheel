@@ -108,5 +108,6 @@ swift run wheel-evidence-check \
     --require-run "$slot" "$evidence_trigger" \
     --expected-trigger "$trigger" \
     --expected-sequence-target 100 \
+    --expected-source-revision "$head_revision" \
     "$summary_json"
 exit "$capture_exit"

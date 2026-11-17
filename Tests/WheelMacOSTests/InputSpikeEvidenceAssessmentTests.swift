@@ -34,6 +34,7 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertTrue(source.contains("--attempt-count"))
         XCTAssertTrue(source.contains("--required-attempt-count"))
         XCTAssertTrue(source.contains("--maximum-missed-attempts"))
+        XCTAssertTrue(source.contains("--expected-source-revision"))
         XCTAssertTrue(
             source.contains("minimumRunCountByTrigger: minimumRunCountByTrigger")
         )

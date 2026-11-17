@@ -97,6 +97,9 @@ the final profile rejects a run whose revision differs from the signed-build
 attestation, so an older physical export cannot be paired with a newer build.
 This postflight runs for both a completed slot and a
 Control-C partial export before the interrupt status is returned.
+The slot postflight checks the revision immediately, rather than waiting for
+the final four-file batch, so a detached export fails while the run context is
+still available.
 An unexpected capture failure is not evidence: the runner removes any output
 created for that failed attempt and preserves the capture exit status, allowing
 the same canonical slot to be retried without a misleading stale JSON file.

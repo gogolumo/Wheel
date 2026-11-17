@@ -22,6 +22,7 @@ private func printUsage() {
             + "[--maximum-missed-attempts COUNT] "
             + "[--expected-trigger caps-lock|right-option|mouse-side-button] "
             + "[--expected-sequence-target COUNT] "
+            + "[--expected-source-revision SHA] "
             + "[--minimum-observed COUNT] "
             + "[--minimum-left COUNT] "
             + "[--minimum-right COUNT] "
@@ -74,6 +75,7 @@ let supportedRunReviews = Set(["event-order", "intended-vs-observed", "stuck-sta
 let supportedEnvironmentAttestations = Set(["clean-account"])
 var expectedTrigger: TriggerType?
 var expectedSequenceTarget: Int?
+var expectedSourceRevision: String?
 var minimumObservedSequenceCount: Int?
 var minimumLeftSequenceCount: Int?
 var minimumRightSequenceCount: Int?
@@ -324,6 +326,21 @@ while argumentIndex < CommandLine.arguments.count {
             exit(64)
         }
         expectedSequenceTarget = parsed
+    } else if argument == "--expected-source-revision" {
+        argumentIndex += 1
+        guard
+            expectedSourceRevision == nil,
+            argumentIndex < CommandLine.arguments.count,
+            CommandLine.arguments[argumentIndex].range(
+                of: "^[0-9a-f]{40}$",
+                options: .regularExpression
+            ) != nil
+        else {
+            print("Invalid or repeated --expected-source-revision value")
+            printUsage()
+            exit(64)
+        }
+        expectedSourceRevision = CommandLine.arguments[argumentIndex]
     } else if argument == "--minimum-observed" {
         argumentIndex += 1
         guard
@@ -417,6 +434,7 @@ if signedBuildOnly {
         maximumMissedAttemptCount == nil,
         expectedTrigger == nil,
         expectedSequenceTarget == nil,
+        expectedSourceRevision == nil,
         minimumObservedSequenceCount == nil,
         minimumLeftSequenceCount == nil,
         minimumRightSequenceCount == nil,
@@ -456,6 +474,7 @@ if let profile = evidenceProfile {
         maximumMissedAttemptCount == nil,
         expectedTrigger == nil,
         expectedSequenceTarget == nil,
+        expectedSourceRevision == nil,
         minimumObservedSequenceCount == nil,
         minimumLeftSequenceCount == nil,
         minimumRightSequenceCount == nil,
@@ -561,7 +580,7 @@ let requirements = InputSpikeEvidenceRequirements(
     maximumMedianCallbackLatencyMilliseconds: maximumMedianCallbackLatencyMilliseconds,
     expectedSourceRevision: evidenceProfile == .spike001Final
         ? signedBuildSourceRevision
-        : nil
+        : expectedSourceRevision
 )
 
 for (index, path) in evidencePaths.enumerated() {
