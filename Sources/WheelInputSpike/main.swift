@@ -13,6 +13,7 @@ private struct Arguments {
     var verboseEvents = false
     var mouseButtonNumber: Int64 = 3
     var summaryJSONPath: String?
+    var sourceRevision: String?
 
     init(_ rawArguments: ArraySlice<String>) throws {
         var index = rawArguments.startIndex
@@ -86,6 +87,18 @@ private struct Arguments {
                     throw ArgumentError.missingValue("--summary-json")
                 }
                 summaryJSONPath = String(rawArguments[index])
+            case "--source-revision":
+                index = rawArguments.index(after: index)
+                guard
+                    index < rawArguments.endIndex,
+                    rawArguments[index].range(
+                        of: "^[0-9a-f]{40}$",
+                        options: .regularExpression
+                    ) != nil
+                else {
+                    throw ArgumentError.invalidValue("--source-revision")
+                }
+                sourceRevision = String(rawArguments[index])
             case "--help", "-h":
                 Self.printUsage()
                 exit(EXIT_SUCCESS)
@@ -123,6 +136,7 @@ private struct Arguments {
               --label TEXT                      Privacy-safe label for this test run
               --verbose-events                  Print every pointer-movement event
               --summary-json PATH               Write privacy-safe aggregate evidence as JSON
+              --source-revision SHA             Bind evidence to an exact 40-character Git revision
               --help                            Show this help
             """
         )
@@ -262,7 +276,8 @@ private func writeSummaryJSON(
             : nil,
         sequenceTarget: arguments.sequenceTarget,
         statistics: statistics,
-        completionReason: completionReason
+        completionReason: completionReason,
+        sourceRevision: arguments.sourceRevision
     )
     let url = URL(fileURLWithPath: path)
     try summary.encodedJSON().write(to: url, options: .atomic)

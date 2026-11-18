@@ -26,11 +26,15 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         XCTAssertTrue(source.contains("--recording-duration-seconds"))
         XCTAssertTrue(source.contains("--record-decision"))
         XCTAssertTrue(source.contains("--attest-environment"))
+        XCTAssertTrue(source.contains("--signed-build-evidence"))
+        XCTAssertTrue(source.contains("SignedBuildEvidence.decodeValidatedJSON(data)"))
+        XCTAssertFalse(source.contains(#"Set(["clean-account", "signed-build"])"#))
         XCTAssertTrue(source.contains(".spike001Final"))
         XCTAssertTrue(source.contains("--require-run"))
         XCTAssertTrue(source.contains("--attempt-count"))
         XCTAssertTrue(source.contains("--required-attempt-count"))
         XCTAssertTrue(source.contains("--maximum-missed-attempts"))
+        XCTAssertTrue(source.contains("--expected-source-revision"))
         XCTAssertTrue(
             source.contains("minimumRunCountByTrigger: minimumRunCountByTrigger")
         )
@@ -48,6 +52,32 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
 
         XCTAssertEqual(assessment.outcome, .passed)
         XCTAssertTrue(assessment.requiresManualReview)
+    }
+
+    func testSignedBuildRevisionRequirementRejectsDetachedRun() {
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(),
+            requirements: InputSpikeEvidenceRequirements(
+                expectedSourceRevision: "0123456789abcdef0123456789abcdef01234567"
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .failed)
+        XCTAssertTrue(
+            assessment.findings.contains("sourceRevision does not match the signed build")
+        )
+    }
+
+    func testSignedBuildRevisionRequirementAcceptsMatchingRun() {
+        let revision = "0123456789abcdef0123456789abcdef01234567"
+        let assessment = InputSpikeEvidenceAssessment.evaluate(
+            makeSummary(sourceRevision: revision),
+            requirements: InputSpikeEvidenceRequirements(
+                expectedSourceRevision: revision
+            )
+        )
+
+        XCTAssertEqual(assessment.outcome, .passed)
     }
 
     func testMarksInterruptedExportIncomplete() {
@@ -431,7 +461,8 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
         completedSequenceCount: Int = 1,
         completionReason: InputSpikeRunSummary.CompletionReason = .targetReached,
         latencyMilliseconds: Double = 8,
-        directions: [Direction]? = nil
+        directions: [Direction]? = nil,
+        sourceRevision: String? = nil
     ) -> InputSpikeRunSummary {
         var statistics = InputSpikeRunStatistics()
         let recordedDirections = directions
@@ -448,7 +479,8 @@ final class InputSpikeEvidenceAssessmentTests: XCTestCase {
             minimumDominanceRatio: 1.5,
             sequenceTarget: sequenceTarget,
             statistics: statistics,
-            completionReason: completionReason
+            completionReason: completionReason,
+            sourceRevision: sourceRevision
         )
     }
 }

@@ -20,8 +20,16 @@ public struct InputSpikeEvidenceAssessment: Equatable, Sendable {
     ) -> Self {
         var invalid: [String] = []
 
-        if summary.schemaVersion != 3 {
-            invalid.append("unsupported schemaVersion \(summary.schemaVersion); expected 3")
+        if summary.schemaVersion != 4 {
+            invalid.append("unsupported schemaVersion \(summary.schemaVersion); expected 4")
+        }
+        if let revision = summary.sourceRevision,
+           revision.range(of: "^[0-9a-f]{40}$", options: .regularExpression) == nil {
+            invalid.append("sourceRevision is not a full Git revision")
+        }
+        if let expectedRevision = requirements.expectedSourceRevision,
+           summary.sourceRevision != expectedRevision {
+            invalid.append("sourceRevision does not match the signed build")
         }
         if InputEvidenceRunLabel.validationError(for: summary.runLabel) != nil {
             invalid.append("runLabel violates the privacy-safe label contract")

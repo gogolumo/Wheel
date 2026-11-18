@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Verify only the SPIKE-001 signed-build precondition. Keep certificate
+# identities, Team IDs, and local filesystem paths out of stdout/stderr.
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+fail() {
+    echo "SPIKE-001 signed-build evidence FAILED: $1" >&2
+    exit 1
+}
+
+app="$repo_root/dist/Wheel.app"
+expected_revision=""
+summary_json=""
+positional_count=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --summary-json)
+            [[ $# -ge 2 && -n "$2" ]] || fail "summary output requires a destination"
+            [[ -z "$summary_json" ]] || fail "summary output may be specified only once"
+            summary_json="$2"
+            shift 2
+            ;;
+        --*)
+            fail "unsupported verification option"
+            ;;
+        *)
+            if [[ "$positional_count" -eq 0 ]]; then
+                app="$1"
+            elif [[ "$positional_count" -eq 1 ]]; then
+                expected_revision="$1"
+            else
+                fail "expected an optional application and source revision"
+            fi
+            positional_count=$((positional_count + 1))
+            shift
+            ;;
+    esac
+done
+
+[[ "$(uname -s)" == Darwin ]] || fail "verification requires macOS"
+for command in codesign git plutil; do
+    command -v "$command" >/dev/null 2>&1 || fail "a required macOS tool is unavailable"
+done
+[[ -d "$app" && ! -L "$app" ]] || fail "application bundle is unavailable"
+
+info_plist="$app/Contents/Info.plist"
+executable="$app/Contents/MacOS/Wheel"
+icon="$app/Contents/Resources/Wheel.icns"
+resource_bundle="$app/Contents/Resources/Wheel_WheelApp.bundle"
+[[ -f "$info_plist" && ! -L "$info_plist" ]] \
+    || fail "application metadata is unavailable"
+[[ -f "$executable" && -x "$executable" && ! -L "$executable" ]] \
+    || fail "application executable is unavailable"
+[[ -f "$icon" && ! -L "$icon" ]] \
+    || fail "application resources are unavailable"
+[[ -d "$resource_bundle" && ! -L "$resource_bundle" ]] \
+    || fail "application brand resources are unavailable"
+brand_resources="$resource_bundle/Contents/Resources"
+[[ -d "$brand_resources" ]] || brand_resources="$resource_bundle"
+for resource in WheelSymbol.pdf WheelSymbolLight.pdf \
+    WheelSymbolMonochromeBlack.pdf WheelSymbolMonochromeWhite.pdf \
+    WheelMenuBarTemplate.pdf WheelAppIcon.png; do
+    [[ -f "$brand_resources/$resource" && ! -L "$brand_resources/$resource" ]] \
+        || fail "application brand resources are incomplete"
+done
+
+bundle_executable="$(plutil -extract CFBundleExecutable raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "application executable metadata is unavailable"
+[[ "$bundle_executable" == Wheel ]] \
+    || fail "application executable metadata is invalid"
+bundle_identifier="$(plutil -extract CFBundleIdentifier raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "application identifier metadata is unavailable"
+[[ "$bundle_identifier" == dev.gogolumo.Wheel ]] \
+    || fail "application identifier metadata is invalid"
+bundle_package_type="$(plutil -extract CFBundlePackageType raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "application package metadata is unavailable"
+[[ "$bundle_package_type" == APPL ]] \
+    || fail "application package metadata is invalid"
+brand_resource_version="$(plutil -extract WheelBrandResourceVersion raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "brand resource metadata is unavailable"
+[[ "$brand_resource_version" == 1 ]] \
+    || fail "brand resource metadata is incompatible"
+background_agent="$(plutil -extract LSUIElement raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "background application metadata is unavailable"
+[[ "$background_agent" == true ]] \
+    || fail "signed evidence must use the background menu-bar application"
+
+head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
+    || fail "current source revision is unavailable"
+[[ "$head_revision" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "current source revision is invalid"
+
+if [[ -z "$expected_revision" ]]; then
+    expected_revision="$head_revision"
+fi
+[[ "$expected_revision" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "expected source revision is invalid"
+[[ "$expected_revision" == "$head_revision" ]] \
+    || fail "expected source revision does not match the current checkout"
+
+# Physical evidence must be reproducible from the published review branch, not
+# only from a clean local commit. This deliberately relies on the fetched
+# upstream ref; the protocol fetches and fast-forwards immediately beforehand.
+upstream_revision="$(git -C "$repo_root" rev-parse --verify '@{upstream}' 2>/dev/null)" \
+    || fail "a published upstream source revision is required"
+[[ "$upstream_revision" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "published upstream source revision is invalid"
+[[ "$upstream_revision" == "$expected_revision" ]] \
+    || fail "tested source revision is not the published branch head"
+
+# `build-app.sh` compiles the current checkout, not only committed files. A
+# dirty checkout could therefore produce a bundle stamped with HEAD while its
+# executable contains unreviewed source. Do not print porcelain output because
+# filenames can contain private information.
+worktree_status="$(git -C "$repo_root" status --porcelain --untracked-files=all 2>/dev/null)" \
+    || fail "source worktree state is unavailable"
+[[ -z "$worktree_status" ]] \
+    || fail "source worktree must be clean before physical evidence"
+
+bundle_revision="$(plutil -extract WheelSourceRevision raw -o - "$info_plist" 2>/dev/null)" \
+    || fail "bundle source revision is unavailable"
+[[ "$bundle_revision" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "bundle source revision is invalid"
+[[ "$bundle_revision" == "$expected_revision" ]] \
+    || fail "bundle source revision does not match the tested commit"
+
+codesign --verify --deep --strict "$app" >/dev/null 2>&1 \
+    || fail "code signature verification failed"
+
+# A locally created self-signed certificate can produce a structurally valid,
+# non-ad-hoc signature with an Authority field. SPIKE-001 requires an Apple-
+# issued development or distribution identity, so validate the trust anchor
+# without printing the certificate chain or Team ID.
+codesign --verify --deep --strict \
+    --test-requirement '=anchor apple generic and identifier "dev.gogolumo.Wheel"' \
+    "$app" >/dev/null 2>&1 \
+    || fail "an Apple-issued signing identity is required"
+
+signature_details="$(codesign -dv --verbose=4 "$app" 2>&1)" \
+    || fail "code signature metadata is unavailable"
+grep -Fqx "Identifier=dev.gogolumo.Wheel" <<<"$signature_details" \
+    || fail "code signature identifier is invalid"
+if grep -Fqx "Signature=adhoc" <<<"$signature_details"; then
+    fail "ad-hoc signatures do not satisfy the physical spike"
+fi
+grep -Fq "Authority=" <<<"$signature_details" \
+    || fail "a signing authority is required"
+
+if [[ -n "$summary_json" ]]; then
+    # Evidence output is deliberately allowlisted: public source revision and
+    # invariant contract values only. Never serialize certificate identity,
+    # Team ID, local paths, account data, or hardware identifiers.
+    [[ ! -e "$summary_json" && ! -L "$summary_json" ]] \
+        || fail "summary destination must not already exist"
+    summary_dir="$(dirname "$summary_json")"
+    [[ -d "$summary_dir" ]] || fail "summary destination directory is unavailable"
+    summary_tmp="$(mktemp "$summary_dir/.wheel-signed-build.XXXXXX")" \
+        || fail "summary output could not be prepared"
+    chmod 600 "$summary_tmp" \
+        || { rm -f "$summary_tmp"; fail "summary output could not be secured"; }
+    if ! printf '{
+  "schemaVersion": 1,
+  "result": "pass",
+  "sourceRevision": "%s",
+  "bundleIdentifier": "dev.gogolumo.Wheel",
+  "packageType": "APPL",
+  "backgroundApplication": true,
+  "brandResourceVersion": 1,
+  "signingTrust": "apple-generic"
+}\n' "$expected_revision" >"$summary_tmp"; then
+        rm -f "$summary_tmp"
+        fail "summary output could not be written"
+    fi
+    if ! ln "$summary_tmp" "$summary_json" 2>/dev/null; then
+        rm -f "$summary_tmp"
+        fail "summary destination became unavailable"
+    fi
+    rm -f "$summary_tmp"
+fi
+
+echo "SPIKE-001 signed-build evidence PASS"

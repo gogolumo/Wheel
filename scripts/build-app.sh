@@ -8,6 +8,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 output_dir="${1:-$repo_root/dist}"
 signing_identity="${WHEEL_CODESIGN_IDENTITY:--}"
 source "$repo_root/scripts/lib/app-process.sh"
+source "$repo_root/scripts/lib/private-codesign.sh"
 
 fail() {
     echo "Wheel.app build failed: $*" >&2
@@ -139,7 +140,8 @@ iconutil -c icns "$iconset" -o "$staged_app/Contents/Resources/Wheel.icns"
 # Sanitize only this newly staged artifact. Finder/resource-fork metadata can
 # invalidate signing even when executable/resources are correct (Apple QA1940).
 xattr -cr "$staged_app"
-codesign --force --sign "$signing_identity" "$staged_app"
+wheel_codesign_app "$signing_identity" "$staged_app" \
+    || fail "code signing failed"
 bash "$repo_root/scripts/verify-app.sh" "$staged_app"
 
 # Recheck immediately before replacement so a bundle launched during the
