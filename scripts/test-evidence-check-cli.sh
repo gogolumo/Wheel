@@ -28,6 +28,8 @@ trap cleanup EXIT
 valid_evidence="$test_root/private-valid-signed-build.json"
 stale_evidence="$test_root/private-stale-signed-build.json"
 missing_run="$test_root/private-missing-run.json"
+matching_run="$test_root/private-matching-run.json"
+detached_run="$test_root/private-detached-run.json"
 stale_revision="0000000000000000000000000000000000000000"
 
 write_evidence() {
@@ -47,6 +49,35 @@ write_evidence() {
         '}' >"$path"
 }
 
+write_run_evidence() {
+    local path="$1"
+    local revision="$2"
+
+    printf '%s\n' \
+        '{' \
+        '  "schemaVersion": 4,' \
+        "  \"sourceRevision\": \"$revision\"," \
+        '  "runLabel": "right-option-built-in",' \
+        '  "trigger": "rightOption",' \
+        '  "minimumHorizontalDistance": 80,' \
+        '  "minimumDominanceRatio": 1.5,' \
+        '  "sequenceTarget": 1,' \
+        '  "completedSequenceCount": 1,' \
+        '  "leftCount": 1,' \
+        '  "rightCount": 0,' \
+        '  "noneCount": 0,' \
+        '  "pointerMovementCount": 1,' \
+        '  "callbackSampleCount": 1,' \
+        '  "medianCallbackLatencyMilliseconds": 1,' \
+        '  "eventTapRecoveryCount": 0,' \
+        '  "completionReason": "targetReached",' \
+        '  "observedTargetMet": true,' \
+        '  "latencyThresholdMilliseconds": 25,' \
+        '  "latencyThresholdMet": true,' \
+        '  "requiresManualReview": true' \
+        '}' >"$path"
+}
+
 assert_private_values_absent() {
     local output="$1"
     local label="$2"
@@ -60,6 +91,28 @@ assert_private_values_absent() {
 }
 
 write_evidence "$valid_evidence" "$current_revision"
+write_run_evidence "$matching_run" "$current_revision"
+write_run_evidence "$detached_run" "$stale_revision"
+
+matching_run_output="$($checker \
+    --expected-source-revision "$current_revision" \
+    "$matching_run" 2>&1)" \
+    || fail "matching physical run revision failed"
+[[ "$matching_run_output" == *"Automated checks: PASSED"* ]] \
+    || fail "matching physical run did not pass automated checks"
+assert_private_values_absent "$matching_run_output" "matching-run"
+
+if detached_run_output="$($checker \
+    --expected-source-revision "$current_revision" \
+    "$detached_run" 2>&1)"; then
+    fail "detached physical run revision unexpectedly passed"
+fi
+[[ "$detached_run_output" == *"sourceRevision does not match the signed build"* ]] \
+    || fail "detached physical run did not fail the revision contract"
+[[ "$detached_run_output" == *"Automated checks: FAILED"* ]] \
+    || fail "detached physical run did not fail automated checks"
+assert_private_values_absent "$detached_run_output" "detached-run"
+
 valid_preflight_output="$($checker --signed-build-only "$valid_evidence" 2>&1)" \
     || fail "valid signed-build preflight failed"
 [[ "$valid_preflight_output" == "Signed-build evidence: PASS" ]] \
