@@ -30,7 +30,9 @@ replaces raw `codesign` failures with a generic build error, so a failed
 Keychain lookup cannot echo the supplied certificate identity or artifact path.
 The verifier does not print the certificate identity, Team ID, account name, or
 application path. A passing
-result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
+result verifies signature integrity for both the background Wheel application
+and its bundled `WheelInputSpike` physical-capture executable, the Wheel bundle
+identifier, a non-ad-hoc
 signing authority anchored to Apple's code-signing trust chain, and that the
 bundle's stamped `WheelSourceRevision` matches
 the repository's current `HEAD`. It also requires the expected non-symbolic

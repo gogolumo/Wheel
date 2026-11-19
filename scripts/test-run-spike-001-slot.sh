@@ -8,8 +8,13 @@ test_root="$(cd "$test_root" && pwd -P)"
 fake_bin="$test_root/bin"
 invocation_log="$test_root/swift-invocation"
 signed_build_evidence="$test_root/spike-001-signed-build.json"
-trap 'rm -rf "$test_root"' EXIT
-mkdir -p "$fake_bin"
+capture_executable="$repo_root/dist/Wheel.app/Contents/MacOS/WheelInputSpike"
+[[ ! -e "$repo_root/dist/Wheel.app" ]] || {
+    echo "SPIKE-001 physical slot tests FAILED: test requires no existing dist/Wheel.app" >&2
+    exit 1
+}
+trap 'rm -rf "$test_root" "$repo_root/dist/Wheel.app"' EXIT
+mkdir -p "$fake_bin" "$(dirname "$capture_executable")"
 printf '%s\n' '{}' >"$signed_build_evidence"
 
 fail() {
@@ -63,6 +68,26 @@ fi
 EOF
 chmod +x "$fake_bin/git" "$fake_bin/swift"
 
+cat >"$capture_executable" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "capture-harness $*" >>"$WHEEL_SLOT_TEST_LOG"
+summary=""
+previous=""
+for argument in "$@"; do
+    if [[ "$previous" == "--summary-json" ]]; then
+        summary="$argument"
+        break
+    fi
+    previous="$argument"
+done
+[[ -n "$summary" ]]
+if [[ "${WHEEL_SLOT_TEST_SKIP_SUMMARY:-0}" == 0 ]]; then
+    printf '%s\n' '{}' >"$summary"
+fi
+exit "${WHEEL_SLOT_TEST_CAPTURE_EXIT:-0}"
+EOF
+chmod +x "$capture_executable"
+
 assert_failure() {
     local expected="$1"
     shift
@@ -89,7 +114,7 @@ for slot in "${slots[@]}"; do
     [[ "$slot" == caps-lock-* ]] && expected_trigger="caps-lock"
     [[ "$slot" == caps-lock-* ]] && expected_evidence_trigger="capsLock"
     expected="run wheel-evidence-check --signed-build-only $signed_build_evidence
-run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --source-revision 0123456789012345678901234567890123456789 --summary-json $summary
+capture-harness --trigger $expected_trigger --sequences 100 --label $slot --source-revision 0123456789012345678901234567890123456789 --summary-json $summary
 run wheel-evidence-check --signed-build-only $signed_build_evidence
 run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expected-trigger $expected_trigger --expected-sequence-target 100 --expected-source-revision 0123456789012345678901234567890123456789 $summary"
     [[ "$(<"$invocation_log")" == "$expected" ]] \

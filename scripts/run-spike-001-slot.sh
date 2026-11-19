@@ -31,6 +31,7 @@ esac
 
 summary_json="${2:-$repo_root/../$slot.json}"
 signed_build_evidence="${3:-$repo_root/../spike-001-signed-build.json}"
+capture_executable="$repo_root/dist/Wheel.app/Contents/MacOS/WheelInputSpike"
 summary_dir="$(dirname "$summary_json")"
 summary_name="$(basename "$summary_json")"
 [[ -n "$summary_name" && "$summary_name" != "." && "$summary_name" != ".." ]] \
@@ -63,6 +64,8 @@ case "$signed_build_evidence" in
 esac
 [[ -f "$signed_build_evidence" && ! -L "$signed_build_evidence" ]] \
     || fail "signed-build evidence is unavailable"
+[[ -f "$capture_executable" && -x "$capture_executable" && ! -L "$capture_executable" ]] \
+    || fail "signed capture harness is unavailable"
 
 head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "current source revision is unavailable"
@@ -80,7 +83,7 @@ worktree_status="$(git -C "$repo_root" status --porcelain --untracked-files=all 
 cd "$repo_root"
 swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
 capture_exit=0
-swift run wheel-input-spike \
+"$capture_executable" \
     --trigger "$trigger" \
     --sequences 100 \
     --label "$slot" \

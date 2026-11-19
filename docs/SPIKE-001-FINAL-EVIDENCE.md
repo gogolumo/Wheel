@@ -57,7 +57,7 @@ published checkout and writes its privacy-safe JSON outside the repository:
 ```bash
 cd ~/Documents/Wheel
 git fetch origin
-git switch fix/SPIKE-001-signed-build-evidence
+git switch fix/SPIKE-001-signed-capture-harness
 git pull --ff-only
 git status --short
 
@@ -89,6 +89,10 @@ Each slot command first validates `../spike-001-signed-build.json` against the
 current clean checkout. It fails closed before listening for input if the
 signed-build evidence is missing, malformed, stale, or was produced from a
 different revision.
+Capture runs through `WheelInputSpike` embedded in and signed with the staged
+`Wheel.app`, rather than compiling or launching a separate `swift run` binary.
+The signed-build verifier checks both the outer background application and this
+exact bundled capture executable against Apple's code-signing trust anchor.
 After capture, the runner revalidates the signed-build evidence against the
 still-clean, still-published checkout, then validates that a non-empty
 privacy-safe JSON was created for the expected trigger, canonical slot, and
