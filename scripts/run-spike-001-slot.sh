@@ -81,6 +81,12 @@ worktree_status="$(git -C "$repo_root" status --porcelain --untracked-files=all 
     || fail "source worktree must be clean before a physical slot"
 
 cd "$repo_root"
+# The JSON attestation is not enough on its own: the app or nested executable
+# could be replaced after preparation. Revalidate the actual signed artifact
+# immediately before and after the physical capture.
+bash "$repo_root/scripts/verify-spike-signed-build.sh" \
+    "$repo_root/dist/Wheel.app" "$head_revision" >/dev/null 2>&1 \
+    || fail "signed capture artifact verification failed"
 swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
 capture_exit=0
 "$capture_executable" \
@@ -106,6 +112,9 @@ fi
 # Revalidate the signed source after the long-running physical capture. This
 # closes the gap where the checkout or published branch could change after the
 # preflight but before the JSON is accepted as evidence.
+bash "$repo_root/scripts/verify-spike-signed-build.sh" \
+    "$repo_root/dist/Wheel.app" "$head_revision" >/dev/null 2>&1 \
+    || fail "signed capture artifact verification failed"
 swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
 swift run wheel-evidence-check \
     --require-run "$slot" "$evidence_trigger" \

@@ -9,13 +9,25 @@ fake_bin="$test_root/bin"
 invocation_log="$test_root/swift-invocation"
 signed_build_evidence="$test_root/spike-001-signed-build.json"
 capture_executable="$repo_root/dist/Wheel.app/Contents/MacOS/WheelInputSpike"
+app="$repo_root/dist/Wheel.app"
+signature_marker="$test_root/capture-complete"
 [[ ! -e "$repo_root/dist/Wheel.app" ]] || {
     echo "SPIKE-001 physical slot tests FAILED: test requires no existing dist/Wheel.app" >&2
     exit 1
 }
 trap 'rm -rf "$test_root" "$repo_root/dist/Wheel.app"' EXIT
-mkdir -p "$fake_bin" "$(dirname "$capture_executable")"
+mkdir -p "$fake_bin" "$(dirname "$capture_executable")" \
+    "$app/Contents/Resources/Wheel_WheelApp.bundle"
 printf '%s\n' '{}' >"$signed_build_evidence"
+: >"$app/Contents/Info.plist"
+: >"$app/Contents/MacOS/Wheel"
+: >"$app/Contents/Resources/Wheel.icns"
+chmod +x "$app/Contents/MacOS/Wheel"
+for resource in WheelSymbol.pdf WheelSymbolLight.pdf \
+    WheelSymbolMonochromeBlack.pdf WheelSymbolMonochromeWhite.pdf \
+    WheelMenuBarTemplate.pdf WheelAppIcon.png; do
+    : >"$app/Contents/Resources/Wheel_WheelApp.bundle/$resource"
+done
 
 fail() {
     echo "SPIKE-001 physical slot tests FAILED: $1" >&2
@@ -39,6 +51,36 @@ case "$*" in
         exit 64
         ;;
 esac
+EOF
+
+cat >"$fake_bin/uname" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' Darwin
+EOF
+
+cat >"$fake_bin/plutil" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+    *CFBundleExecutable*) printf '%s\n' Wheel ;;
+    *CFBundleIdentifier*) printf '%s\n' dev.gogolumo.Wheel ;;
+    *CFBundlePackageType*) printf '%s\n' APPL ;;
+    *WheelBrandResourceVersion*) printf '%s\n' 1 ;;
+    *LSUIElement*) printf '%s\n' true ;;
+    *) printf '%s\n' 0123456789012345678901234567890123456789 ;;
+esac
+EOF
+
+cat >"$fake_bin/codesign" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${WHEEL_SLOT_TEST_POSTFLIGHT_SIGNATURE_FAILURE:-0}" == 1 \
+    && -e "$WHEEL_SLOT_TEST_SIGNATURE_MARKER" ]]; then
+    exit 1
+fi
+if [[ "$1" == "--verify" ]]; then
+    exit 0
+fi
+printf '%s\n' 'Identifier=dev.gogolumo.Wheel' \
+    'Authority=Apple Development: Redacted' >&2
 EOF
 
 cat >"$fake_bin/swift" <<'EOF'
@@ -66,7 +108,8 @@ if [[ "$*" == *"run wheel-input-spike "* ]]; then
     exit "${WHEEL_SLOT_TEST_CAPTURE_EXIT:-0}"
 fi
 EOF
-chmod +x "$fake_bin/git" "$fake_bin/swift"
+chmod +x "$fake_bin/git" "$fake_bin/swift" "$fake_bin/uname" \
+    "$fake_bin/plutil" "$fake_bin/codesign"
 
 cat >"$capture_executable" <<'EOF'
 #!/usr/bin/env bash
@@ -83,6 +126,9 @@ done
 [[ -n "$summary" ]]
 if [[ "${WHEEL_SLOT_TEST_SKIP_SUMMARY:-0}" == 0 ]]; then
     printf '%s\n' '{}' >"$summary"
+fi
+if [[ "${WHEEL_SLOT_TEST_POSTFLIGHT_SIGNATURE_FAILURE:-0}" == 1 ]]; then
+    : >"$WHEEL_SLOT_TEST_SIGNATURE_MARKER"
 fi
 exit "${WHEEL_SLOT_TEST_CAPTURE_EXIT:-0}"
 EOF
@@ -106,6 +152,7 @@ for slot in "${slots[@]}"; do
     summary="$test_root/$slot.json"
     : >"$invocation_log"
     PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+        WHEEL_SLOT_TEST_SIGNATURE_MARKER="$signature_marker" \
         bash "$script" "$slot" "$summary" "$signed_build_evidence" \
         || fail "canonical slot failed"
 
@@ -120,6 +167,22 @@ run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expect
     [[ "$(<"$invocation_log")" == "$expected" ]] \
         || fail "canonical slot arguments changed"
 done
+
+tampered_summary="$test_root/tampered-artifact.json"
+: >"$invocation_log"
+rm -f "$signature_marker"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_SIGNATURE_MARKER="$signature_marker" \
+    WHEEL_SLOT_TEST_POSTFLIGHT_SIGNATURE_FAILURE=1 \
+    bash "$script" caps-lock-built-in "$tampered_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
+tampered_exit=$?
+set -e
+[[ "$tampered_exit" -ne 0 ]] \
+    || fail "mutated signed artifact unexpectedly passed postflight"
+[[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
+    || fail "mutated signed artifact continued into evidence postflight"
 
 changed_source_summary="$test_root/changed-source.json"
 : >"$invocation_log"

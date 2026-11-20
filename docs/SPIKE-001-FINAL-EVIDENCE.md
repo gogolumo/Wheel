@@ -93,6 +93,9 @@ Capture runs through `WheelInputSpike` embedded in and signed with the staged
 `Wheel.app`, rather than compiling or launching a separate `swift run` binary.
 The signed-build verifier checks both the outer background application and this
 exact bundled capture executable against Apple's code-signing trust anchor.
+The slot runner repeats that verification immediately before capture and again
+before accepting the resulting JSON, so replacing or damaging either signed
+artifact after preparation fails closed.
 After capture, the runner revalidates the signed-build evidence against the
 still-clean, still-published checkout, then validates that a non-empty
 privacy-safe JSON was created for the expected trigger, canonical slot, and
