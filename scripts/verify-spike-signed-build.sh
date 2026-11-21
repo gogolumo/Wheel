@@ -47,12 +47,15 @@ done
 
 info_plist="$app/Contents/Info.plist"
 executable="$app/Contents/MacOS/Wheel"
+capture_executable="$app/Contents/MacOS/WheelInputSpike"
 icon="$app/Contents/Resources/Wheel.icns"
 resource_bundle="$app/Contents/Resources/Wheel_WheelApp.bundle"
 [[ -f "$info_plist" && ! -L "$info_plist" ]] \
     || fail "application metadata is unavailable"
 [[ -f "$executable" && -x "$executable" && ! -L "$executable" ]] \
     || fail "application executable is unavailable"
+[[ -f "$capture_executable" && -x "$capture_executable" && ! -L "$capture_executable" ]] \
+    || fail "signed capture harness is unavailable"
 [[ -f "$icon" && ! -L "$icon" ]] \
     || fail "application resources are unavailable"
 [[ -d "$resource_bundle" && ! -L "$resource_bundle" ]] \
@@ -128,6 +131,11 @@ bundle_revision="$(plutil -extract WheelSourceRevision raw -o - "$info_plist" 2>
 
 codesign --verify --deep --strict "$app" >/dev/null 2>&1 \
     || fail "code signature verification failed"
+codesign --verify --strict "$capture_executable" >/dev/null 2>&1 \
+    || fail "capture harness code signature verification failed"
+codesign --verify --strict --test-requirement '=anchor apple generic' \
+    "$capture_executable" >/dev/null 2>&1 \
+    || fail "capture harness requires an Apple-issued signing identity"
 
 # A locally created self-signed certificate can produce a structurally valid,
 # non-ad-hoc signature with an Authority field. SPIKE-001 requires an Apple-

@@ -49,4 +49,13 @@ if wheel_codesign_app only-one-argument >/dev/null 2>&1; then
     fail "invalid helper arguments unexpectedly passed"
 fi
 
+output="$(PATH="$fake_bin:$PATH" \
+    WHEEL_CODESIGN_TEST_LOG="$invocation_log" \
+    WHEEL_CODESIGN_TEST_RESULT=success \
+    wheel_codesign_path "$private_identity" "$private_app/Contents/MacOS/Helper" 2>&1)" \
+    || fail "a nested executable could not be signed"
+[[ -z "$output" ]] || fail "nested signing emitted private diagnostics"
+grep -Fq -- "$private_app/Contents/MacOS/Helper" "$invocation_log" \
+    || fail "the nested executable path was not passed to codesign"
+
 echo "Private codesign boundary tests PASS"

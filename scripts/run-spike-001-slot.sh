@@ -10,6 +10,13 @@ fail() {
     exit 1
 }
 
+discard_summary() {
+    if [[ -f "$summary_json" || -L "$summary_json" ]]; then
+        rm -f -- "$summary_json" 2>/dev/null \
+            || fail "could not discard rejected capture output"
+    fi
+}
+
 if [[ $# -lt 1 || $# -gt 3 ]]; then
     fail "expected a canonical slot, optional summary destination, and optional signed-build evidence"
 fi
@@ -31,6 +38,7 @@ esac
 
 summary_json="${2:-$repo_root/../$slot.json}"
 signed_build_evidence="${3:-$repo_root/../spike-001-signed-build.json}"
+capture_executable="$repo_root/dist/Wheel.app/Contents/MacOS/WheelInputSpike"
 summary_dir="$(dirname "$summary_json")"
 summary_name="$(basename "$summary_json")"
 [[ -n "$summary_name" && "$summary_name" != "." && "$summary_name" != ".." ]] \
@@ -63,6 +71,8 @@ case "$signed_build_evidence" in
 esac
 [[ -f "$signed_build_evidence" && ! -L "$signed_build_evidence" ]] \
     || fail "signed-build evidence is unavailable"
+[[ -f "$capture_executable" && -x "$capture_executable" && ! -L "$capture_executable" ]] \
+    || fail "signed capture harness is unavailable"
 
 head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "current source revision is unavailable"
@@ -78,9 +88,15 @@ worktree_status="$(git -C "$repo_root" status --porcelain --untracked-files=all 
     || fail "source worktree must be clean before a physical slot"
 
 cd "$repo_root"
+# The JSON attestation is not enough on its own: the app or nested executable
+# could be replaced after preparation. Revalidate the actual signed artifact
+# immediately before and after the physical capture.
+bash "$repo_root/scripts/verify-spike-signed-build.sh" \
+    "$repo_root/dist/Wheel.app" "$head_revision" >/dev/null 2>&1 \
+    || fail "signed capture artifact verification failed"
 swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
 capture_exit=0
-swift run wheel-input-spike \
+"$capture_executable" \
     --trigger "$trigger" \
     --sequences 100 \
     --label "$slot" \
@@ -92,10 +108,7 @@ swift run wheel-input-spike \
 # that evidence before returning the original interrupt status. Other capture
 # failures are not evidence and propagate immediately.
 if [[ "$capture_exit" -ne 0 && "$capture_exit" -ne 130 ]]; then
-    if [[ -f "$summary_json" || -L "$summary_json" ]]; then
-        rm -f -- "$summary_json" 2>/dev/null \
-            || fail "could not discard failed capture output"
-    fi
+    discard_summary
     exit "$capture_exit"
 fi
 [[ -s "$summary_json" && ! -L "$summary_json" ]] \
@@ -103,11 +116,23 @@ fi
 # Revalidate the signed source after the long-running physical capture. This
 # closes the gap where the checkout or published branch could change after the
 # preflight but before the JSON is accepted as evidence.
-swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
-swift run wheel-evidence-check \
+if ! bash "$repo_root/scripts/verify-spike-signed-build.sh" \
+    "$repo_root/dist/Wheel.app" "$head_revision" >/dev/null 2>&1; then
+    discard_summary
+    fail "signed capture artifact verification failed"
+fi
+if ! swift run wheel-evidence-check --signed-build-only \
+    "$signed_build_evidence"; then
+    discard_summary
+    fail "signed-build evidence postflight failed"
+fi
+if ! swift run wheel-evidence-check \
     --require-run "$slot" "$evidence_trigger" \
     --expected-trigger "$trigger" \
     --expected-sequence-target 100 \
     --expected-source-revision "$head_revision" \
-    "$summary_json"
+    "$summary_json"; then
+    discard_summary
+    fail "capture evidence postflight failed"
+fi
 exit "$capture_exit"
