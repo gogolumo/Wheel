@@ -96,6 +96,9 @@ exact bundled capture executable against Apple's code-signing trust anchor.
 The slot runner repeats that verification immediately before capture and again
 before accepting the resulting JSON, so replacing or damaging either signed
 artifact after preparation fails closed.
+Any JSON rejected by the artifact, signed-build, or capture-evidence postflight
+is removed, so it cannot be mistaken for accepted evidence or block a clean
+retry of the same canonical slot.
 After capture, the runner revalidates the signed-build evidence against the
 still-clean, still-published checkout, then validates that a non-empty
 privacy-safe JSON was created for the expected trigger, canonical slot, and

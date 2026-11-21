@@ -91,6 +91,10 @@ if [[ "$*" == *"run wheel-evidence-check --signed-build-only "* \
     signed_checks="$(grep -c 'run wheel-evidence-check --signed-build-only ' "$WHEEL_SLOT_TEST_LOG")"
     [[ "$signed_checks" -lt 2 ]] || exit 1
 fi
+if [[ "$*" == *"run wheel-evidence-check --require-run "* \
+    && "${WHEEL_SLOT_TEST_EVIDENCE_FAILURE:-0}" == 1 ]]; then
+    exit 1
+fi
 if [[ "$*" == *"run wheel-input-spike "* ]]; then
     summary=""
     previous=""
@@ -181,6 +185,8 @@ tampered_exit=$?
 set -e
 [[ "$tampered_exit" -ne 0 ]] \
     || fail "mutated signed artifact unexpectedly passed postflight"
+[[ ! -e "$tampered_summary" && ! -L "$tampered_summary" ]] \
+    || fail "mutated signed artifact left rejected evidence"
 [[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
     || fail "mutated signed artifact continued into evidence postflight"
 
@@ -189,15 +195,32 @@ changed_source_summary="$test_root/changed-source.json"
 set +e
 PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
     WHEEL_SLOT_TEST_POSTFLIGHT_SOURCE_FAILURE=1 \
-    bash "$script" caps-lock-built-in "$changed_source_summary" "$signed_build_evidence"
+    bash "$script" caps-lock-built-in "$changed_source_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
 changed_source_exit=$?
 set -e
 [[ "$changed_source_exit" -ne 0 ]] \
     || fail "changed source during capture unexpectedly passed"
+[[ ! -e "$changed_source_summary" && ! -L "$changed_source_summary" ]] \
+    || fail "changed source left rejected evidence"
 [[ "$(grep -c 'run wheel-evidence-check --signed-build-only ' "$invocation_log")" -eq 2 ]] \
     || fail "signed source was not checked before and after capture"
 [[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
     || fail "changed source continued into evidence postflight"
+
+rejected_summary="$test_root/rejected-evidence.json"
+: >"$invocation_log"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_EVIDENCE_FAILURE=1 \
+    bash "$script" right-option-built-in "$rejected_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
+rejected_exit=$?
+set -e
+[[ "$rejected_exit" -ne 0 ]] \
+    || fail "invalid captured evidence unexpectedly passed postflight"
+[[ ! -e "$rejected_summary" && ! -L "$rejected_summary" ]] \
+    || fail "invalid captured evidence remained on disk"
 
 failed_capture_summary="$test_root/failed-capture.json"
 : >"$invocation_log"

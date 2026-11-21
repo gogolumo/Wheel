@@ -10,6 +10,13 @@ fail() {
     exit 1
 }
 
+discard_summary() {
+    if [[ -f "$summary_json" || -L "$summary_json" ]]; then
+        rm -f -- "$summary_json" 2>/dev/null \
+            || fail "could not discard rejected capture output"
+    fi
+}
+
 if [[ $# -lt 1 || $# -gt 3 ]]; then
     fail "expected a canonical slot, optional summary destination, and optional signed-build evidence"
 fi
@@ -101,10 +108,7 @@ capture_exit=0
 # that evidence before returning the original interrupt status. Other capture
 # failures are not evidence and propagate immediately.
 if [[ "$capture_exit" -ne 0 && "$capture_exit" -ne 130 ]]; then
-    if [[ -f "$summary_json" || -L "$summary_json" ]]; then
-        rm -f -- "$summary_json" 2>/dev/null \
-            || fail "could not discard failed capture output"
-    fi
+    discard_summary
     exit "$capture_exit"
 fi
 [[ -s "$summary_json" && ! -L "$summary_json" ]] \
@@ -112,14 +116,23 @@ fi
 # Revalidate the signed source after the long-running physical capture. This
 # closes the gap where the checkout or published branch could change after the
 # preflight but before the JSON is accepted as evidence.
-bash "$repo_root/scripts/verify-spike-signed-build.sh" \
-    "$repo_root/dist/Wheel.app" "$head_revision" >/dev/null 2>&1 \
-    || fail "signed capture artifact verification failed"
-swift run wheel-evidence-check --signed-build-only "$signed_build_evidence"
-swift run wheel-evidence-check \
+if ! bash "$repo_root/scripts/verify-spike-signed-build.sh" \
+    "$repo_root/dist/Wheel.app" "$head_revision" >/dev/null 2>&1; then
+    discard_summary
+    fail "signed capture artifact verification failed"
+fi
+if ! swift run wheel-evidence-check --signed-build-only \
+    "$signed_build_evidence"; then
+    discard_summary
+    fail "signed-build evidence postflight failed"
+fi
+if ! swift run wheel-evidence-check \
     --require-run "$slot" "$evidence_trigger" \
     --expected-trigger "$trigger" \
     --expected-sequence-target 100 \
     --expected-source-revision "$head_revision" \
-    "$summary_json"
+    "$summary_json"; then
+    discard_summary
+    fail "capture evidence postflight failed"
+fi
 exit "$capture_exit"
