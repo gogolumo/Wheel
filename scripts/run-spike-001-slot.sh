@@ -111,8 +111,10 @@ if [[ "$capture_exit" -ne 0 && "$capture_exit" -ne 130 ]]; then
     discard_summary
     exit "$capture_exit"
 fi
-[[ -s "$summary_json" && ! -L "$summary_json" ]] \
-    || fail "input spike did not create evidence"
+if [[ ! -s "$summary_json" || -L "$summary_json" ]]; then
+    discard_summary
+    fail "input spike did not create evidence"
+fi
 # Revalidate the signed source after the long-running physical capture. This
 # closes the gap where the checkout or published branch could change after the
 # preflight but before the JSON is accepted as evidence.

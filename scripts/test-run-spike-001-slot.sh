@@ -129,7 +129,11 @@ for argument in "$@"; do
 done
 [[ -n "$summary" ]]
 if [[ "${WHEEL_SLOT_TEST_SKIP_SUMMARY:-0}" == 0 ]]; then
-    printf '%s\n' '{}' >"$summary"
+    if [[ "${WHEEL_SLOT_TEST_EMPTY_SUMMARY:-0}" == 1 ]]; then
+        : >"$summary"
+    else
+        printf '%s\n' '{}' >"$summary"
+    fi
 fi
 if [[ "${WHEEL_SLOT_TEST_POSTFLIGHT_SIGNATURE_FAILURE:-0}" == 1 ]]; then
     : >"$WHEEL_SLOT_TEST_SIGNATURE_MARKER"
@@ -242,6 +246,14 @@ assert_failure "input spike did not create evidence" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
     WHEEL_SLOT_TEST_SKIP_SUMMARY=1 \
     bash "$script" caps-lock-built-in "$missing_summary" "$signed_build_evidence"
+
+empty_summary="$test_root/empty-summary.json"
+assert_failure "input spike did not create evidence" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_EMPTY_SUMMARY=1 \
+    bash "$script" caps-lock-external "$empty_summary" "$signed_build_evidence"
+[[ ! -e "$empty_summary" && ! -L "$empty_summary" ]] \
+    || fail "empty capture output remained on disk"
 
 interrupted_summary="$test_root/interrupted.json"
 : >"$invocation_log"

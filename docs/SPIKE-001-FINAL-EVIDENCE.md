@@ -98,7 +98,8 @@ before accepting the resulting JSON, so replacing or damaging either signed
 artifact after preparation fails closed.
 Any JSON rejected by the artifact, signed-build, or capture-evidence postflight
 is removed, so it cannot be mistaken for accepted evidence or block a clean
-retry of the same canonical slot.
+retry of the same canonical slot. Missing, empty, and symbolic-link capture
+outputs also fail closed without leaving an unusable destination behind.
 After capture, the runner revalidates the signed-build evidence against the
 still-clean, still-published checkout, then validates that a non-empty
 privacy-safe JSON was created for the expected trigger, canonical slot, and
