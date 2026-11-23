@@ -41,6 +41,10 @@ cat >"$fake_bin/codesign" <<'EOF'
 #!/usr/bin/env bash
 if [[ "$1" == "--verify" ]]; then
     if [[ " $* " == *" --test-requirement "* ]]; then
+        if [[ "$*" == *WheelInputSpike* ]]; then
+            [[ "${WHEEL_TEST_CAPTURE_IDENTIFIER_MODE:-valid}" != invalid ]]
+            exit
+        fi
         [[ "${WHEEL_TEST_APPLE_ANCHOR_MODE:-valid}" != invalid ]]
         exit
     fi
@@ -129,6 +133,11 @@ if self_signed_output="$(WHEEL_TEST_APPLE_ANCHOR_MODE=invalid run_verifier)"; th
     exit 1
 fi
 
+if foreign_capture_output="$(WHEEL_TEST_CAPTURE_IDENTIFIER_MODE=invalid run_verifier)"; then
+    echo "signed-build verifier accepted a foreign capture executable" >&2
+    exit 1
+fi
+
 chmod -x "$executable"
 if missing_executable_output="$(run_verifier)"; then
     echo "signed-build verifier accepted an unusable application executable" >&2
@@ -213,6 +222,7 @@ failure_output="$(WHEEL_TEST_SIGNATURE_LINE=Signature=adhoc run_verifier || true
 [[ "$failure_output" != *"PRIVATE123"* ]]
 [[ "$self_signed_output" != *"Private Identity"* ]]
 [[ "$self_signed_output" != *"PRIVATE123"* ]]
+[[ "$foreign_capture_output" != *"dev.gogolumo.Wheel.InputSpike"* ]]
 [[ "$missing_executable_output" != *"$test_root"* ]]
 [[ "$missing_capture_output" != *"$test_root"* ]]
 [[ "$foreign_identifier_output" != *"com.example.NotWheel"* ]]

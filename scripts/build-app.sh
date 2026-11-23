@@ -146,7 +146,9 @@ iconutil -c icns "$iconset" -o "$staged_app/Contents/Resources/Wheel.icns"
 # Sanitize only this newly staged artifact. Finder/resource-fork metadata can
 # invalidate signing even when executable/resources are correct (Apple QA1940).
 xattr -cr "$staged_app"
-wheel_codesign_path "$signing_identity" "$staged_app/Contents/MacOS/WheelInputSpike" \
+wheel_codesign_path "$signing_identity" \
+    "$staged_app/Contents/MacOS/WheelInputSpike" \
+    "dev.gogolumo.Wheel.InputSpike" \
     || fail "capture harness code signing failed"
 wheel_codesign_app "$signing_identity" "$staged_app" \
     || fail "code signing failed"

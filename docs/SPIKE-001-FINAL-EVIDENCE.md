@@ -92,7 +92,8 @@ different revision.
 Capture runs through `WheelInputSpike` embedded in and signed with the staged
 `Wheel.app`, rather than compiling or launching a separate `swift run` binary.
 The signed-build verifier checks both the outer background application and this
-exact bundled capture executable against Apple's code-signing trust anchor.
+exact bundled capture executable against Apple's code-signing trust anchor and
+requires its dedicated `dev.gogolumo.Wheel.InputSpike` signing identifier.
 The slot runner repeats that verification immediately before capture and again
 before accepting the resulting JSON, so replacing or damaging either signed
 artifact after preparation fails closed.

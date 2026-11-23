@@ -52,10 +52,17 @@ fi
 output="$(PATH="$fake_bin:$PATH" \
     WHEEL_CODESIGN_TEST_LOG="$invocation_log" \
     WHEEL_CODESIGN_TEST_RESULT=success \
-    wheel_codesign_path "$private_identity" "$private_app/Contents/MacOS/Helper" 2>&1)" \
+    wheel_codesign_path "$private_identity" "$private_app/Contents/MacOS/Helper" \
+        "dev.gogolumo.Wheel.InputSpike" 2>&1)" \
     || fail "a nested executable could not be signed"
 [[ -z "$output" ]] || fail "nested signing emitted private diagnostics"
 grep -Fq -- "$private_app/Contents/MacOS/Helper" "$invocation_log" \
     || fail "the nested executable path was not passed to codesign"
+grep -Fq -- "--identifier dev.gogolumo.Wheel.InputSpike" "$invocation_log" \
+    || fail "the nested executable identifier was not passed to codesign"
+
+if wheel_codesign_path one two three four >/dev/null 2>&1; then
+    fail "invalid nested signing arguments unexpectedly passed"
+fi
 
 echo "Private codesign boundary tests PASS"

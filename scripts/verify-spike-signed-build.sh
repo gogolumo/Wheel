@@ -133,9 +133,10 @@ codesign --verify --deep --strict "$app" >/dev/null 2>&1 \
     || fail "code signature verification failed"
 codesign --verify --strict "$capture_executable" >/dev/null 2>&1 \
     || fail "capture harness code signature verification failed"
-codesign --verify --strict --test-requirement '=anchor apple generic' \
+codesign --verify --strict \
+    --test-requirement '=anchor apple generic and identifier "dev.gogolumo.Wheel.InputSpike"' \
     "$capture_executable" >/dev/null 2>&1 \
-    || fail "capture harness requires an Apple-issued signing identity"
+    || fail "capture harness signing identity is invalid"
 
 # A locally created self-signed certificate can produce a structurally valid,
 # non-ad-hoc signature with an Authority field. SPIKE-001 requires an Apple-
