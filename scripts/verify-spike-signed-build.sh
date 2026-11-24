@@ -170,14 +170,15 @@ if [[ -n "$summary_json" ]]; then
     chmod 600 "$summary_tmp" \
         || { rm -f "$summary_tmp"; fail "summary output could not be secured"; }
     if ! printf '{
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "result": "pass",
   "sourceRevision": "%s",
   "bundleIdentifier": "dev.gogolumo.Wheel",
   "packageType": "APPL",
   "backgroundApplication": true,
   "brandResourceVersion": 1,
-  "signingTrust": "apple-generic"
+  "signingTrust": "apple-generic",
+  "captureExecutableIdentifier": "dev.gogolumo.Wheel.InputSpike"
 }\n' "$expected_revision" >"$summary_tmp"; then
         rm -f "$summary_tmp"
         fail "summary output could not be written"

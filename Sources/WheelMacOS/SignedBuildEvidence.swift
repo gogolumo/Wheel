@@ -21,6 +21,7 @@ public struct SignedBuildEvidence: Codable, Equatable, Sendable {
         case backgroundApplication
         case brandResourceVersion
         case signingTrust
+        case captureExecutableIdentifier
     }
 
     public let schemaVersion: Int
@@ -31,6 +32,7 @@ public struct SignedBuildEvidence: Codable, Equatable, Sendable {
     public let backgroundApplication: Bool
     public let brandResourceVersion: Int
     public let signingTrust: String
+    public let captureExecutableIdentifier: String
 
     public static func decodeValidatedJSON(_ data: Data) throws -> Self {
         guard data.count <= 4_096 else {
@@ -54,7 +56,7 @@ public struct SignedBuildEvidence: Codable, Equatable, Sendable {
 
         let evidence = try JSONDecoder().decode(Self.self, from: data)
         guard
-            evidence.schemaVersion == 1,
+            evidence.schemaVersion == 2,
             evidence.result == "pass",
             evidence.sourceRevision.range(
                 of: "^[0-9a-f]{40}$",
@@ -64,7 +66,8 @@ public struct SignedBuildEvidence: Codable, Equatable, Sendable {
             evidence.packageType == "APPL",
             evidence.backgroundApplication,
             evidence.brandResourceVersion == 1,
-            evidence.signingTrust == "apple-generic"
+            evidence.signingTrust == "apple-generic",
+            evidence.captureExecutableIdentifier == "dev.gogolumo.Wheel.InputSpike"
         else {
             throw ValidationError.invalidContract
         }

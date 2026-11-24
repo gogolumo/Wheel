@@ -38,14 +38,15 @@ write_evidence() {
 
     printf '%s\n' \
         '{' \
-        '  "schemaVersion": 1,' \
+        '  "schemaVersion": 2,' \
         '  "result": "pass",' \
         "  \"sourceRevision\": \"$revision\"," \
         '  "bundleIdentifier": "dev.gogolumo.Wheel",' \
         '  "packageType": "APPL",' \
         '  "backgroundApplication": true,' \
         '  "brandResourceVersion": 1,' \
-        '  "signingTrust": "apple-generic"' \
+        '  "signingTrust": "apple-generic",' \
+        '  "captureExecutableIdentifier": "dev.gogolumo.Wheel.InputSpike"' \
         '}' >"$path"
 }
 

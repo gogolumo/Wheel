@@ -104,6 +104,7 @@ summary_output="$(PATH="$fake_bin:/usr/bin:/bin" \
 [[ "$summary_output" == "SPIKE-001 signed-build evidence PASS" ]]
 [[ "$(cat "$summary_json")" == *"\"sourceRevision\": \"$expected_revision\""* ]]
 [[ "$(cat "$summary_json")" == *"\"signingTrust\": \"apple-generic\""* ]]
+[[ "$(cat "$summary_json")" == *"\"captureExecutableIdentifier\": \"dev.gogolumo.Wheel.InputSpike\""* ]]
 [[ "$(cat "$summary_json")" != *"Private Identity"* ]]
 [[ "$(cat "$summary_json")" != *"PRIVATE123"* ]]
 [[ "$(cat "$summary_json")" != *"$test_root"* ]]
