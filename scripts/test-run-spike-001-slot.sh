@@ -11,6 +11,7 @@ signed_build_evidence="$test_root/spike-001-signed-build.json"
 capture_executable="$repo_root/dist/Wheel.app/Contents/MacOS/WheelInputSpike"
 app="$repo_root/dist/Wheel.app"
 signature_marker="$test_root/capture-complete"
+app_launch_marker="$test_root/wheel-started"
 [[ ! -e "$repo_root/dist/Wheel.app" ]] || {
     echo "SPIKE-001 physical slot tests FAILED: test requires no existing dist/Wheel.app" >&2
     exit 1
@@ -83,6 +84,19 @@ printf '%s\n' 'Identifier=dev.gogolumo.Wheel' \
     'Authority=Apple Development: Redacted' >&2
 EOF
 
+cat >"$fake_bin/pgrep" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${WHEEL_SLOT_TEST_APP_RUNNING:-0}" == 1 \
+    || -e "$WHEEL_SLOT_TEST_APP_MARKER" ]]; then
+    printf '%s\n' 777
+fi
+EOF
+
+cat >"$fake_bin/ps" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$WHEEL_SLOT_TEST_APP_EXECUTABLE"
+EOF
+
 cat >"$fake_bin/swift" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$WHEEL_SLOT_TEST_LOG"
@@ -113,7 +127,9 @@ if [[ "$*" == *"run wheel-input-spike "* ]]; then
 fi
 EOF
 chmod +x "$fake_bin/git" "$fake_bin/swift" "$fake_bin/uname" \
-    "$fake_bin/plutil" "$fake_bin/codesign"
+    "$fake_bin/plutil" "$fake_bin/codesign" "$fake_bin/pgrep" "$fake_bin/ps"
+export WHEEL_SLOT_TEST_APP_EXECUTABLE="$app/Contents/MacOS/Wheel"
+export WHEEL_SLOT_TEST_APP_MARKER="$app_launch_marker"
 
 cat >"$capture_executable" <<'EOF'
 #!/usr/bin/env bash
@@ -137,6 +153,9 @@ if [[ "${WHEEL_SLOT_TEST_SKIP_SUMMARY:-0}" == 0 ]]; then
 fi
 if [[ "${WHEEL_SLOT_TEST_POSTFLIGHT_SIGNATURE_FAILURE:-0}" == 1 ]]; then
     : >"$WHEEL_SLOT_TEST_SIGNATURE_MARKER"
+fi
+if [[ "${WHEEL_SLOT_TEST_POSTFLIGHT_APP_RUNNING:-0}" == 1 ]]; then
+    : >"$WHEEL_SLOT_TEST_APP_MARKER"
 fi
 exit "${WHEEL_SLOT_TEST_CAPTURE_EXIT:-0}"
 EOF
@@ -175,6 +194,32 @@ run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expect
     [[ "$(<"$invocation_log")" == "$expected" ]] \
         || fail "canonical slot arguments changed"
 done
+
+running_summary="$test_root/running-app.json"
+assert_failure "quit Wheel.app before a physical slot" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_APP_RUNNING=1 \
+    bash "$script" caps-lock-built-in "$running_summary" "$signed_build_evidence"
+[[ ! -e "$running_summary" ]] \
+    || fail "preflight process isolation created evidence"
+
+started_summary="$test_root/started-app.json"
+: >"$invocation_log"
+rm -f "$app_launch_marker"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_POSTFLIGHT_APP_RUNNING=1 \
+    bash "$script" right-option-built-in "$started_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
+started_exit=$?
+set -e
+[[ "$started_exit" -ne 0 ]] \
+    || fail "capture accepted evidence after Wheel.app started"
+[[ ! -e "$started_summary" && ! -L "$started_summary" ]] \
+    || fail "concurrent Wheel.app left rejected evidence"
+[[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
+    || fail "concurrent Wheel.app continued into evidence postflight"
+rm -f "$app_launch_marker"
 
 tampered_summary="$test_root/tampered-artifact.json"
 : >"$invocation_log"

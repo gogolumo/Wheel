@@ -4,6 +4,7 @@ set -euo pipefail
 # Run exactly one canonical SPIKE-001 physical slot. The slot name is the only
 # device descriptor retained in evidence; no hardware identifier is queried.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+source "$repo_root/scripts/lib/app-process.sh"
 
 fail() {
     echo "SPIKE-001 physical slot FAILED: $1" >&2
@@ -39,6 +40,7 @@ esac
 summary_json="${2:-$repo_root/../$slot.json}"
 signed_build_evidence="${3:-$repo_root/../spike-001-signed-build.json}"
 capture_executable="$repo_root/dist/Wheel.app/Contents/MacOS/WheelInputSpike"
+app_executable="$repo_root/dist/Wheel.app/Contents/MacOS/Wheel"
 summary_dir="$(dirname "$summary_json")"
 summary_name="$(basename "$summary_json")"
 [[ -n "$summary_name" && "$summary_name" != "." && "$summary_name" != ".." ]] \
@@ -73,6 +75,10 @@ esac
     || fail "signed-build evidence is unavailable"
 [[ -f "$capture_executable" && -x "$capture_executable" && ! -L "$capture_executable" ]] \
     || fail "signed capture harness is unavailable"
+for command in pgrep ps; do
+    command -v "$command" >/dev/null 2>&1 \
+        || fail "process isolation check is unavailable"
+done
 
 head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "current source revision is unavailable"
@@ -86,6 +92,8 @@ worktree_status="$(git -C "$repo_root" status --porcelain --untracked-files=all 
     || fail "source worktree state is unavailable"
 [[ -z "$worktree_status" ]] \
     || fail "source worktree must be clean before a physical slot"
+[[ -z "$(wheel_find_running_pid "$app_executable" || true)" ]] \
+    || fail "quit Wheel.app before a physical slot"
 
 cd "$repo_root"
 # The JSON attestation is not enough on its own: the app or nested executable
@@ -114,6 +122,13 @@ fi
 if [[ ! -s "$summary_json" || -L "$summary_json" ]]; then
     discard_summary
     fail "input spike did not create evidence"
+fi
+# The production app owns a second global monitor. If it starts during the
+# physical slot, the run is no longer an isolated measurement and cannot be
+# accepted as reliability evidence.
+if [[ -n "$(wheel_find_running_pid "$app_executable" || true)" ]]; then
+    discard_summary
+    fail "Wheel.app started during the physical slot"
 fi
 # Revalidate the signed source after the long-running physical capture. This
 # closes the gap where the checkout or published branch could change after the

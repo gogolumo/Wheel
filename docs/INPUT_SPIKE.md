@@ -61,6 +61,12 @@ allowlisted contract results; certificate identity, Team ID, account data,
 local paths, and hardware identifiers are excluded. Attach this JSON alongside
 the four physical run exports.
 
+Each canonical physical slot requires the main Wheel application to remain
+stopped before and throughout capture. Otherwise its global monitor would run
+beside the signed helper and make the reliability measurement non-isolated.
+The runner fails before capture when Wheel is already running and discards the
+slot JSON if Wheel starts during the run.
+
 ## Fix the active Xcode toolchain
 
 If `swift test` reports `no such module 'XCTest'`, Command Line Tools are active
