@@ -109,6 +109,10 @@ if [[ "$*" == *"run wheel-evidence-check --require-run "* \
     && "${WHEEL_SLOT_TEST_EVIDENCE_FAILURE:-0}" == 1 ]]; then
     exit 1
 fi
+if [[ "$*" == *"run wheel-evidence-check --require-run "* \
+    && "${WHEEL_SLOT_TEST_ACCEPTANCE_APP_RUNNING:-0}" == 1 ]]; then
+    : >"$WHEEL_SLOT_TEST_APP_MARKER"
+fi
 if [[ "$*" == *"run wheel-input-spike "* ]]; then
     summary=""
     previous=""
@@ -219,6 +223,23 @@ set -e
     || fail "concurrent Wheel.app left rejected evidence"
 [[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
     || fail "concurrent Wheel.app continued into evidence postflight"
+rm -f "$app_launch_marker"
+
+acceptance_summary="$test_root/acceptance-race.json"
+: >"$invocation_log"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_ACCEPTANCE_APP_RUNNING=1 \
+    bash "$script" right-option-external "$acceptance_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
+acceptance_exit=$?
+set -e
+[[ "$acceptance_exit" -ne 0 ]] \
+    || fail "postflight Wheel.app race unexpectedly passed"
+[[ ! -e "$acceptance_summary" && ! -L "$acceptance_summary" ]] \
+    || fail "postflight Wheel.app race left rejected evidence"
+[[ "$(<"$invocation_log")" == *"run wheel-evidence-check --require-run right-option-external"* ]] \
+    || fail "postflight Wheel.app race did not reach final acceptance"
 rm -f "$app_launch_marker"
 
 tampered_summary="$test_root/tampered-artifact.json"

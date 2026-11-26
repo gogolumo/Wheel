@@ -119,9 +119,12 @@ the same canonical slot to be retried without a misleading stale JSON file.
 The slot runner fixes the trigger, label, 100-sequence target, and default
 external JSON destination for each approved slot. It rejects a dirty or
 unpublished checkout, an existing destination, and output inside the source
-tree. It also requires the main Wheel application to remain stopped before and
-throughout capture: otherwise two global monitors could make the reliability
-measurement non-isolated, so any resulting JSON is discarded.
+tree. It also requires the main Wheel application to remain stopped throughout
+capture and postflight: otherwise two global monitors could make the
+reliability measurement non-isolated. The runner checks the exact Wheel
+executable before capture, after capture, and immediately before acceptance;
+a detected conflict discards the resulting JSON. These checkpoints do not
+replace the operator's responsibility to keep Wheel closed for the entire run.
 Built-in/external remains an operator-selected condition; the runner does
 not query or retain a device name, serial number, vendor, or product identifier.
 

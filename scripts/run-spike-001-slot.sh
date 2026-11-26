@@ -152,4 +152,8 @@ if ! swift run wheel-evidence-check \
     discard_summary
     fail "capture evidence postflight failed"
 fi
+if [[ -n "$(wheel_find_running_pid "$app_executable" || true)" ]]; then
+    discard_summary
+    fail "Wheel.app started before evidence acceptance"
+fi
 exit "$capture_exit"

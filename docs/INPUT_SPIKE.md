@@ -62,10 +62,12 @@ local paths, and hardware identifiers are excluded. Attach this JSON alongside
 the four physical run exports.
 
 Each canonical physical slot requires the main Wheel application to remain
-stopped before and throughout capture. Otherwise its global monitor would run
-beside the signed helper and make the reliability measurement non-isolated.
-The runner fails before capture when Wheel is already running and discards the
-slot JSON if Wheel starts during the run.
+stopped throughout capture and postflight. Otherwise its global monitor would
+run beside the signed helper and make the reliability measurement non-isolated.
+The runner checks the exact Wheel executable before capture, after capture, and
+again immediately before acceptance. A detected conflict discards the slot
+JSON. These checkpoints do not replace the operator's responsibility to keep
+Wheel closed for the entire physical run.
 
 ## Fix the active Xcode toolchain
 
