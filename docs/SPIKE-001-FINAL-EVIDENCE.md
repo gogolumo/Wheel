@@ -125,6 +125,9 @@ reliability measurement non-isolated. The runner checks the exact Wheel
 executable before capture, after capture, and immediately before acceptance;
 a detected conflict discards the resulting JSON. These checkpoints do not
 replace the operator's responsibility to keep Wheel closed for the entire run.
+The runner also holds an atomic single-slot lock, so two canonical slot commands
+cannot install overlapping capture monitors. The lock is released on normal
+completion, failure, and the documented Control-C partial-export path.
 Built-in/external remains an operator-selected condition; the runner does
 not query or retain a device name, serial number, vendor, or product identifier.
 

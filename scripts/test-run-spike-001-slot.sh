@@ -10,6 +10,7 @@ invocation_log="$test_root/swift-invocation"
 signed_build_evidence="$test_root/spike-001-signed-build.json"
 capture_executable="$repo_root/dist/Wheel.app/Contents/MacOS/WheelInputSpike"
 app="$repo_root/dist/Wheel.app"
+slot_lock="$repo_root/dist/.spike-001-slot.lock"
 signature_marker="$test_root/capture-complete"
 app_launch_marker="$test_root/wheel-started"
 [[ ! -e "$repo_root/dist/Wheel.app" ]] || {
@@ -197,7 +198,19 @@ run wheel-evidence-check --signed-build-only $signed_build_evidence
 run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expected-trigger $expected_trigger --expected-sequence-target 100 --expected-source-revision 0123456789012345678901234567890123456789 $summary"
     [[ "$(<"$invocation_log")" == "$expected" ]] \
         || fail "canonical slot arguments changed"
+    [[ ! -e "$slot_lock" ]] || fail "successful slot left the process lock"
 done
+
+mkdir "$slot_lock"
+locked_summary="$test_root/concurrent-slot.json"
+assert_failure "another physical slot is already running" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    bash "$script" caps-lock-built-in "$locked_summary" "$signed_build_evidence"
+[[ -d "$slot_lock" && ! -L "$slot_lock" ]] \
+    || fail "rejected concurrent slot removed another process lock"
+[[ ! -e "$locked_summary" ]] \
+    || fail "rejected concurrent slot created evidence"
+rmdir "$slot_lock"
 
 running_summary="$test_root/running-app.json"
 assert_failure "quit Wheel.app before a physical slot" \
@@ -368,5 +381,7 @@ assert_failure "current source revision must equal the published branch head" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
     WHEEL_SLOT_TEST_UPSTREAM=abcdefabcdefabcdefabcdefabcdefabcdefabcd \
     bash "$script" right-option-built-in "$test_root/diverged.json" "$signed_build_evidence"
+
+[[ ! -e "$slot_lock" ]] || fail "failed slot left the process lock"
 
 echo "SPIKE-001 physical slot tests PASS"

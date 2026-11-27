@@ -68,6 +68,9 @@ The runner checks the exact Wheel executable before capture, after capture, and
 again immediately before acceptance. A detected conflict discards the slot
 JSON. These checkpoints do not replace the operator's responsibility to keep
 Wheel closed for the entire physical run.
+Only one canonical slot may run at a time. An atomic process lock rejects a
+second invocation before it installs another capture monitor, and normal exit,
+failure, or Control-C releases the lock.
 
 ## Fix the active Xcode toolchain
 

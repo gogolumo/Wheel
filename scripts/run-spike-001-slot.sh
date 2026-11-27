@@ -5,6 +5,19 @@ set -euo pipefail
 # device descriptor retained in evidence; no hardware identifier is queried.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 source "$repo_root/scripts/lib/app-process.sh"
+slot_lock="$repo_root/dist/.spike-001-slot.lock"
+slot_lock_acquired=0
+
+cleanup() {
+    local status=$?
+    trap - EXIT
+    if [[ "$slot_lock_acquired" -eq 1 ]] && ! rmdir "$slot_lock" 2>/dev/null; then
+        echo "SPIKE-001 physical slot FAILED: process lock could not be released" >&2
+        status=1
+    fi
+    exit "$status"
+}
+trap cleanup EXIT
 
 fail() {
     echo "SPIKE-001 physical slot FAILED: $1" >&2
@@ -79,6 +92,10 @@ for command in pgrep ps; do
     command -v "$command" >/dev/null 2>&1 \
         || fail "process isolation check is unavailable"
 done
+if ! mkdir "$slot_lock" 2>/dev/null; then
+    fail "another physical slot is already running"
+fi
+slot_lock_acquired=1
 
 head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "current source revision is unavailable"
