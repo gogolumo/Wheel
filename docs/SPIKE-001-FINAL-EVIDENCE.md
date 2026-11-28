@@ -57,7 +57,7 @@ published checkout and writes its privacy-safe JSON outside the repository:
 ```bash
 cd ~/Documents/Wheel
 git fetch origin
-git switch fix/SPIKE-001-signed-build-evidence
+git switch fix/SPIKE-001-signed-capture-harness
 git pull --ff-only
 git status --short
 
@@ -89,6 +89,18 @@ Each slot command first validates `../spike-001-signed-build.json` against the
 current clean checkout. It fails closed before listening for input if the
 signed-build evidence is missing, malformed, stale, or was produced from a
 different revision.
+Capture runs through `WheelInputSpike` embedded in and signed with the staged
+`Wheel.app`, rather than compiling or launching a separate `swift run` binary.
+The signed-build verifier checks both the outer background application and this
+exact bundled capture executable against Apple's code-signing trust anchor and
+requires its dedicated `dev.gogolumo.Wheel.InputSpike` signing identifier.
+The slot runner repeats that verification immediately before capture and again
+before accepting the resulting JSON, so replacing or damaging either signed
+artifact after preparation fails closed.
+Any JSON rejected by the artifact, signed-build, or capture-evidence postflight
+is removed, so it cannot be mistaken for accepted evidence or block a clean
+retry of the same canonical slot. Missing, empty, and symbolic-link capture
+outputs also fail closed without leaving an unusable destination behind.
 After capture, the runner revalidates the signed-build evidence against the
 still-clean, still-published checkout, then validates that a non-empty
 privacy-safe JSON was created for the expected trigger, canonical slot, and
@@ -107,7 +119,19 @@ the same canonical slot to be retried without a misleading stale JSON file.
 The slot runner fixes the trigger, label, 100-sequence target, and default
 external JSON destination for each approved slot. It rejects a dirty or
 unpublished checkout, an existing destination, and output inside the source
-tree. Built-in/external remains an operator-selected condition; the runner does
+tree. It also requires the main Wheel application to remain stopped throughout
+capture and postflight: otherwise two global monitors could make the
+reliability measurement non-isolated. The runner checks the exact Wheel
+executable before capture, after capture, and immediately before acceptance;
+a detected conflict discards the resulting JSON. These checkpoints do not
+replace the operator's responsibility to keep Wheel closed for the entire run.
+The runner also holds an atomic single-slot lock, so two canonical slot commands
+cannot install overlapping capture monitors. The lock is released on normal
+completion, failure, and the documented Control-C partial-export path.
+After an untrappable termination, the next invocation safely recovers a lock
+whose recorded owner process is no longer alive. It never removes an active or
+malformed lock automatically.
+Built-in/external remains an operator-selected condition; the runner does
 not query or retain a device name, serial number, vendor, or product identifier.
 
 For every slot, exercise Finder, Chrome, VS Code, full-screen, sleep/wake, and

@@ -11,6 +11,10 @@ final class SignedBuildEvidenceTests: XCTestCase {
             "0123456789abcdef0123456789abcdef01234567"
         )
         XCTAssertEqual(evidence.bundleIdentifier, "dev.gogolumo.Wheel")
+        XCTAssertEqual(
+            evidence.captureExecutableIdentifier,
+            "dev.gogolumo.Wheel.InputSpike"
+        )
         XCTAssertTrue(evidence.backgroundApplication)
     }
 
@@ -64,10 +68,12 @@ final class SignedBuildEvidenceTests: XCTestCase {
 
     func testRejectsFailedOrForeignContract() {
         for replacement in [
+            #""schemaVersion": 1"#,
             #""result": "failed""#,
             #""bundleIdentifier": "com.example.Foreign""#,
             #""backgroundApplication": false"#,
-            #""signingTrust": "self-signed""#
+            #""signingTrust": "self-signed""#,
+            #""captureExecutableIdentifier": "com.example.Foreign""#
         ] {
             let json = String(decoding: validData(), as: UTF8.self)
                 .replacingOccurrences(of: contractFragment(for: replacement), with: replacement)
@@ -79,12 +85,16 @@ final class SignedBuildEvidenceTests: XCTestCase {
     }
 
     private func contractFragment(for replacement: String) -> String {
+        if replacement.contains(#""schemaVersion""#) { return #""schemaVersion": 2"# }
         if replacement.contains(#""result""#) { return #""result": "pass""# }
         if replacement.contains(#""bundleIdentifier""#) {
             return #""bundleIdentifier": "dev.gogolumo.Wheel""#
         }
         if replacement.contains(#""backgroundApplication""#) {
             return #""backgroundApplication": true"#
+        }
+        if replacement.contains(#""captureExecutableIdentifier""#) {
+            return #""captureExecutableIdentifier": "dev.gogolumo.Wheel.InputSpike""#
         }
         return #""signingTrust": "apple-generic""#
     }
@@ -93,14 +103,15 @@ final class SignedBuildEvidenceTests: XCTestCase {
         Data(
             #"""
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "result": "pass",
               "sourceRevision": "0123456789abcdef0123456789abcdef01234567",
               "bundleIdentifier": "dev.gogolumo.Wheel",
               "packageType": "APPL",
               "backgroundApplication": true,
               "brandResourceVersion": 1,
-              "signingTrust": "apple-generic"
+              "signingTrust": "apple-generic",
+              "captureExecutableIdentifier": "dev.gogolumo.Wheel.InputSpike"
             }
             """#.utf8
         )

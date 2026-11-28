@@ -103,10 +103,15 @@ running_pid="$(wheel_find_running_pid "$app/Contents/MacOS/Wheel" || true)"
 
 cd "$repo_root"
 swift build --configuration release --product wheel-app
+swift build --configuration release --product wheel-input-spike
 bin_dir="$(swift build --configuration release --show-bin-path)"
 executable="$bin_dir/wheel-app"
+capture_executable="$bin_dir/wheel-input-spike"
 if [[ ! -x "$executable" ]]; then
     fail "SwiftPM did not produce $executable"
+fi
+if [[ ! -x "$capture_executable" ]]; then
+    fail "SwiftPM did not produce the capture harness"
 fi
 
 transaction_root="$(mktemp -d "$output_dir/.wheel-build.XXXXXX")"
@@ -116,6 +121,7 @@ staged_app="$staging_root/Wheel.app"
 backup_app="$backup_root/Wheel.app"
 mkdir -p "$staged_app/Contents/MacOS" "$staged_app/Contents/Resources" "$backup_root"
 cp "$executable" "$staged_app/Contents/MacOS/Wheel"
+cp "$capture_executable" "$staged_app/Contents/MacOS/WheelInputSpike"
 cp packaging/Info.plist "$staged_app/Contents/Info.plist"
 plutil -replace WheelSourceRevision -string "$source_revision" "$staged_app/Contents/Info.plist"
 plutil -lint "$staged_app/Contents/Info.plist"
@@ -140,6 +146,10 @@ iconutil -c icns "$iconset" -o "$staged_app/Contents/Resources/Wheel.icns"
 # Sanitize only this newly staged artifact. Finder/resource-fork metadata can
 # invalidate signing even when executable/resources are correct (Apple QA1940).
 xattr -cr "$staged_app"
+wheel_codesign_path "$signing_identity" \
+    "$staged_app/Contents/MacOS/WheelInputSpike" \
+    "dev.gogolumo.Wheel.InputSpike" \
+    || fail "capture harness code signing failed"
 wheel_codesign_app "$signing_identity" "$staged_app" \
     || fail "code signing failed"
 bash "$repo_root/scripts/verify-app.sh" "$staged_app"

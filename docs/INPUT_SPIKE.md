@@ -30,7 +30,9 @@ replaces raw `codesign` failures with a generic build error, so a failed
 Keychain lookup cannot echo the supplied certificate identity or artifact path.
 The verifier does not print the certificate identity, Team ID, account name, or
 application path. A passing
-result verifies signature integrity, the Wheel bundle identifier, a non-ad-hoc
+result verifies signature integrity for both the background Wheel application
+and its bundled `WheelInputSpike` physical-capture executable, the Wheel bundle
+identifier, a non-ad-hoc
 signing authority anchored to Apple's code-signing trust chain, and that the
 bundle's stamped `WheelSourceRevision` matches
 the repository's current `HEAD`. It also requires the expected non-symbolic
@@ -58,6 +60,20 @@ overwrites an existing file. It contains only the public source revision and
 allowlisted contract results; certificate identity, Team ID, account data,
 local paths, and hardware identifiers are excluded. Attach this JSON alongside
 the four physical run exports.
+
+Each canonical physical slot requires the main Wheel application to remain
+stopped throughout capture and postflight. Otherwise its global monitor would
+run beside the signed helper and make the reliability measurement non-isolated.
+The runner checks the exact Wheel executable before capture, after capture, and
+again immediately before acceptance. A detected conflict discards the slot
+JSON. These checkpoints do not replace the operator's responsibility to keep
+Wheel closed for the entire physical run.
+Only one canonical slot may run at a time. An atomic process lock rejects a
+second invocation before it installs another capture monitor, and normal exit,
+failure, or Control-C releases the lock.
+If the runner is killed before cleanup, the next invocation recovers the lock
+only when its recorded owner process no longer exists. Active and malformed
+locks fail closed instead of risking overlapping global monitors.
 
 ## Fix the active Xcode toolchain
 

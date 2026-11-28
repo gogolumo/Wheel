@@ -8,9 +8,28 @@ test_root="$(cd "$test_root" && pwd -P)"
 fake_bin="$test_root/bin"
 invocation_log="$test_root/swift-invocation"
 signed_build_evidence="$test_root/spike-001-signed-build.json"
-trap 'rm -rf "$test_root"' EXIT
-mkdir -p "$fake_bin"
+capture_executable="$repo_root/dist/Wheel.app/Contents/MacOS/WheelInputSpike"
+app="$repo_root/dist/Wheel.app"
+slot_lock="$repo_root/dist/.spike-001-slot.lock"
+signature_marker="$test_root/capture-complete"
+app_launch_marker="$test_root/wheel-started"
+[[ ! -e "$repo_root/dist/Wheel.app" ]] || {
+    echo "SPIKE-001 physical slot tests FAILED: test requires no existing dist/Wheel.app" >&2
+    exit 1
+}
+trap 'rm -rf "$test_root" "$repo_root/dist/Wheel.app" "$slot_lock"' EXIT
+mkdir -p "$fake_bin" "$(dirname "$capture_executable")" \
+    "$app/Contents/Resources/Wheel_WheelApp.bundle"
 printf '%s\n' '{}' >"$signed_build_evidence"
+: >"$app/Contents/Info.plist"
+: >"$app/Contents/MacOS/Wheel"
+: >"$app/Contents/Resources/Wheel.icns"
+chmod +x "$app/Contents/MacOS/Wheel"
+for resource in WheelSymbol.pdf WheelSymbolLight.pdf \
+    WheelSymbolMonochromeBlack.pdf WheelSymbolMonochromeWhite.pdf \
+    WheelMenuBarTemplate.pdf WheelAppIcon.png; do
+    : >"$app/Contents/Resources/Wheel_WheelApp.bundle/$resource"
+done
 
 fail() {
     echo "SPIKE-001 physical slot tests FAILED: $1" >&2
@@ -36,6 +55,49 @@ case "$*" in
 esac
 EOF
 
+cat >"$fake_bin/uname" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' Darwin
+EOF
+
+cat >"$fake_bin/plutil" <<'EOF'
+#!/usr/bin/env bash
+case "$*" in
+    *CFBundleExecutable*) printf '%s\n' Wheel ;;
+    *CFBundleIdentifier*) printf '%s\n' dev.gogolumo.Wheel ;;
+    *CFBundlePackageType*) printf '%s\n' APPL ;;
+    *WheelBrandResourceVersion*) printf '%s\n' 1 ;;
+    *LSUIElement*) printf '%s\n' true ;;
+    *) printf '%s\n' 0123456789012345678901234567890123456789 ;;
+esac
+EOF
+
+cat >"$fake_bin/codesign" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${WHEEL_SLOT_TEST_POSTFLIGHT_SIGNATURE_FAILURE:-0}" == 1 \
+    && -e "$WHEEL_SLOT_TEST_SIGNATURE_MARKER" ]]; then
+    exit 1
+fi
+if [[ "$1" == "--verify" ]]; then
+    exit 0
+fi
+printf '%s\n' 'Identifier=dev.gogolumo.Wheel' \
+    'Authority=Apple Development: Redacted' >&2
+EOF
+
+cat >"$fake_bin/pgrep" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${WHEEL_SLOT_TEST_APP_RUNNING:-0}" == 1 \
+    || -e "$WHEEL_SLOT_TEST_APP_MARKER" ]]; then
+    printf '%s\n' 777
+fi
+EOF
+
+cat >"$fake_bin/ps" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$WHEEL_SLOT_TEST_APP_EXECUTABLE"
+EOF
+
 cat >"$fake_bin/swift" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$WHEEL_SLOT_TEST_LOG"
@@ -43,6 +105,14 @@ if [[ "$*" == *"run wheel-evidence-check --signed-build-only "* \
     && "${WHEEL_SLOT_TEST_POSTFLIGHT_SOURCE_FAILURE:-0}" == 1 ]]; then
     signed_checks="$(grep -c 'run wheel-evidence-check --signed-build-only ' "$WHEEL_SLOT_TEST_LOG")"
     [[ "$signed_checks" -lt 2 ]] || exit 1
+fi
+if [[ "$*" == *"run wheel-evidence-check --require-run "* \
+    && "${WHEEL_SLOT_TEST_EVIDENCE_FAILURE:-0}" == 1 ]]; then
+    exit 1
+fi
+if [[ "$*" == *"run wheel-evidence-check --require-run "* \
+    && "${WHEEL_SLOT_TEST_ACCEPTANCE_APP_RUNNING:-0}" == 1 ]]; then
+    : >"$WHEEL_SLOT_TEST_APP_MARKER"
 fi
 if [[ "$*" == *"run wheel-input-spike "* ]]; then
     summary=""
@@ -61,7 +131,40 @@ if [[ "$*" == *"run wheel-input-spike "* ]]; then
     exit "${WHEEL_SLOT_TEST_CAPTURE_EXIT:-0}"
 fi
 EOF
-chmod +x "$fake_bin/git" "$fake_bin/swift"
+chmod +x "$fake_bin/git" "$fake_bin/swift" "$fake_bin/uname" \
+    "$fake_bin/plutil" "$fake_bin/codesign" "$fake_bin/pgrep" "$fake_bin/ps"
+export WHEEL_SLOT_TEST_APP_EXECUTABLE="$app/Contents/MacOS/Wheel"
+export WHEEL_SLOT_TEST_APP_MARKER="$app_launch_marker"
+
+cat >"$capture_executable" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "capture-harness $*" >>"$WHEEL_SLOT_TEST_LOG"
+summary=""
+previous=""
+for argument in "$@"; do
+    if [[ "$previous" == "--summary-json" ]]; then
+        summary="$argument"
+        break
+    fi
+    previous="$argument"
+done
+[[ -n "$summary" ]]
+if [[ "${WHEEL_SLOT_TEST_SKIP_SUMMARY:-0}" == 0 ]]; then
+    if [[ "${WHEEL_SLOT_TEST_EMPTY_SUMMARY:-0}" == 1 ]]; then
+        : >"$summary"
+    else
+        printf '%s\n' '{}' >"$summary"
+    fi
+fi
+if [[ "${WHEEL_SLOT_TEST_POSTFLIGHT_SIGNATURE_FAILURE:-0}" == 1 ]]; then
+    : >"$WHEEL_SLOT_TEST_SIGNATURE_MARKER"
+fi
+if [[ "${WHEEL_SLOT_TEST_POSTFLIGHT_APP_RUNNING:-0}" == 1 ]]; then
+    : >"$WHEEL_SLOT_TEST_APP_MARKER"
+fi
+exit "${WHEEL_SLOT_TEST_CAPTURE_EXIT:-0}"
+EOF
+chmod +x "$capture_executable"
 
 assert_failure() {
     local expected="$1"
@@ -81,6 +184,7 @@ for slot in "${slots[@]}"; do
     summary="$test_root/$slot.json"
     : >"$invocation_log"
     PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+        WHEEL_SLOT_TEST_SIGNATURE_MARKER="$signature_marker" \
         bash "$script" "$slot" "$summary" "$signed_build_evidence" \
         || fail "canonical slot failed"
 
@@ -89,27 +193,143 @@ for slot in "${slots[@]}"; do
     [[ "$slot" == caps-lock-* ]] && expected_trigger="caps-lock"
     [[ "$slot" == caps-lock-* ]] && expected_evidence_trigger="capsLock"
     expected="run wheel-evidence-check --signed-build-only $signed_build_evidence
-run wheel-input-spike --trigger $expected_trigger --sequences 100 --label $slot --source-revision 0123456789012345678901234567890123456789 --summary-json $summary
+capture-harness --trigger $expected_trigger --sequences 100 --label $slot --source-revision 0123456789012345678901234567890123456789 --summary-json $summary
 run wheel-evidence-check --signed-build-only $signed_build_evidence
 run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expected-trigger $expected_trigger --expected-sequence-target 100 --expected-source-revision 0123456789012345678901234567890123456789 $summary"
     [[ "$(<"$invocation_log")" == "$expected" ]] \
         || fail "canonical slot arguments changed"
+    [[ ! -e "$slot_lock" ]] || fail "successful slot left the process lock"
 done
+
+mkdir "$slot_lock"
+sleep 30 &
+lock_owner=$!
+printf '%s\n' "$lock_owner" >"$slot_lock/pid"
+locked_summary="$test_root/concurrent-slot.json"
+assert_failure "another physical slot is already running" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    bash "$script" caps-lock-built-in "$locked_summary" "$signed_build_evidence"
+[[ -d "$slot_lock" && ! -L "$slot_lock" ]] \
+    || fail "rejected concurrent slot removed another process lock"
+[[ ! -e "$locked_summary" ]] \
+    || fail "rejected concurrent slot created evidence"
+kill "$lock_owner"
+wait "$lock_owner" 2>/dev/null || true
+rm "$slot_lock/pid"
+rmdir "$slot_lock"
+
+mkdir "$slot_lock"
+printf '%s\n' 999999999 >"$slot_lock/pid"
+stale_summary="$test_root/stale-slot.json"
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_SIGNATURE_MARKER="$signature_marker" \
+    bash "$script" caps-lock-built-in "$stale_summary" "$signed_build_evidence" \
+    || fail "stale process lock was not recovered"
+[[ -s "$stale_summary" ]] || fail "recovered slot did not create evidence"
+[[ ! -e "$slot_lock" ]] || fail "recovered slot left the process lock"
+
+mkdir "$slot_lock"
+printf '%s\n' invalid >"$slot_lock/pid"
+malformed_summary="$test_root/malformed-lock.json"
+assert_failure "another physical slot is already running" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    bash "$script" caps-lock-built-in "$malformed_summary" "$signed_build_evidence"
+[[ -f "$slot_lock/pid" ]] || fail "malformed lock was removed"
+rm "$slot_lock/pid"
+rmdir "$slot_lock"
+
+running_summary="$test_root/running-app.json"
+assert_failure "quit Wheel.app before a physical slot" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_APP_RUNNING=1 \
+    bash "$script" caps-lock-built-in "$running_summary" "$signed_build_evidence"
+[[ ! -e "$running_summary" ]] \
+    || fail "preflight process isolation created evidence"
+
+started_summary="$test_root/started-app.json"
+: >"$invocation_log"
+rm -f "$app_launch_marker"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_POSTFLIGHT_APP_RUNNING=1 \
+    bash "$script" right-option-built-in "$started_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
+started_exit=$?
+set -e
+[[ "$started_exit" -ne 0 ]] \
+    || fail "capture accepted evidence after Wheel.app started"
+[[ ! -e "$started_summary" && ! -L "$started_summary" ]] \
+    || fail "concurrent Wheel.app left rejected evidence"
+[[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
+    || fail "concurrent Wheel.app continued into evidence postflight"
+rm -f "$app_launch_marker"
+
+acceptance_summary="$test_root/acceptance-race.json"
+: >"$invocation_log"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_ACCEPTANCE_APP_RUNNING=1 \
+    bash "$script" right-option-external "$acceptance_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
+acceptance_exit=$?
+set -e
+[[ "$acceptance_exit" -ne 0 ]] \
+    || fail "postflight Wheel.app race unexpectedly passed"
+[[ ! -e "$acceptance_summary" && ! -L "$acceptance_summary" ]] \
+    || fail "postflight Wheel.app race left rejected evidence"
+[[ "$(<"$invocation_log")" == *"run wheel-evidence-check --require-run right-option-external"* ]] \
+    || fail "postflight Wheel.app race did not reach final acceptance"
+rm -f "$app_launch_marker"
+
+tampered_summary="$test_root/tampered-artifact.json"
+: >"$invocation_log"
+rm -f "$signature_marker"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_SIGNATURE_MARKER="$signature_marker" \
+    WHEEL_SLOT_TEST_POSTFLIGHT_SIGNATURE_FAILURE=1 \
+    bash "$script" caps-lock-built-in "$tampered_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
+tampered_exit=$?
+set -e
+[[ "$tampered_exit" -ne 0 ]] \
+    || fail "mutated signed artifact unexpectedly passed postflight"
+[[ ! -e "$tampered_summary" && ! -L "$tampered_summary" ]] \
+    || fail "mutated signed artifact left rejected evidence"
+[[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
+    || fail "mutated signed artifact continued into evidence postflight"
 
 changed_source_summary="$test_root/changed-source.json"
 : >"$invocation_log"
 set +e
 PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
     WHEEL_SLOT_TEST_POSTFLIGHT_SOURCE_FAILURE=1 \
-    bash "$script" caps-lock-built-in "$changed_source_summary" "$signed_build_evidence"
+    bash "$script" caps-lock-built-in "$changed_source_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
 changed_source_exit=$?
 set -e
 [[ "$changed_source_exit" -ne 0 ]] \
     || fail "changed source during capture unexpectedly passed"
+[[ ! -e "$changed_source_summary" && ! -L "$changed_source_summary" ]] \
+    || fail "changed source left rejected evidence"
 [[ "$(grep -c 'run wheel-evidence-check --signed-build-only ' "$invocation_log")" -eq 2 ]] \
     || fail "signed source was not checked before and after capture"
 [[ "$(<"$invocation_log")" != *"run wheel-evidence-check --require-run"* ]] \
     || fail "changed source continued into evidence postflight"
+
+rejected_summary="$test_root/rejected-evidence.json"
+: >"$invocation_log"
+set +e
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_EVIDENCE_FAILURE=1 \
+    bash "$script" right-option-built-in "$rejected_summary" "$signed_build_evidence" \
+    >/dev/null 2>&1
+rejected_exit=$?
+set -e
+[[ "$rejected_exit" -ne 0 ]] \
+    || fail "invalid captured evidence unexpectedly passed postflight"
+[[ ! -e "$rejected_summary" && ! -L "$rejected_summary" ]] \
+    || fail "invalid captured evidence remained on disk"
 
 failed_capture_summary="$test_root/failed-capture.json"
 : >"$invocation_log"
@@ -131,6 +351,14 @@ assert_failure "input spike did not create evidence" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
     WHEEL_SLOT_TEST_SKIP_SUMMARY=1 \
     bash "$script" caps-lock-built-in "$missing_summary" "$signed_build_evidence"
+
+empty_summary="$test_root/empty-summary.json"
+assert_failure "input spike did not create evidence" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_EMPTY_SUMMARY=1 \
+    bash "$script" caps-lock-external "$empty_summary" "$signed_build_evidence"
+[[ ! -e "$empty_summary" && ! -L "$empty_summary" ]] \
+    || fail "empty capture output remained on disk"
 
 interrupted_summary="$test_root/interrupted.json"
 : >"$invocation_log"
@@ -179,5 +407,7 @@ assert_failure "current source revision must equal the published branch head" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
     WHEEL_SLOT_TEST_UPSTREAM=abcdefabcdefabcdefabcdefabcdefabcdefabcd \
     bash "$script" right-option-built-in "$test_root/diverged.json" "$signed_build_evidence"
+
+[[ ! -e "$slot_lock" ]] || fail "failed slot left the process lock"
 
 echo "SPIKE-001 physical slot tests PASS"

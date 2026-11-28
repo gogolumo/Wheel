@@ -10,7 +10,8 @@ fail() {
 }
 
 required_text=(
-    "fix/SPIKE-001-signed-build-evidence"
+    "fix/SPIKE-001-signed-capture-harness"
+    "signed with the staged"
     "scripts/prepare-spike-001-physical.sh"
     "scripts/run-spike-001-slot.sh caps-lock-built-in"
     "scripts/run-spike-001-slot.sh caps-lock-external"

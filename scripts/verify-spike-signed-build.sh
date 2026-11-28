@@ -47,12 +47,15 @@ done
 
 info_plist="$app/Contents/Info.plist"
 executable="$app/Contents/MacOS/Wheel"
+capture_executable="$app/Contents/MacOS/WheelInputSpike"
 icon="$app/Contents/Resources/Wheel.icns"
 resource_bundle="$app/Contents/Resources/Wheel_WheelApp.bundle"
 [[ -f "$info_plist" && ! -L "$info_plist" ]] \
     || fail "application metadata is unavailable"
 [[ -f "$executable" && -x "$executable" && ! -L "$executable" ]] \
     || fail "application executable is unavailable"
+[[ -f "$capture_executable" && -x "$capture_executable" && ! -L "$capture_executable" ]] \
+    || fail "signed capture harness is unavailable"
 [[ -f "$icon" && ! -L "$icon" ]] \
     || fail "application resources are unavailable"
 [[ -d "$resource_bundle" && ! -L "$resource_bundle" ]] \
@@ -128,6 +131,12 @@ bundle_revision="$(plutil -extract WheelSourceRevision raw -o - "$info_plist" 2>
 
 codesign --verify --deep --strict "$app" >/dev/null 2>&1 \
     || fail "code signature verification failed"
+codesign --verify --strict "$capture_executable" >/dev/null 2>&1 \
+    || fail "capture harness code signature verification failed"
+codesign --verify --strict \
+    --test-requirement '=anchor apple generic and identifier "dev.gogolumo.Wheel.InputSpike"' \
+    "$capture_executable" >/dev/null 2>&1 \
+    || fail "capture harness signing identity is invalid"
 
 # A locally created self-signed certificate can produce a structurally valid,
 # non-ad-hoc signature with an Authority field. SPIKE-001 requires an Apple-
@@ -161,14 +170,15 @@ if [[ -n "$summary_json" ]]; then
     chmod 600 "$summary_tmp" \
         || { rm -f "$summary_tmp"; fail "summary output could not be secured"; }
     if ! printf '{
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "result": "pass",
   "sourceRevision": "%s",
   "bundleIdentifier": "dev.gogolumo.Wheel",
   "packageType": "APPL",
   "backgroundApplication": true,
   "brandResourceVersion": 1,
-  "signingTrust": "apple-generic"
+  "signingTrust": "apple-generic",
+  "captureExecutableIdentifier": "dev.gogolumo.Wheel.InputSpike"
 }\n' "$expected_revision" >"$summary_tmp"; then
         rm -f "$summary_tmp"
         fail "summary output could not be written"
