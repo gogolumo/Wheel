@@ -71,6 +71,9 @@ Wheel closed for the entire physical run.
 Only one canonical slot may run at a time. An atomic process lock rejects a
 second invocation before it installs another capture monitor, and normal exit,
 failure, or Control-C releases the lock.
+If the runner is killed before cleanup, the next invocation recovers the lock
+only when its recorded owner process no longer exists. Active and malformed
+locks fail closed instead of risking overlapping global monitors.
 
 ## Fix the active Xcode toolchain
 

@@ -17,7 +17,7 @@ app_launch_marker="$test_root/wheel-started"
     echo "SPIKE-001 physical slot tests FAILED: test requires no existing dist/Wheel.app" >&2
     exit 1
 }
-trap 'rm -rf "$test_root" "$repo_root/dist/Wheel.app"' EXIT
+trap 'rm -rf "$test_root" "$repo_root/dist/Wheel.app" "$slot_lock"' EXIT
 mkdir -p "$fake_bin" "$(dirname "$capture_executable")" \
     "$app/Contents/Resources/Wheel_WheelApp.bundle"
 printf '%s\n' '{}' >"$signed_build_evidence"
@@ -202,6 +202,9 @@ run wheel-evidence-check --require-run $slot $expected_evidence_trigger --expect
 done
 
 mkdir "$slot_lock"
+sleep 30 &
+lock_owner=$!
+printf '%s\n' "$lock_owner" >"$slot_lock/pid"
 locked_summary="$test_root/concurrent-slot.json"
 assert_failure "another physical slot is already running" \
     env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
@@ -210,6 +213,29 @@ assert_failure "another physical slot is already running" \
     || fail "rejected concurrent slot removed another process lock"
 [[ ! -e "$locked_summary" ]] \
     || fail "rejected concurrent slot created evidence"
+kill "$lock_owner"
+wait "$lock_owner" 2>/dev/null || true
+rm "$slot_lock/pid"
+rmdir "$slot_lock"
+
+mkdir "$slot_lock"
+printf '%s\n' 999999999 >"$slot_lock/pid"
+stale_summary="$test_root/stale-slot.json"
+PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    WHEEL_SLOT_TEST_SIGNATURE_MARKER="$signature_marker" \
+    bash "$script" caps-lock-built-in "$stale_summary" "$signed_build_evidence" \
+    || fail "stale process lock was not recovered"
+[[ -s "$stale_summary" ]] || fail "recovered slot did not create evidence"
+[[ ! -e "$slot_lock" ]] || fail "recovered slot left the process lock"
+
+mkdir "$slot_lock"
+printf '%s\n' invalid >"$slot_lock/pid"
+malformed_summary="$test_root/malformed-lock.json"
+assert_failure "another physical slot is already running" \
+    env PATH="$fake_bin:$PATH" WHEEL_SLOT_TEST_LOG="$invocation_log" \
+    bash "$script" caps-lock-built-in "$malformed_summary" "$signed_build_evidence"
+[[ -f "$slot_lock/pid" ]] || fail "malformed lock was removed"
+rm "$slot_lock/pid"
 rmdir "$slot_lock"
 
 running_summary="$test_root/running-app.json"

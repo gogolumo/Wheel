@@ -128,6 +128,9 @@ replace the operator's responsibility to keep Wheel closed for the entire run.
 The runner also holds an atomic single-slot lock, so two canonical slot commands
 cannot install overlapping capture monitors. The lock is released on normal
 completion, failure, and the documented Control-C partial-export path.
+After an untrappable termination, the next invocation safely recovers a lock
+whose recorded owner process is no longer alive. It never removes an active or
+malformed lock automatically.
 Built-in/external remains an operator-selected condition; the runner does
 not query or retain a device name, serial number, vendor, or product identifier.
 

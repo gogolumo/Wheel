@@ -6,14 +6,27 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 source "$repo_root/scripts/lib/app-process.sh"
 slot_lock="$repo_root/dist/.spike-001-slot.lock"
+slot_lock_pid="$slot_lock/pid"
 slot_lock_acquired=0
 
 cleanup() {
     local status=$?
+    local release_failed=0
     trap - EXIT
-    if [[ "$slot_lock_acquired" -eq 1 ]] && ! rmdir "$slot_lock" 2>/dev/null; then
-        echo "SPIKE-001 physical slot FAILED: process lock could not be released" >&2
-        status=1
+    if [[ "$slot_lock_acquired" -eq 1 ]]; then
+        if [[ -f "$slot_lock_pid" && ! -L "$slot_lock_pid" \
+            && "$(<"$slot_lock_pid")" == "$$" ]]; then
+            rm -f -- "$slot_lock_pid" 2>/dev/null || release_failed=1
+        else
+            release_failed=1
+        fi
+        if ! rmdir "$slot_lock" 2>/dev/null; then
+            release_failed=1
+        fi
+        if [[ "$release_failed" -ne 0 ]]; then
+            echo "SPIKE-001 physical slot FAILED: process lock could not be released" >&2
+            status=1
+        fi
     fi
     exit "$status"
 }
@@ -29,6 +42,28 @@ discard_summary() {
         rm -f -- "$summary_json" 2>/dev/null \
             || fail "could not discard rejected capture output"
     fi
+}
+
+acquire_slot_lock() {
+    if ! mkdir "$slot_lock" 2>/dev/null; then
+        local owner_pid
+        [[ -d "$slot_lock" && ! -L "$slot_lock" \
+            && -f "$slot_lock_pid" && ! -L "$slot_lock_pid" ]] \
+            || fail "another physical slot is already running"
+        owner_pid="$(<"$slot_lock_pid")"
+        [[ "$owner_pid" =~ ^[1-9][0-9]*$ ]] \
+            || fail "another physical slot is already running"
+        if kill -0 "$owner_pid" 2>/dev/null; then
+            fail "another physical slot is already running"
+        fi
+        rm -f -- "$slot_lock_pid" 2>/dev/null \
+            && rmdir "$slot_lock" 2>/dev/null \
+            && mkdir "$slot_lock" 2>/dev/null \
+            || fail "stale physical slot lock could not be recovered"
+    fi
+    printf '%s\n' "$$" >"$slot_lock_pid" 2>/dev/null \
+        || fail "physical slot lock owner could not be recorded"
+    slot_lock_acquired=1
 }
 
 if [[ $# -lt 1 || $# -gt 3 ]]; then
@@ -92,10 +127,7 @@ for command in pgrep ps; do
     command -v "$command" >/dev/null 2>&1 \
         || fail "process isolation check is unavailable"
 done
-if ! mkdir "$slot_lock" 2>/dev/null; then
-    fail "another physical slot is already running"
-fi
-slot_lock_acquired=1
+acquire_slot_lock
 
 head_revision="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" \
     || fail "current source revision is unavailable"
